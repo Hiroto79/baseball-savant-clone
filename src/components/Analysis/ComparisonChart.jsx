@@ -69,12 +69,13 @@ const ComparisonChart = ({ data, lines, yLabel }) => {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis
                         dataKey="date"
-                        stroke="hsl(var(--muted-foreground))"
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        stroke="#888888"
+                        tick={{ fill: '#888888' }}
                     />
                     <YAxis
-                        stroke="hsl(var(--muted-foreground))"
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        stroke="#888888"
+                        tick={{ fill: '#888888' }}
+                        domain={['auto', 'auto']}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />

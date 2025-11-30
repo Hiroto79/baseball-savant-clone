@@ -86,14 +86,32 @@ export const DataProvider = ({ children }) => {
                 setPlayers(playerMap);
 
                 // Add initial load to history (Mock for compatibility)
-                setFileHistory([{
-                    id: 'supabase-savant-data',
-                    fileName: 'Savant Data (Database)',
-                    source: 'database',
-                    uploadedAt: new Date().toISOString(),
-                    rowCount: processedData.length,
-                    dataType: 'savant'
-                }]);
+                // Reconstruct File History from Data
+                const historyMap = new Map();
+
+                processedData.forEach(row => {
+                    const uploadId = row.upload_id || 'legacy';
+                    const fileName = row.file_name || 'Legacy Data (Pre-update)';
+
+                    if (!historyMap.has(uploadId)) {
+                        historyMap.set(uploadId, {
+                            id: uploadId,
+                            fileName: fileName,
+                            source: 'database',
+                            uploadedAt: new Date().toISOString(), // We don't have upload time stored, using current for now or could add column
+                            rowCount: 0,
+                            dataType: 'savant'
+                        });
+                    }
+
+                    const entry = historyMap.get(uploadId);
+                    entry.rowCount++;
+
+                    // Assign _fileId for local deletion to work
+                    row._fileId = uploadId;
+                });
+
+                setFileHistory(Array.from(historyMap.values()));
 
                 setLoading(false);
             } catch (error) {
@@ -236,11 +254,30 @@ export const DataProvider = ({ children }) => {
         }
     };
 
-    const deleteFile = (fileId) => {
-        setData(prev => prev.filter(row => row._fileId !== fileId));
-        setFileHistory(prev => prev.filter(file => file.id !== fileId));
-        // Re-extract teams if necessary after deletion (more complex, might be omitted for simplicity)
-        // For now, assume teams are mostly static or re-calculated on full data load/upload
+    const deleteFile = async (fileId) => {
+        try {
+            // Delete from Supabase
+            // Note: fileId is stored as string in DB column 'upload_id'
+            const { error } = await supabase
+                .from('savant_data')
+                .delete()
+                .eq('upload_id', String(fileId));
+
+            if (error) {
+                console.error("Error deleting file from Supabase:", error);
+                alert(`Failed to delete file from server: ${error.message}`);
+                return;
+            }
+
+            // Update local state
+            setData(prev => prev.filter(row => row._fileId !== fileId));
+            setFileHistory(prev => prev.filter(file => file.id !== fileId));
+
+            console.log(`Deleted file ${fileId} from Supabase and local state`);
+        } catch (err) {
+            console.error("Delete operation failed:", err);
+            alert("An unexpected error occurred while deleting.");
+        }
     };
 
     return (

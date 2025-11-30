@@ -13,6 +13,7 @@ const Leaderboard = () => {
 
     const [activeTab, setActiveTab] = useState('savant'); // 'savant' | 'rapsodo' | 'blast'
     const [metric, setMetric] = useState('exit_velocity'); // Default metric
+    const [ageCategory, setAgeCategory] = useState('All'); // 'All' | 'Middle School' | 'High School' | 'College' | 'Social'
 
     // Conversion constants
     const MPH_TO_KMH = 1.60934;
@@ -102,6 +103,9 @@ const Leaderboard = () => {
             // Batting
             if (metric === 'exit_velocity' || metric === 'distance') {
                 rapsodoBatting.forEach(d => {
+                    // Filter by Age Category
+                    if (ageCategory !== 'All' && d.player_category !== ageCategory) return;
+
                     const p = d['Player Name'];
                     if (!p) return;
 
@@ -120,6 +124,9 @@ const Leaderboard = () => {
             // Pitching
             else {
                 rapsodoPitching.forEach(d => {
+                    // Filter by Age Category
+                    if (ageCategory !== 'All' && d.player_category !== ageCategory) return;
+
                     const p = d['Player Name'];
                     if (!p) return;
 
@@ -165,7 +172,7 @@ const Leaderboard = () => {
                 displayValue: formatValue(item.value, metric, activeTab)
             }));
 
-    }, [activeTab, metric, savantData, rapsodoPitching, rapsodoBatting, blastData, units]);
+    }, [activeTab, metric, savantData, rapsodoPitching, rapsodoBatting, blastData, units, ageCategory]);
 
     // Helper to format value for display
     function formatValue(val, metricId, source) {
@@ -229,8 +236,8 @@ const Leaderboard = () => {
                             key={tab}
                             onClick={() => handleTabChange(tab)}
                             className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === tab
-                                    ? 'bg-background text-foreground shadow-sm'
-                                    : 'text-muted-foreground hover:text-foreground'
+                                ? 'bg-background text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -238,6 +245,23 @@ const Leaderboard = () => {
                     ))}
                 </div>
             </div>
+
+            {/* Age Category Selector (Rapsodo Only) */}
+            {activeTab === 'rapsodo' && (
+                <div className="flex justify-end">
+                    <select
+                        value={ageCategory}
+                        onChange={(e) => setAgeCategory(e.target.value)}
+                        className="p-2 rounded-md border border-border bg-card text-sm font-medium"
+                    >
+                        <option value="All">All Categories</option>
+                        <option value="Middle School">Middle School (中学生)</option>
+                        <option value="High School">High School (高校生)</option>
+                        <option value="College">College (大学生)</option>
+                        <option value="Social">Social (社会人)</option>
+                    </select>
+                </div>
+            )}
 
             {/* Metric Selector */}
             <div className="flex flex-wrap gap-2">
@@ -248,8 +272,8 @@ const Leaderboard = () => {
                             key={m.id}
                             onClick={() => setMetric(m.id)}
                             className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all ${metric === m.id
-                                    ? 'border-primary bg-primary/5 text-primary ring-1 ring-primary'
-                                    : 'border-border bg-card hover:border-primary/50 hover:bg-accent'
+                                ? 'border-primary bg-primary/5 text-primary ring-1 ring-primary'
+                                : 'border-border bg-card hover:border-primary/50 hover:bg-accent'
                                 }`}
                         >
                             <div className={`p-2 rounded-lg ${metric === m.id ? 'bg-primary/10' : 'bg-muted'}`}>
@@ -302,9 +326,9 @@ const Leaderboard = () => {
                                     <tr key={row.rank} className="group hover:bg-muted/50 transition-colors">
                                         <td className="px-6 py-4 font-medium">
                                             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${row.rank === 1 ? 'bg-yellow-500/10 text-yellow-600' :
-                                                    row.rank === 2 ? 'bg-slate-400/10 text-slate-500' :
-                                                        row.rank === 3 ? 'bg-amber-700/10 text-amber-700' :
-                                                            'text-muted-foreground'
+                                                row.rank === 2 ? 'bg-slate-400/10 text-slate-500' :
+                                                    row.rank === 3 ? 'bg-amber-700/10 text-amber-700' :
+                                                        'text-muted-foreground'
                                                 }`}>
                                                 {row.rank <= 3 ? <Medal size={16} /> : row.rank}
                                             </div>

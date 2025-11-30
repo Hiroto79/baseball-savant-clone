@@ -31,15 +31,19 @@ const ScatterPlot = ({ data, xKey, yKey, xLabel, yLabel }) => {
                         type="number"
                         dataKey={xKey}
                         name={xLabel}
-                        stroke="hsl(var(--muted-foreground))"
-                        label={{ value: xLabel, position: 'insideBottom', offset: -10, fill: 'hsl(var(--muted-foreground))' }}
+                        stroke="#888888"
+                        domain={['auto', 'auto']}
+                        tick={{ fill: '#888888' }}
+                        label={{ value: xLabel, position: 'insideBottom', offset: -10, fill: '#888888' }}
                     />
                     <YAxis
                         type="number"
                         dataKey={yKey}
                         name={yLabel}
-                        stroke="hsl(var(--muted-foreground))"
-                        label={{ value: yLabel, angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }}
+                        stroke="#888888"
+                        domain={['auto', 'auto']}
+                        tick={{ fill: '#888888' }}
+                        label={{ value: yLabel, angle: -90, position: 'insideLeft', fill: '#888888' }}
                     />
                     <Tooltip
                         cursor={{ strokeDasharray: '3 3' }}

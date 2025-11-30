@@ -101,24 +101,50 @@ export const RapsodoProvider = ({ children }) => {
                 setBattingData(processedBatting);
 
                 // Add initial load to history (Mock for compatibility)
-                setFileHistory([
-                    {
-                        id: 'supabase-rapsodo-pitching',
-                        fileName: 'Rapsodo Pitching (Database)',
-                        source: 'database',
-                        uploadedAt: new Date().toISOString(),
-                        rowCount: processedPitching.length,
-                        dataType: 'rapsodo-pitching'
-                    },
-                    {
-                        id: 'supabase-rapsodo-batting',
-                        fileName: 'Rapsodo Batting (Database)',
-                        source: 'database',
-                        uploadedAt: new Date().toISOString(),
-                        rowCount: processedBatting.length,
-                        dataType: 'rapsodo-batting'
+                // Reconstruct File History
+                const historyMap = new Map();
+
+                // Process Pitching History
+                processedPitching.forEach(row => {
+                    const uploadId = row.upload_id || 'legacy-pitching';
+                    const fileName = row.file_name || 'Legacy Pitching Data';
+
+                    if (!historyMap.has(uploadId)) {
+                        historyMap.set(uploadId, {
+                            id: uploadId,
+                            fileName: fileName,
+                            source: 'database',
+                            uploadedAt: new Date().toISOString(),
+                            rowCount: 0,
+                            dataType: 'rapsodo-pitching'
+                        });
                     }
-                ]);
+                    const entry = historyMap.get(uploadId);
+                    entry.rowCount++;
+                    row._fileId = uploadId;
+                });
+
+                // Process Batting History
+                processedBatting.forEach(row => {
+                    const uploadId = row.upload_id || 'legacy-batting';
+                    const fileName = row.file_name || 'Legacy Batting Data';
+
+                    if (!historyMap.has(uploadId)) {
+                        historyMap.set(uploadId, {
+                            id: uploadId,
+                            fileName: fileName,
+                            source: 'database',
+                            uploadedAt: new Date().toISOString(),
+                            rowCount: 0,
+                            dataType: 'rapsodo-batting'
+                        });
+                    }
+                    const entry = historyMap.get(uploadId);
+                    entry.rowCount++;
+                    row._fileId = uploadId;
+                });
+
+                setFileHistory(Array.from(historyMap.values()));
             } catch (error) {
                 console.error("Failed to load Rapsodo data from Supabase:", error);
             } finally {
@@ -135,7 +161,7 @@ export const RapsodoProvider = ({ children }) => {
     // const M_TO_FT = 3.28084;
 
 
-    const uploadRapsodoData = async (data, type, fileName = 'uploaded.csv') => {
+    const uploadRapsodoData = async (data, type, fileName = 'uploaded.csv', category = null) => {
         try {
             setLoading(true);
             const fileId = Date.now() + Math.random();
@@ -170,7 +196,8 @@ export const RapsodoProvider = ({ children }) => {
                         strike_zone_side: parseNum(d['Strike Zone Side'] || d.StrikeZoneSide || d.PlateLocSide),
                         strike_zone_height: parseNum(d['Strike Zone Height'] || d.StrikeZoneHeight || d.PlateLocHeight),
                         file_name: fileName,
-                        upload_id: String(fileId)
+                        upload_id: String(fileId),
+                        player_category: category
                     };
 
                     // Strict validation: Skip row if ANY critical value is null/undefined
@@ -257,7 +284,8 @@ export const RapsodoProvider = ({ children }) => {
                         strike_zone_side: parseNum(d.StrikeZoneLocation || d['Strike Zone Side'] || d.StrikeZoneSide), // CSV has StrikeZoneLocation? Or StrikeZoneX? Screenshot showed StrikeZoneLocation
                         strike_zone_height: parseNum(d['Strike Zone Height'] || d.StrikeZoneHeight), // Screenshot didn't clearly show this, but assuming similar pattern
                         file_name: fileName,
-                        upload_id: String(fileId)
+                        upload_id: String(fileId),
+                        player_category: category
                     };
 
                     // Strict validation: Skip row if ANY critical value is null/undefined
@@ -329,10 +357,44 @@ export const RapsodoProvider = ({ children }) => {
         }
     };
 
-    const deleteFile = (fileId) => {
-        setPitchingData(prev => prev.filter(row => row._fileId !== fileId));
-        setBattingData(prev => prev.filter(row => row._fileId !== fileId));
-        setFileHistory(prev => prev.filter(file => file.id !== fileId));
+    const deleteFile = async (fileId) => {
+        try {
+            const idStr = String(fileId);
+
+            // Delete from Supabase (both tables)
+            const { error: pError } = await supabase
+                .from('rapsodo_pitching')
+                .delete()
+                .eq('upload_id', idStr);
+
+            if (pError) {
+                console.error("Error deleting from rapsodo_pitching:", pError);
+                // Continue to try deleting from batting even if pitching fails? 
+                // Better to alert but try both.
+            }
+
+            const { error: bError } = await supabase
+                .from('rapsodo_batting')
+                .delete()
+                .eq('upload_id', idStr);
+
+            if (bError) {
+                console.error("Error deleting from rapsodo_batting:", bError);
+            }
+
+            if (pError || bError) {
+                alert(`Warning: Some data might not have been deleted from server. Check console for details.`);
+            }
+
+            setPitchingData(prev => prev.filter(row => row._fileId !== fileId));
+            setBattingData(prev => prev.filter(row => row._fileId !== fileId));
+            setFileHistory(prev => prev.filter(file => file.id !== fileId));
+
+            console.log(`Deleted file ${fileId} from Supabase and local state`);
+        } catch (err) {
+            console.error("Delete operation failed:", err);
+            alert("An unexpected error occurred while deleting.");
+        }
     };
 
     return (

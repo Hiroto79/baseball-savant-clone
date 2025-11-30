@@ -72,14 +72,30 @@ export const BlastProvider = ({ children }) => {
                 setBlastData(processedData);
 
                 // Add initial load to history (Mock)
-                setFileHistory([{
-                    id: 'supabase-blast-data',
-                    fileName: 'Blast Data (Database)',
-                    source: 'database',
-                    uploadedAt: new Date().toISOString(),
-                    rowCount: processedData.length,
-                    dataType: 'blast'
-                }]);
+                // Reconstruct File History
+                const historyMap = new Map();
+
+                processedData.forEach(row => {
+                    const uploadId = row.upload_id || 'legacy';
+                    const fileName = row.file_name || 'Legacy Blast Data';
+
+                    if (!historyMap.has(uploadId)) {
+                        historyMap.set(uploadId, {
+                            id: uploadId,
+                            fileName: fileName,
+                            source: 'database',
+                            uploadedAt: new Date().toISOString(),
+                            rowCount: 0,
+                            dataType: 'blast'
+                        });
+                    }
+
+                    const entry = historyMap.get(uploadId);
+                    entry.rowCount++;
+                    row._fileId = uploadId;
+                });
+
+                setFileHistory(Array.from(historyMap.values()));
 
             } catch (error) {
                 console.error("Failed to load Blast data from Supabase:", error);
@@ -309,11 +325,30 @@ export const BlastProvider = ({ children }) => {
     };
 
     // Function to delete file from history
-    const deleteFile = (fileId) => {
-        // Remove data associated with this file
-        setBlastData(prev => prev.filter(row => row._fileId !== fileId));
-        // Remove from history
-        setFileHistory(prev => prev.filter(file => file.id !== fileId));
+    const deleteFile = async (fileId) => {
+        try {
+            // Delete from Supabase
+            const { error } = await supabase
+                .from('blast_data')
+                .delete()
+                .eq('upload_id', String(fileId));
+
+            if (error) {
+                console.error("Error deleting file from Supabase:", error);
+                alert(`Failed to delete file from server: ${error.message}`);
+                return;
+            }
+
+            // Remove data associated with this file
+            setBlastData(prev => prev.filter(row => row._fileId !== fileId));
+            // Remove from history
+            setFileHistory(prev => prev.filter(file => file.id !== fileId));
+
+            console.log(`Deleted file ${fileId} from Supabase and local state`);
+        } catch (err) {
+            console.error("Delete operation failed:", err);
+            alert("An unexpected error occurred while deleting.");
+        }
     };
 
     return (

@@ -8,6 +8,7 @@ import { useBlast } from '../context/BlastContext';
 const Upload = () => {
     const [format, setFormat] = useState('rapsodo'); // 'rapsodo' or 'savant'
     const [fileType, setFileType] = useState('pitching'); // 'pitching' or 'batting' (for Rapsodo)
+    const [ageCategory, setAgeCategory] = useState('Middle School'); // Default category
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
     const [status, setStatus] = useState({ type: '', message: '' }); // 'success', 'error', ''
@@ -151,7 +152,7 @@ const Upload = () => {
             complete: (results) => {
                 try {
                     if (format === 'rapsodo') {
-                        uploadRapsodoData(results.data, fileType, file.name);
+                        uploadRapsodoData(results.data, fileType, file.name, ageCategory);
                         setStatus({
                             type: 'success',
                             message: `Successfully uploaded ${results.data.length} rows of Rapsodo ${fileType} data!`
@@ -250,6 +251,23 @@ const Upload = () => {
                                 <span>Batting</span>
                             </label>
                         </div>
+                    </div>
+                )}
+
+                {/* Age Category Selection (Rapsodo only) */}
+                {format === 'rapsodo' && (
+                    <div className="mt-4">
+                        <h4 className="text-sm font-medium text-muted-foreground mb-2">Age Category</h4>
+                        <select
+                            value={ageCategory}
+                            onChange={(e) => setAgeCategory(e.target.value)}
+                            className="w-full md:w-64 p-2 rounded-md border border-border bg-background"
+                        >
+                            <option value="Middle School">Middle School (中学生)</option>
+                            <option value="High School">High School (高校生)</option>
+                            <option value="College">College (大学生)</option>
+                            <option value="Social">Social (社会人)</option>
+                        </select>
                     </div>
                 )}
             </div>
