@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, BarChart3, Settings, Upload, Activity, Menu, X, Trophy } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Settings, Upload, Activity, Menu, X, Trophy, FileText, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Layout = ({ children }) => {
@@ -23,9 +23,17 @@ const Layout = ({ children }) => {
                         <BarChart3 size={20} />
                         <span>Analysis</span>
                     </Link>
-                    <Link to="/leaderboard" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
+                    <Link to="/leaderboard" className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
                         <Trophy size={20} />
-                        <span>Leaderboard</span>
+                        <span className="font-medium">Leaderboard</span>
+                    </Link>
+                    <Link to="/feedback" className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+                        <FileText size={20} />
+                        <span className="font-medium">Feedback</span>
+                    </Link>
+                    <Link to="/teams" className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+                        <Users size={20} />
+                        <span className="font-medium">Teams</span>
                     </Link>
                     <Link to="/rapsodo" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
                         <Activity size={20} />
@@ -92,6 +100,14 @@ const Layout = ({ children }) => {
                             >
                                 <Trophy size={20} />
                                 <span>Leaderboard</span>
+                            </Link>
+                            <Link
+                                to="/feedback"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                            >
+                                <FileText size={20} />
+                                <span>Feedback</span>
                             </Link>
                             <Link
                                 to="/rapsodo"

@@ -13,6 +13,7 @@ import Settings from './pages/Settings';
 import Blast from './pages/Blast';
 import Analysis from './pages/Analysis';
 import Leaderboard from './pages/Leaderboard';
+import Feedback from './pages/Feedback';
 import MigrateData from './components/MigrateData';
 import { SettingsProvider } from './context/SettingsContext';
 import { BlastProvider } from './context/BlastContext';
@@ -67,6 +68,7 @@ function App() {
                     <Route path="/blast" element={<Blast />} />
                     <Route path="/analysis" element={<Analysis />} />
                     <Route path="/leaderboard" element={<Leaderboard />} />
+                    <Route path="/feedback" element={<Feedback />} /> {/* Added Feedback route */}
                     <Route path="/upload" element={<Upload />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/migrate" element={<MigrateData />} />
@@ -84,4 +86,3 @@ function App() {
 }
 
 export default App;
-
