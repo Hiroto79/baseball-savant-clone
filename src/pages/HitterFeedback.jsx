@@ -203,7 +203,7 @@ const HitterFeedback = () => {
 
     // --- RENDER ---
     return (
-        <div className="p-6 max-w-[297mm] mx-auto bg-gray-50 min-h-screen text-black font-sans">
+        <div className="p-6 max-w-[210mm] mx-auto bg-gray-50 min-h-screen text-black font-sans print:max-w-[206mm] print:min-h-0 print:h-auto print:pb-0 print:overflow-hidden">
 
             {/* Force Print Styles & Reset */}
             <style>{`
@@ -225,16 +225,15 @@ const HitterFeedback = () => {
                     
                     /* Position the report at absolute top-left */
                     #report-container {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 210mm !important;
-                        height: 297mm !important;
-                        margin: 0 !important;
-                        padding: 10mm !important; /* Internal padding */
+                        position: relative;
+                        width: 206mm !important;
+                        height: auto !important;
+                        margin: 0 auto !important;
+                        padding: 0 !important;
                         box-shadow: none !important;
                         border: none !important;
                         background: white !important;
+                        overflow: hidden !important;
                     }
 
                     /* Hide specific UI elements just in case */
@@ -380,7 +379,7 @@ const HitterFeedback = () => {
 
             {/* ============== INDIVIDUAL REPORT ============== */}
             {viewMode === 'individual' && selectedPlayer && (
-                <div id="report-container" className="bg-white mx-auto text-black leading-tight border border-gray-200 shadow relative print:transform print:scale-[0.98] print:origin-top-center" style={{ width: '210mm', minHeight: '297mm', padding: '10mm' }}>
+                <div id="report-container" className="bg-white mx-auto text-black leading-tight border border-gray-200 shadow relative print:transform-none" style={{ width: '210mm', minHeight: 'auto', padding: '10mm' }}>
                     {/* Print Spacer (Adjust this height to lower the title in PDF) */}
                     <div className="hidden print:block print:h-[10px]"></div>
 
