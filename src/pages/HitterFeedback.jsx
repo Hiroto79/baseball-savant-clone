@@ -203,7 +203,7 @@ const HitterFeedback = () => {
 
     // --- RENDER ---
     return (
-        <div className="p-6 max-w-[210mm] mx-auto bg-gray-50 min-h-screen text-black font-sans print:max-w-[206mm] print:min-h-0 print:h-auto print:pb-0 print:overflow-hidden">
+        <div className="p-6 max-w-[210mm] mx-auto bg-gray-50 min-h-screen text-black font-sans print:max-w-[200mm] print:mx-auto print:min-h-0 print:h-auto print:pb-0 print:overflow-hidden">
 
             {/* Force Print Styles & Reset */}
             <style>{`
@@ -226,10 +226,10 @@ const HitterFeedback = () => {
                     /* Position the report at absolute top-left */
                     #report-container {
                         position: relative;
-                        width: 206mm !important;
+                        width: 100% !important;
                         height: auto !important;
                         margin: 0 auto !important;
-                        padding: 0 !important;
+                        padding: 5mm !important;
                         box-shadow: none !important;
                         border: none !important;
                         background: white !important;
@@ -379,7 +379,7 @@ const HitterFeedback = () => {
 
             {/* ============== INDIVIDUAL REPORT ============== */}
             {viewMode === 'individual' && selectedPlayer && (
-                <div id="report-container" className="bg-white mx-auto text-black leading-tight border border-gray-200 shadow relative print:transform-none" style={{ width: '210mm', minHeight: 'auto', padding: '10mm' }}>
+                <div id="report-container" className="bg-white mx-auto text-black leading-tight border border-gray-200 shadow relative print:transform-none" style={{ width: '100%', minHeight: 'auto', padding: '10mm' }}>
                     {/* Print Spacer (Adjust this height to lower the title in PDF) */}
                     <div className="hidden print:block print:h-[10px]"></div>
 
@@ -773,76 +773,163 @@ const HitterFeedback = () => {
                                 </div>
 
                                 <div className="flex">
-                                    {/* Left Side: 4 Blocks Grid */}
-                                    <div className="w-2/3 grid grid-cols-2 gap-x-6 gap-y-6">
-                                        {[
-                                            { label: '打球速度(km/h)', color: 'text-red-600', key: 'ev', target: benchmarks.prevSpeed },
-                                            { label: 'バット速度(km/h)', color: 'text-red-600', key: 'batSpeed', target: benchmarks.prevBatSpeed },
-                                            { label: '打球角度(°)', color: 'text-red-600', key: 'angle', target: null },
-                                            { label: 'アジャスト率(%)', color: 'text-red-600', key: 'adjust', target: null }
-                                        ].map((block) => (
-                                            <div key={block.label} className="flex flex-col">
-                                                <h4 className={`text-center font-bold text-2xl h-14 flex items-center justify-center p-1 ${block.color}`}>{block.label}</h4>
-                                                <table className="w-full border-collapse border border-black text-center h-[240px] bg-white table-fixed">
-                                                    <tbody>
-                                                        {reportType === 'hand' ? (
-                                                            <>
-                                                                <tr>
-                                                                    <td className="border border-black bg-white font-bold text-gray-400 text-xl align-middle">置きT</td>
-                                                                    <td className="border border-black text-4xl font-bold align-middle">
-                                                                        {(() => {
-                                                                            const s = getStats({ tags: ['置きT', 'tee', 'hand_tee'] }, selectedPlayer);
-                                                                            return s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-5xl leading-none block">&nbsp;</span>;
-                                                                        })()}
-                                                                    </td>
-                                                                    <td className="border border-black bg-white w-[30%] text-gray-400 font-bold text-xl align-middle select-none">置きT</td>
-                                                                </tr>
-                                                                <tr>
-                                                                    <td className="border border-black bg-white font-bold text-gray-400 text-xl align-middle">前回<span className="text-xs font-normal block">(置きT)</span></td>
-                                                                    <td className="border border-black text-4xl font-bold text-gray-400 align-middle">{block.target || <span className="text-gray-300 text-5xl leading-none block">&nbsp;</span>}</td>
-                                                                    <td className="border border-black bg-white text-gray-400 font-bold text-xl align-middle select-none">前回<span className="text-xs font-normal block">(置きT)</span></td>
-                                                                </tr>
-                                                                <tr>
-                                                                    <td className="border border-black bg-white font-bold text-gray-400 text-xl align-middle">手投げ</td>
-                                                                    <td className="border border-black text-4xl font-bold align-middle">
-                                                                        {(() => {
-                                                                            const s = getStats({ tags: ['手投げ', 'live', 'hand_live', 'toss', 'トス'] }, selectedPlayer);
-                                                                            return s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-5xl leading-none block">&nbsp;</span>;
-                                                                        })()}
-                                                                    </td>
-                                                                    <td className="border border-black bg-white text-gray-400 font-bold text-xl align-middle select-none">手投げ</td>
-                                                                </tr>
-                                                            </>
-                                                        ) : (
-                                                            CONFIG[reportType].map((cat, i) => {
-                                                                const s = getStats(cat, selectedPlayer);
-                                                                return (
-                                                                    <tr key={cat.id}>
-                                                                        <td className="border border-black bg-white font-bold text-gray-400 text-xl w-[30%] p-0 whitespace-nowrap align-middle">
-                                                                            {cat.shortLabel}
-                                                                        </td>
-                                                                        <td className="border border-black text-4xl font-bold p-0 align-middle">
-                                                                            {s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-5xl leading-none block">&nbsp;</span>}
-                                                                        </td>
-                                                                        <td className="border border-black bg-white text-gray-400 font-bold text-xl w-[30%] p-0 select-none whitespace-nowrap align-middle">
-                                                                            {cat.shortLabel}
-                                                                        </td>
-                                                                    </tr>
-                                                                );
-                                                            })
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    {/* Left Side: 4 Blocks Grid OR 3x3 Zone Grid (for Course) */}
+                                    {reportType === 'course' ? (
+                                        <div className="w-full flex gap-4">
+                                            {/* 3x3 Grids x 4 */}
+                                            <div className="w-[75%] grid grid-cols-2 gap-x-4 gap-y-8">
+                                                {(() => {
+                                                    // Helper to get stats for combined tags
+                                                    const getMultiTagStats = (tags1, tags2) => {
+                                                        const rows = allData.filter(row => {
+                                                            const pName = row['Player Name'] || row.PlayerName;
+                                                            if (pName !== selectedPlayer) return false;
+                                                            const rowTag = (row['Tag'] || row['Note'] || row['Notes'] || row['Category'] || '').toString().toLowerCase().trim();
+                                                            const match1 = tags1.some(t => rowTag.includes(t.toLowerCase()));
+                                                            const match2 = tags2.some(t => rowTag.includes(t.toLowerCase()));
+                                                            return match1 && match2;
+                                                        });
+                                                        if (rows.length === 0) return null;
+                                                        const avg = (key) => {
+                                                            const vals = rows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
+                                                            if (vals.length === 0) return '';
+                                                            return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+                                                        };
+                                                        // Attempt to find Adjust/Efficiency
+                                                        const adjustVal = rows.map(r => r['Adjust'] || r['Efficiency'] || r['AdjustRate']).filter(v => typeof v === 'number');
+                                                        const adjustAvg = adjustVal.length ? (adjustVal.reduce((a, b) => a + b, 0) / adjustVal.length).toFixed(1) : '';
 
-                                    {/* Right Side: Silhouette Scled 2x - Removed Clip Path */}
-                                    <div className="w-1/3 flex items-center justify-center relative pl-4 overflow-hidden">
-                                        <div>
-                                            <img src="/assets/hitter_silhouette_blue.png" alt="Silhouette" className="object-contain max-h-[600px] opacity-50 scale-[2.0] origin-center" />
+                                                        return {
+                                                            ev: avg('ExitVelocity'),
+                                                            batSpeed: avg('BatSpeed'),
+                                                            angle: avg('LaunchAngle'),
+                                                            adjust: adjustAvg
+                                                        };
+                                                    };
+
+                                                    const courseOrder = [
+                                                        CONFIG.course.find(c => c.id === 'course_out'),
+                                                        CONFIG.course.find(c => c.id === 'course_mid'),
+                                                        CONFIG.course.find(c => c.id === 'course_in')
+                                                    ];
+                                                    const heightOrder = CONFIG.height; // High, Mid, Low
+
+                                                    const renderGrid = (title, dataKey) => (
+                                                        <div className="w-full">
+                                                            <h4 className="text-center font-bold text-2xl text-red-600 mb-2">{title}</h4>
+                                                            <div className="grid grid-cols-3 border border-black">
+                                                                {heightOrder.map((hCat) => (
+                                                                    courseOrder.map((cCat) => {
+                                                                        const stats = getMultiTagStats(cCat.tags, hCat.tags);
+                                                                        const val = stats ? stats[dataKey] : '';
+                                                                        // Show label only for Top (High) and Bottom (Low) rows, hide for Mid row
+                                                                        const showLabel = hCat.id !== 'height_mid';
+
+                                                                        return (
+                                                                            <div key={`${hCat.id}-${cCat.id}`} className="aspect-square border border-black relative flex items-center justify-center bg-white">
+                                                                                {/* Watermark Label */}
+                                                                                {showLabel && (
+                                                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                                        <span className="text-gray-400 font-bold text-xl">{cCat.shortLabel}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {/* Value */}
+                                                                                <span className="text-4xl font-bold relative z-10">{val}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+
+                                                    return (
+                                                        <>
+                                                            {renderGrid('打球速度(km/h)', 'ev')}
+                                                            {renderGrid('バット速度(km/h)', 'batSpeed')}
+                                                            {renderGrid('打球角度(deg.)', 'angle')}
+                                                            {renderGrid('アジャスト率(%)', 'adjust')}
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+
+                                            {/* Right Side: Silhouette */}
+                                            <div className="w-[25%] flex items-center justify-center relative overflow-hidden">
+                                                <img src="/assets/hitter_silhouette_blue.png" alt="Silhouette" className="object-contain max-h-[600px] opacity-50 scale-[1.5] origin-center translate-y-10" />
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (<>
+                                        <div className="w-2/3 grid grid-cols-2 gap-x-6 gap-y-6">
+                                            {[
+                                                { label: '打球速度(km/h)', color: 'text-red-600', key: 'ev', target: benchmarks.prevSpeed },
+                                                { label: 'バット速度(km/h)', color: 'text-red-600', key: 'batSpeed', target: benchmarks.prevBatSpeed },
+                                                { label: '打球角度(°)', color: 'text-red-600', key: 'angle', target: null },
+                                                { label: 'アジャスト率(%)', color: 'text-red-600', key: 'adjust', target: null }
+                                            ].map((block) => (
+                                                <div key={block.label} className="flex flex-col">
+                                                    <h4 className={`text-center font-bold text-2xl h-14 flex items-center justify-center p-1 ${block.color}`}>{block.label}</h4>
+                                                    <table className="w-full border-collapse border border-black text-center h-[240px] bg-white table-fixed">
+                                                        <tbody>
+                                                            {reportType === 'hand' ? (
+                                                                <>
+                                                                    <tr>
+                                                                        <td className="border border-black bg-white font-bold text-gray-400 text-xl align-middle">置きT</td>
+                                                                        <td className="border border-black text-4xl font-bold align-middle">
+                                                                            {(() => {
+                                                                                const s = getStats({ tags: ['置きT', 'tee', 'hand_tee'] }, selectedPlayer);
+                                                                                return s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-5xl leading-none block">&nbsp;</span>;
+                                                                            })()}
+                                                                        </td>
+                                                                        <td className="border border-black bg-white w-[30%] text-gray-400 font-bold text-xl align-middle select-none">置きT</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td className="border border-black bg-white font-bold text-gray-400 text-xl align-middle">前回<span className="text-xs font-normal block">(置きT)</span></td>
+                                                                        <td className="border border-black text-4xl font-bold text-gray-400 align-middle">{block.target || <span className="text-gray-300 text-5xl leading-none block">&nbsp;</span>}</td>
+                                                                        <td className="border border-black bg-white text-gray-400 font-bold text-xl align-middle select-none">前回<span className="text-xs font-normal block">(置きT)</span></td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td className="border border-black bg-white font-bold text-gray-400 text-xl align-middle">手投げ</td>
+                                                                        <td className="border border-black text-4xl font-bold align-middle">
+                                                                            {(() => {
+                                                                                const s = getStats({ tags: ['手投げ', 'live', 'hand_live', 'toss', 'トス'] }, selectedPlayer);
+                                                                                return s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-5xl leading-none block">&nbsp;</span>;
+                                                                            })()}
+                                                                        </td>
+                                                                        <td className="border border-black bg-white text-gray-400 font-bold text-xl align-middle select-none">手投げ</td>
+                                                                    </tr>
+                                                                </>
+                                                            ) : (
+                                                                CONFIG[reportType].map((cat, i) => {
+                                                                    const s = getStats(cat, selectedPlayer);
+                                                                    return (
+                                                                        <tr key={cat.id}>
+                                                                            <td className="border border-black bg-white font-bold text-gray-400 text-xl w-[30%] p-0 whitespace-nowrap align-middle">
+                                                                                {cat.shortLabel}
+                                                                            </td>
+                                                                            <td className="border border-black text-4xl font-bold p-0 align-middle">
+                                                                                {s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-5xl leading-none block">&nbsp;</span>}
+                                                                            </td>
+                                                                            <td className="border border-black bg-white text-gray-400 font-bold text-xl w-[30%] p-0 select-none whitespace-nowrap align-middle">
+                                                                                {cat.shortLabel}
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Right Side: Silhouette Scled 2x - Removed Clip Path */}
+                                        <div className="w-1/3 flex items-center justify-center relative pl-4 overflow-hidden">
+                                            <div>
+                                                <img src="/assets/hitter_silhouette_blue.png" alt="Silhouette" className="object-contain max-h-[600px] opacity-50 scale-[2.0] origin-center" />
+                                            </div>
+                                        </div>
+                                    </>)}
                                 </div>
                             </div>
                         </>

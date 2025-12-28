@@ -1095,7 +1095,7 @@ const Feedback = () => {
                 )
             }
             {viewMode === 'team' && teamStats && (
-                <div className="print:block print:w-full no-break bg-white text-black font-sans py-4">
+                <div id="report-container" className="print:block print:w-full bg-white text-black font-sans print:py-0 py-4">
                     <div className="flex justify-between items-center mb-1">
                         <h2 className="text-3xl font-bold border-b-2 border-black pb-1">チーム：{teamPitchType}データ一覧</h2>
                         <div className="text-xl font-bold">{new Date().toLocaleDateString('ja-JP')}</div>
@@ -1128,7 +1128,7 @@ const Feedback = () => {
                         <tbody>
                             {teamStats.pitchers.map(p => (
                                 <React.Fragment key={p.name}>
-                                    <tr className="h-6">
+                                    <tr className="h-5">
                                         <td className="border border-black font-bold p-0.5 bg-white align-middle" rowSpan={2}>{p.name}</td>
                                         <td className="border border-black bg-gray-50 p-0.5 text-[7px] text-gray-500">平均値</td>
                                         <td className={`border border-black font-bold p-0.5 ${Number(p.avgVelocity) >= Number(teamStats.avgVelocity) ? 'bg-yellow-200' : ''}`}>{p.avgVelocity}</td>
@@ -1151,7 +1151,7 @@ const Feedback = () => {
                                             />
                                         </td>
                                     </tr>
-                                    <tr className="h-6">
+                                    <tr className="h-5">
                                         <td className="border border-black bg-gray-50 p-0.5 text-[7px] text-gray-500">最大値</td>
                                         <td className="border border-black font-bold p-0.5">{p.maxStraightVelocity}</td>
                                         <td className="border border-black font-bold p-0.5">{p.maxSpin}</td>
@@ -1170,12 +1170,12 @@ const Feedback = () => {
                         </tbody>
                     </table>
 
-                    <div className="mt-8 flex justify-center items-center gap-4">
+                    <div className="mt-4 flex justify-center items-center gap-4">
                         <div className="bg-yellow-200 w-12 h-6 border border-black"></div>
                         <div className="font-bold text-lg">投球速度、回転数が平均以上、制球率が60%以上</div>
                     </div>
 
-                    <div className="mt-8 flex justify-center">
+                    <div className="mt-4 flex justify-center">
                         <table className="w-[70%] border-collapse border border-black text-center table-fixed">
                             <thead>
                                 <tr className="bg-blue-600 text-white h-10">
