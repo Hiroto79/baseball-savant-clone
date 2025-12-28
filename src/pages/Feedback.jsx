@@ -89,16 +89,32 @@ const Feedback = () => {
 
     // Helper: Get Pitch Color
     const getTypeColor = (type) => {
+        if (!type) return '#6b7280';
         const t = type.toLowerCase();
-        if (t.includes('fastball') || t.includes('straight') || t.includes('ストレート')) return '#ef4444'; // Red
-        if (t.includes('two') || t.includes('ツーシーム')) return '#06b6d4'; // Cyan
-        if (t.includes('slider') || t.includes('スライダー')) return '#a855f7'; // Purple
-        if (t.includes('curve') || t.includes('カーブ')) return '#22c55e'; // Green
-        if (t.includes('split') || t.includes('スプリット')) return '#f97316'; // Orange
-        if (t.includes('change') || t.includes('チェンジ')) return '#eab308'; // Yellow
-        if (t.includes('cut') || t.includes('カット')) return '#3b82f6'; // Blue
-        if (t.includes('sinker') || t.includes('シンカー')) return '#06b6d4'; // Cyan
-        return '#9ca3af'; // Gray
+        if (t.includes('ストレート') || t.includes('straight') || t.includes('fastball') || t.includes('4シーム') || t.includes('4-seam')) return '#ef4444';
+        if (t.includes('カーブ') || t.includes('curve')) return '#3b82f6';
+        if (t.includes('スライダー') || t.includes('slider')) return '#eab308';
+        if (t.includes('チェンジ') || t.includes('change')) return '#22c55e';
+        if (t.includes('フォーク') || t.includes('split') || t.includes('fork')) return '#a855f7';
+        if (t.includes('カット') || t.includes('cutter')) return '#f97316';
+        if (t.includes('シンカー') || t.includes('sinker') || t.includes('2シーム') || t.includes('2-seam')) return '#ec4899';
+        return '#6b7280';
+    };
+
+    // Helper to format pitch type name with line break before parenthesis
+    const formatPitchTypeName = (type) => {
+        if (!type) return '';
+        const match = type.match(/^([^(]+)\((.+)\)$/);
+        if (match) {
+            return (
+                <>
+                    {match[1].trim()}
+                    <br />
+                    {match[2]}
+                </>
+            );
+        }
+        return type;
     };
 
     // Helper: Calculate Average Time (Spin Direction)
@@ -808,16 +824,16 @@ const Feedback = () => {
                                 </div>
 
                                 <div className="print:block print:w-full bg-white text-black font-sans py-4 print:py-0">
-                                    <div className="flex justify-between items-center mb-1">
+                                    <div className="flex justify-between items-center mb-1 print:mb-0">
                                         <h2 className="text-3xl font-bold border-b-2 border-black pb-1">{customPlayerName || selectedPlayer}</h2>
                                         <div className="text-xl font-bold">{new Date().toLocaleDateString('ja-JP')}</div>
                                     </div>
-                                    <div className="text-red-600 text-xl font-bold leading-none tracking-tighter mb-4 print:mb-1 print:text-sm">
+                                    <div className="text-red-600 text-xl font-bold leading-none tracking-tighter mb-4 print:mb-0 print:text-sm">
                                         {"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"}
                                     </div>
 
                                     {/* 1. Main Stats Table */}
-                                    <div className="mb-2">
+                                    <div className="mb-2 print:mb-1">
                                         <table className="w-full border-collapse border border-black text-center table-fixed">
                                             <thead>
                                                 <tr className="bg-gray-100 h-8 text-[10px]">
@@ -844,8 +860,8 @@ const Feedback = () => {
 
                                                     return (
                                                         <React.Fragment key={stat.type}>
-                                                            <tr className="h-6">
-                                                                <td className="border border-black font-bold text-white text-xs align-middle" style={{ backgroundColor: getTypeColor(stat.type) }} rowSpan={isStraight ? 2 : 1}>{stat.type}</td>
+                                                            <tr className="h-6 print:h-5">
+                                                                <td className="border border-black font-bold text-white text-xs print:text-[10px] align-middle print:leading-tight" style={{ backgroundColor: getTypeColor(stat.type) }} rowSpan={isStraight ? 2 : 1}>{formatPitchTypeName(stat.type)}</td>
                                                                 <td className="border border-black bg-gray-50 text-[9px] align-middle">平均値</td>
                                                                 <td className="border border-black font-bold text-sm align-middle">{stat.avgVelocity}</td>
                                                                 <td className="border border-black font-bold text-sm align-middle">{stat.avgSpin}</td>
@@ -860,7 +876,7 @@ const Feedback = () => {
                                                                 <td className="border border-black font-bold text-sm align-middle" rowSpan={isStraight ? 2 : 1}>{displayStrikeRate}</td>
                                                             </tr>
                                                             {isStraight && (
-                                                                <tr className="h-6">
+                                                                <tr className="h-6 print:h-5">
                                                                     <td className="border border-black bg-gray-50 text-[9px] align-middle">最大値</td>
                                                                     <td className="border border-black font-bold text-sm align-middle">{stat.maxVelocity}</td>
                                                                     <td className="border border-black font-bold text-sm align-middle">{stat.maxSpin}</td>
@@ -958,11 +974,11 @@ const Feedback = () => {
                                     </div>
 
                                     {/* Equal Height Wrapper - Unified height strategy for consistent print rendering */}
-                                    <div className="flex flex-row justify-center gap-4 items-stretch print:gap-1 min-h-[400px] break-inside-avoid">
+                                    <div className="flex flex-row justify-center gap-4 items-stretch print:gap-1 print:gap-2 min-h-[400px] print:min-h-0 break-inside-avoid print:w-[98%] print:mx-auto">
                                         {/* Left: Change Chart & Table */}
-                                        <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 flex flex-col h-full relative" style={{ height: 'auto' }}>
+                                        <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-2 flex flex-col h-full relative" style={{ height: 'auto' }}>
                                             <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">変化量チャートと球種別平均値</h3>
-                                            <div className="relative ml-0 h-[240px] mb-2 print:mb-0" style={{ width: '90%' }}>
+                                            <div className="relative ml-0 h-[240px] print:h-[200px] mb-2 print:mb-0 w-[90%] print:w-[85%]">
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
                                                         <CartesianGrid strokeDasharray="3 3" />
@@ -989,7 +1005,7 @@ const Feedback = () => {
                                                 <tbody>
                                                     {playerStats.averages.map(stat => (
                                                         <tr key={stat.type} className="h-6">
-                                                            <td className="border border-black text-white font-bold" style={{ backgroundColor: getTypeColor(stat.type) }}>{stat.type}</td>
+                                                            <td className="border border-black text-white font-bold" style={{ backgroundColor: getTypeColor(stat.type) }}>{formatPitchTypeName(stat.type)}</td>
                                                             <td className="border border-black">{stat.avgSpin}</td>
                                                             <td className="border border-black">{stat.avgEfficiency}</td>
                                                             <td className="border border-black">{stat.avgVB}</td>
@@ -1001,13 +1017,13 @@ const Feedback = () => {
                                         </div>
 
                                         {/* Right: Velocity Difference Vertical Chart */}
-                                        <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 flex flex-col h-full relative" style={{ height: 'auto' }}>
+                                        <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-2 flex flex-col h-full relative" style={{ height: 'auto' }}>
                                             <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">球速緩急差（平均値）</h3>
-                                            <div className="flex flex-grow items-stretch relative">
+                                            <div className="flex flex-grow items-stretch relative print:pr-2">
                                                 {/* Vertical Velocity Scale */}
-                                                <div className="w-[30%] relative flex justify-end pr-6">
+                                                <div className="w-[30%] relative flex justify-end pr-6 print:pr-8">
                                                     {/* The single vertical line - Reduced to 3/4 length, centered */}
-                                                    <div className="absolute right-4 top-[12.5%] h-[75%] w-[2px] bg-gray-400"></div>
+                                                    <div className="absolute right-4 print:right-8 top-[12.5%] h-[75%] w-[2px] bg-gray-400"></div>
 
                                                     {(() => {
                                                         // Dynamic Scale Calculation
@@ -1042,7 +1058,7 @@ const Feedback = () => {
                                                                         className="absolute w-4 h-4 rounded-full border border-white shadow-sm ring-1 ring-gray-200"
                                                                         style={{
                                                                             bottom: `calc(12.5% + ${((Math.max(minScale, Math.min(maxScale, Number(stat.avgVelocity))) - minScale) / (maxScale - minScale)) * 75}% - 8px)`,
-                                                                            right: '9px',
+                                                                            right: '25px',
                                                                             backgroundColor: getTypeColor(stat.type),
                                                                             zIndex: 10
                                                                         }}
@@ -1052,7 +1068,7 @@ const Feedback = () => {
                                                         );
                                                     })()}
 
-                                                    <div className="absolute top-[88%] right-4 translate-x-1/2 text-[10px] font-bold text-center w-20 whitespace-nowrap">
+                                                    <div className="absolute top-[88%] right-4 print:right-8 translate-x-1/2 text-[10px] font-bold text-center w-20 whitespace-nowrap">
                                                         投球速度
                                                     </div>
                                                 </div>
@@ -1073,7 +1089,7 @@ const Feedback = () => {
                                                                 return playerStats.averages.map(stat => (
                                                                     <tr key={stat.type} className="h-8">
                                                                         <td className="border border-black text-white font-bold" style={{ backgroundColor: getTypeColor(stat.type) }}>
-                                                                            {stat.type.includes('(クイック)') ? 'クイック' : stat.type}
+                                                                            {stat.type.includes('(クイック)') ? 'クイック' : formatPitchTypeName(stat.type)}
                                                                         </td>
                                                                         <td className="border border-black font-bold text-[10px]">{stat.avgVelocity}</td>
                                                                         <td className="border border-black bg-gray-50 font-bold text-[10px]">
