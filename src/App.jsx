@@ -14,6 +14,7 @@ import Blast from './pages/Blast';
 import Analysis from './pages/Analysis';
 import Leaderboard from './pages/Leaderboard';
 import Feedback from './pages/Feedback';
+import HitterFeedback from './pages/HitterFeedback';
 import MigrateData from './components/MigrateData';
 import { SettingsProvider } from './context/SettingsContext';
 import { BlastProvider } from './context/BlastContext';
@@ -69,6 +70,7 @@ function App() {
                     <Route path="/analysis" element={<Analysis />} />
                     <Route path="/leaderboard" element={<Leaderboard />} />
                     <Route path="/feedback" element={<Feedback />} /> {/* Added Feedback route */}
+                    <Route path="/hitter-feedback" element={<HitterFeedback />} /> {/* Added HitterFeedback route */}
                     <Route path="/upload" element={<Upload />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/migrate" element={<MigrateData />} />

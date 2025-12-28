@@ -8,7 +8,7 @@ const Layout = ({ children }) => {
     return (
         <div className="min-h-screen bg-background text-foreground flex font-sans">
             {/* Sidebar */}
-            <aside className="w-64 border-r border-border bg-card hidden md:flex flex-col sticky top-0 h-screen">
+            <aside className="w-64 border-r border-border bg-card hidden md:flex flex-col sticky top-0 h-screen print:hidden">
                 <div className="p-6 border-b border-border">
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-cyan-400 bg-clip-text text-transparent">
                         Savant Clone
@@ -29,7 +29,11 @@ const Layout = ({ children }) => {
                     </Link>
                     <Link to="/feedback" className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
                         <FileText size={20} />
-                        <span className="font-medium">Feedback</span>
+                        <span className="font-medium">Pitching Feedback</span>
+                    </Link>
+                    <Link to="/hitter-feedback" className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+                        <FileText size={20} />
+                        <span className="font-medium">Hitter Feedback</span>
                     </Link>
                     <Link to="/teams" className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
                         <Users size={20} />
@@ -141,7 +145,7 @@ const Layout = ({ children }) => {
             {/* Main Content */}
             <main className="flex-1 flex flex-col min-w-0">
 
-                <header className="h-16 border-b border-border bg-card/50 backdrop-blur flex items-center px-4 md:px-6 justify-between sticky top-0 z-10">
+                <header className="h-16 border-b border-border bg-card/50 backdrop-blur flex items-center px-4 md:px-6 justify-between sticky top-0 z-10 print:hidden">
                     <div className="flex items-center gap-3">
                         <button
                             className="md:hidden p-2 -ml-2 hover:bg-accent rounded-md"

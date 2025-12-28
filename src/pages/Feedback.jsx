@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Papa from 'papaparse';
 import { Upload, FileText, Printer, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, BarChart, Bar } from 'recharts';
 
 const Feedback = () => {
     const { language, units } = useSettings();
@@ -11,6 +11,9 @@ const Feedback = () => {
     const [selectedPlayer, setSelectedPlayer] = useState('');
     const [customPlayerName, setCustomPlayerName] = useState(''); // Editable name for print
     const [loading, setLoading] = useState(false);
+    const [viewMode, setViewMode] = useState('individual'); // 'individual' | 'team'
+    const [teamPitchType, setTeamPitchType] = useState('ストレート');
+    const [selectedThrowHand, setSelectedThrowHand] = useState('Right'); // 'Right' | 'Left'
 
     // Manual Inputs for Comparison
     const [manualData, setManualData] = useState({
@@ -22,8 +25,12 @@ const Feedback = () => {
         prevStrike: '',
         quickTimeBest: '',
         quickTimeAvg: '',
-        quickTimeTeam: ''
+        quickTimeTeam: '',
+        teamQuickAvg: '' // Manual input for team footer
     });
+
+    // Per-Pitch-Type Manual Strike Rates
+    const [manualStrikeRates, setManualStrikeRates] = useState({});
 
     // Sync custom name when player is selected
     useEffect(() => {
@@ -68,6 +75,7 @@ const Feedback = () => {
     // Helper: Get Japanese Pitch Type
     const getJapanesePitchType = (type) => {
         const t = type.toLowerCase();
+        if (t.includes('quick') && (t.includes('fastball') || t.includes('straight'))) return 'ストレート(クイック)';
         if (t.includes('fastball') || t.includes('straight')) return 'ストレート';
         if (t.includes('two') || t.includes('2')) return 'ツーシーム';
         if (t.includes('slider')) return 'スライダー';
@@ -159,241 +167,442 @@ const Feedback = () => {
     // Calculate Team Averages
     const teamStats = useMemo(() => {
         if (uploadData.length === 0) return null;
-        let velocitySum = 0;
-        let spinSum = 0;
-        let efficiencySum = 0;
-        let vbSum = 0;
-        let hbSum = 0;
-        let count = 0;
-        let strikeCount = 0;
-        let strikeOppCount = 0;
 
-        uploadData.forEach(d => {
-            const vel = Number(d.Velocity);
-            if (!isNaN(vel)) {
-                velocitySum += vel;
-                count++;
-                const spin = Number(d['Total Spin'] || d.TotalSpin);
-                if (!isNaN(spin)) spinSum += spin;
-                const eff = Number(d['Spin Efficiency'] || d.SpinEfficiency || d['Spin Efficiency (release)']);
-                if (!isNaN(eff)) efficiencySum += eff;
-                const vb = Number(d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)']);
-                if (!isNaN(vb)) vbSum += vb;
-                const hb = Number(d['Horizontal Break'] || d.HorizontalBreak || d['HB (trajectory)']);
-                if (!isNaN(hb)) hbSum += hb;
+        // Group players by their name
+        const playerNames = [...new Set(uploadData.map(d => d['Player Name'] || d.PlayerName).filter(Boolean))];
 
+        const allPitchers = playerNames.map(name => {
+            const pData = uploadData.filter(d => (d['Player Name'] || d.PlayerName) === name);
+
+            // Normalize Hand
+            const rawHand = pData[0]?.PitcherThrows || pData[0]?.['Pitcher Side'] || 'Right';
+            let hand = 'Right';
+            if (['L', 'Left', '左', '左投げ'].some(s => String(rawHand).includes(s))) {
+                hand = 'Left';
+            } else if (['R', 'Right', '右', '右投げ'].some(s => String(rawHand).includes(s))) {
+                hand = 'Right';
+            }
+
+            // Get data for the selected pitch type (default Straight)
+            const straightPitches = pData.filter(d => getJapanesePitchType(d['Pitch Type'] || d.PitchType).includes(teamPitchType));
+
+            if (straightPitches.length === 0) {
+                return { name, hand, avgVelocity: '-', maxVelocity: '-', avgSpin: '-', strikeRate: '-' };
+            }
+
+            // Robust Average Helper
+            // Robust Average Helper
+            const getAvg = (arr, key, precision = 1, allowZero = false) => {
+                const getVal = (d, k) => {
+                    if (k === 'Vertical Break') return d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)'];
+                    if (k === 'Horizontal Break') return d['Horizontal Break'] || d.HorizontalBreak || d['HB (trajectory)'];
+                    return d[k] || d[k.replace(' ', '')];
+                };
+                const valid = arr.map(d => {
+                    const raw = getVal(d, key);
+                    if (raw === undefined || raw === null || raw === '') return NaN;
+                    return Number(raw);
+                }).filter(v => !isNaN(v) && (allowZero || v !== 0));
+
+                if (!valid.length) return '-';
+                return (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(precision);
+            };
+            const getAvgInt = (arr, key, allowZero = false) => {
+                const valid = arr.map(d => Number(d[key] || d[key.replace(' ', '')] || 0)).filter(v => !isNaN(v) && (allowZero || v !== 0));
+                if (!valid.length) return '-';
+                return Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+            };
+
+            // Spin Direction (HH:MM) Average helper
+            const timeToMin = (t) => {
+                if (!t) return 0;
+                const [h, m] = t.split(':').map(Number);
+                return h * 60 + m;
+            };
+            const minToTime = (min) => {
+                let h = Math.floor(min / 60);
+                let m = Math.round(min % 60);
+                if (m === 60) { h++; m = 0; }
+                if (h > 12) h -= 12; // Keep 12h format roughly
+                // Simple formatting
+                return `${h}:${m.toString().padStart(2, '0')}`;
+            };
+
+            // Helper for Magnitude Max
+            const getAvgMagnitudeMax = (arr, key, isGyro = false) => {
+                let valid = [];
+                if (isGyro) {
+                    const keys = ['Gyro Angle', 'GyroAngle', 'Gyro Degree', 'GyroDegree', 'Gyro', 'ジャイロ角度', 'Gyro Degree (deg)'];
+                    arr.forEach(d => {
+                        for (const k of keys) {
+                            const val = Number(d[k]);
+                            if (!isNaN(val) && (val !== 0)) {
+                                valid.push(val);
+                                break;
+                            }
+                        }
+                    });
+                } else {
+                    const getVal = (d, k) => {
+                        if (k === 'Vertical Break') return d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)'];
+                        if (k === 'Horizontal Break') return d['Horizontal Break'] || d.HorizontalBreak || d['HB (trajectory)'];
+                        return d[k] || d[k.replace(' ', '')];
+                    };
+
+                    valid = arr.map(d => {
+                        const raw = getVal(d, key);
+                        if (raw === undefined || raw === null || raw === '') return NaN;
+                        return Number(raw);
+                    }).filter(v => !isNaN(v));
+                }
+
+                if (valid.length === 0) return '-';
+                // Sort by absolute value descending
+                valid.sort((a, b) => Math.abs(b) - Math.abs(a));
+                return valid[0];
+            };
+
+
+            const avgVelocity = getAvg(straightPitches, 'Velocity', 1);
+            const avgSpin = getAvgInt(straightPitches, 'Total Spin');
+            // Calculate Avg Efficiency manually to ensure correct key usage and decimal formatting
+            const avgEffValRaw = straightPitches.map(d => d['Spin Efficiency (release)'] || d['Spin Efficiency'] || d.SpinEfficiency).filter(v => v !== undefined && v !== '');
+            const avgEff = avgEffValRaw.length ? (avgEffValRaw.reduce((a, b) => a + Number(b), 0) / avgEffValRaw.length).toFixed(1) : '-';
+            const avgVB = getAvg(straightPitches, 'Vertical Break', 1, true); // Allow 0 for breaks
+            const avgHB = getAvg(straightPitches, 'Horizontal Break', 1, true); // Allow 0 for breaks
+            const avgRahActual = getAvg(straightPitches, 'Horizontal Angle', 1);
+            const avgRavActual = getAvg(straightPitches, 'Release Angle', 1);
+            const avgRh = getAvg(straightPitches, 'Release Height', 2);
+            const avgRs = getAvg(straightPitches, 'Release Side', 2);
+            // Check Gyro Angle or Gyro Degree or Japanese
+            const getGyro = () => {
+                const keys = ['Gyro Angle', 'GyroAngle', 'Gyro Degree', 'GyroDegree', 'Gyro', 'ジャイロ角度', 'Gyro Degree (deg)'];
+                const validGyros = [];
+                straightPitches.forEach(d => {
+                    for (const k of keys) {
+                        const valRaw = d[k];
+                        if (valRaw !== undefined && valRaw !== null && valRaw !== '') {
+                            const val = Number(valRaw);
+                            if (!isNaN(val) && val !== 0) { // Ignore 0 for Gyro per instructions
+                                validGyros.push(val);
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                if (validGyros.length === 0) return '-';
+                return (validGyros.reduce((a, b) => a + b, 0) / validGyros.length).toFixed(1);
+            };
+            const avgGyro = getGyro();
+
+
+            // Explicitly calculate Max Straight Velocity for the "Max" row
+            const distinctStraightPitches = pData.filter(d => {
+                const t = getJapanesePitchType(d['Pitch Type'] || d.PitchType);
+                return t.includes('ストレート') || t.includes('fastball') || t.includes('straight');
+            });
+            const validMaxVels = distinctStraightPitches.map(d => Number(d.Velocity || 0)).filter(v => !isNaN(v) && v > 0);
+            const allPitchersMaxStraightVel = validMaxVels.length > 0 ? Math.max(...validMaxVels) : 0;
+
+            // Calculate Max Spin for the "Max" row
+            const validSpins = straightPitches.map(d => Number(d['Total Spin'] || d.TotalSpin || 0)).filter(v => !isNaN(v) && v > 0);
+            const maxSpinVal = validSpins.length > 0 ? Math.max(...validSpins) : 0;
+
+            const maxVelVal = Math.max(...straightPitches.map(d => Number(d.Velocity || 0)).filter(v => !isNaN(v)));
+            const maxVelocity = isFinite(maxVelVal) && maxVelVal > 0 ? maxVelVal.toFixed(1) : '-';
+
+            // Spin Direction (HH:MM) Average helper
+
+            const spinDirSum = straightPitches.reduce((sum, d) => sum + timeToMin(d['Spin Direction'] || d.SpinAxis || '0:00'), 0);
+
+            // Calculate Max Efficiency (with decimals) for Team List Max row
+            const validEffs = straightPitches.map(d => Number(d['Spin Efficiency'] || d.SpinEfficiency || d['Spin Efficiency (release)'] || 0)).filter(v => !isNaN(v) && v > 0);
+            const maxEffVal = validEffs.length > 0 ? Math.max(...validEffs) : 0;
+
+            // Calculate "Max" Spin Direction (Closest to 12:00)
+            let maxSpinDir = '-';
+            const validDirs = straightPitches.map(d => d['Spin Direction'] || d.SpinAxis).filter(Boolean);
+            if (validDirs.length > 0) {
+                // Sort by distance to 12:00 (0 mins). Smaller distance = "Bigger" (Better) rank.
+                // User says "0, 1, 2 order is big". So 0 (12:00) is best.
+                // 12:00 = 0 or 720 mins.
+                const sortedDirs = validDirs.sort((a, b) => {
+                    const minA = timeToMin(a);
+                    const minB = timeToMin(b);
+                    // Distance to closest 12:00 (0 or 720)
+                    const distA = Math.min(Math.abs(minA - 0), Math.abs(minA - 720));
+                    const distB = Math.min(Math.abs(minB - 0), Math.abs(minB - 720));
+                    return distA - distB; // Ascending distance (Closest to 0 first)
+                });
+                maxSpinDir = sortedDirs[0];
+            }
+
+
+            let strikeCount = 0;
+            let oppCount = 0;
+            straightPitches.forEach(d => {
                 const isStrikeCol = d['Is Strike'] || d.IsStrike;
                 if (isStrikeCol !== undefined && isStrikeCol !== null && isStrikeCol !== '') {
-                    strikeOppCount++;
-                    const val = String(isStrikeCol).toLowerCase();
-                    if (val === 'yes' || val === 'true' || val === 'y' || isStrikeCol === 1) {
-                        strikeCount++;
-                    }
-                } else {
-                    const hasStrikeData = d.PitchResult || (d['Strike Zone Height'] && d['Strike Zone Side']);
-                    if (hasStrikeData) {
-                        strikeOppCount++;
-                        const isStrike = ['Strike', 'InPlay'].includes(d.PitchResult) || (d['Strike Zone Height'] && d['Strike Zone Side']);
-                        if (isStrike) strikeCount++;
-                    }
+                    oppCount++;
+                    if (['yes', 'true', 'y', '1', 1].includes(String(isStrikeCol).toLowerCase())) strikeCount++;
                 }
-            }
+            });
+
+            const count = straightPitches.length;
+
+            return {
+                name,
+                hand,
+                avgVelocity,
+                maxVelocity,
+                maxStraightVelocity: allPitchersMaxStraightVel > 0 ? allPitchersMaxStraightVel.toFixed(1) : '-',
+                avgSpin,
+                maxSpin: maxSpinVal > 0 ? Math.round(maxSpinVal) : '-',
+                avgEff,
+                avgVB,
+                avgHB,
+                avgRah: avgRahActual,
+                avgRav: avgRavActual,
+                avgRh,
+                avgRs,
+                avgGyro,
+                avgSpinDir: count ? minToTime(spinDirSum / count) : '-',
+                strikeRate: oppCount ? ((strikeCount / oppCount) * 100).toFixed(1) : '-',
+                maxEfficiency: maxEffVal > 0 ? maxEffVal.toFixed(1) : '-',
+                maxSpinDir: maxSpinDir,
+                // Max Magnitude Values (for Team List Max Row) - 0 is smallest, so max(abs(val))
+                maxVB: getAvgMagnitudeMax(straightPitches, 'Vertical Break'),
+                maxHB: getAvgMagnitudeMax(straightPitches, 'Horizontal Break'),
+                maxRAH: getAvgMagnitudeMax(straightPitches, 'Horizontal Angle'),
+                maxRAV: getAvgMagnitudeMax(straightPitches, 'Release Angle'),
+                maxRH: getAvgMagnitudeMax(straightPitches, 'Release Height'),
+                maxRS: getAvgMagnitudeMax(straightPitches, 'Release Side'),
+                maxGyro: getAvgMagnitudeMax(straightPitches, 'Gyro', true) // Include Gyro Key check inside helper or pass specific key logic? Helper below.
+            };
         });
 
+
+
+        // Current filtered pitchers by selected hand
+        const filteredPitchers = allPitchers.filter(p => p.hand === selectedThrowHand);
+
+        // Team Average for footer
+        const validVels = filteredPitchers.filter(p => p.avgVelocity !== '-').map(p => Number(p.avgVelocity));
+        const validMaxVels = filteredPitchers.filter(p => p.maxVelocity !== '-').map(p => Number(p.maxVelocity));
+        const validSpins = filteredPitchers.filter(p => p.avgSpin !== '-').map(p => Number(p.avgSpin));
+        const validEffs = filteredPitchers.filter(p => p.avgEff !== '-').map(p => Number(p.avgEff));
+        const validStrikes = filteredPitchers.filter(p => p.strikeRate !== '-').map(p => Number(p.strikeRate));
+
         return {
-            avgVelocity: count ? (velocitySum / count).toFixed(1) : '-',
-            avgSpin: count ? Math.round(spinSum / count) : '-',
-            avgEfficiency: count ? (efficiencySum / count).toFixed(1) : '-',
-            avgVB: count ? (vbSum / count).toFixed(1) : '-',
-            avgHB: count ? (hbSum / count).toFixed(1) : '-',
-            strikeRate: strikeOppCount ? ((strikeCount / strikeOppCount) * 100).toFixed(1) : '-'
+            pitchers: filteredPitchers,
+            avgVelocity: validVels.length ? (validVels.reduce((a, b) => a + b, 0) / validVels.length).toFixed(1) : '-',
+            avgMaxVelocity: validMaxVels.length ? (validMaxVels.reduce((a, b) => a + b, 0) / validMaxVels.length).toFixed(1) : '-',
+            avgSpin: validSpins.length ? Math.round(validSpins.reduce((a, b) => a + b, 0) / validSpins.length) : '-',
+            avgEfficiency: validEffs.length ? (validEffs.reduce((a, b) => a + b, 0) / validEffs.length).toFixed(1) : '-',
+            avgStrikeRate: validStrikes.length ? (validStrikes.reduce((a, b) => a + b, 0) / validStrikes.length).toFixed(1) : '-'
         };
-    }, [uploadData]);
+    }, [uploadData, selectedThrowHand, teamPitchType]);
 
 
     // Calculate Averages for Selected Player
     const playerStats = useMemo(() => {
         if (!selectedPlayer || uploadData.length === 0) return null;
         const playerData = uploadData.filter(d => (d['Player Name'] || d.PlayerName) === selectedPlayer);
-        const byType = {};
-        const rawPitches = [];
 
-        playerData.forEach(d => {
-            const rawType = d['Pitch Type'] || d.PitchType || 'Unknown';
-            const type = getJapanesePitchType(rawType);
+        const processData = (data) => {
+            const byType = {};
+            const rawPitches = [];
 
-            if (!byType[type]) {
-                byType[type] = {
-                    count: 0,
-                    velocitySum: 0, maxVelocity: -Infinity,
-                    spinSum: 0, maxSpin: -Infinity,
-                    efficiencySum: 0, maxEfficiency: -Infinity,
-                    vbSum: 0, maxVB: -Infinity,
-                    hbSum: 0, maxHB: -Infinity,
-                    releaseAngleSum: 0, maxRA: -Infinity,
-                    releaseHeightSum: 0, maxRH: -Infinity,
-                    releaseSideSum: 0, maxRS: -Infinity,
-                    strikeCount: 0, strikeOppCount: 0,
-                    gyroSum: 0, gyroCount: 0,
-                    minGyro: Infinity, // For "Max" (Best) Gyro
-                    spinDirections: [],
-                    bestSpinDirection: '', minDistTo12: Infinity
-                };
-            }
+            data.forEach(d => {
+                const rawType = d['Pitch Type'] || d.PitchType || 'Unknown';
+                const type = getJapanesePitchType(rawType);
 
-            const stats = byType[type];
-            stats.count++;
-
-            const vel = Number(d.Velocity);
-            if (!isNaN(vel)) {
-                stats.velocitySum += vel;
-                if (vel > stats.maxVelocity) stats.maxVelocity = vel;
-            }
-            const spin = Number(d['Total Spin'] || d.TotalSpin);
-            if (!isNaN(spin)) {
-                stats.spinSum += spin;
-                if (spin > stats.maxSpin) stats.maxSpin = spin;
-            }
-            const eff = Number(d['Spin Efficiency'] || d.SpinEfficiency || d['Spin Efficiency (release)']);
-            if (!isNaN(eff)) {
-                stats.efficiencySum += eff;
-                if (eff > stats.maxEfficiency) stats.maxEfficiency = eff;
-            }
-            const vb = Number(d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)']);
-            if (!isNaN(vb)) {
-                stats.vbSum += vb;
-                if (vb > stats.maxVB) stats.maxVB = vb;
-            }
-            const hb = Number(d['Horizontal Break'] || d.HorizontalBreak || d['HB (trajectory)']);
-            if (!isNaN(hb)) {
-                stats.hbSum += hb;
-                if (hb > stats.maxHB) stats.maxHB = hb;
-            }
-            const ra = Number(d['Release Angle'] || d.ReleaseAngle);
-            if (!isNaN(ra)) {
-                stats.releaseAngleSum += ra;
-                if (ra > stats.maxRA) stats.maxRA = ra;
-            }
-            const rh = Number(d['Release Height'] || d.ReleaseHeight);
-            if (!isNaN(rh)) {
-                stats.releaseHeightSum += rh;
-                if (rh > stats.maxRH) stats.maxRH = rh;
-            }
-            const rs = Number(d['Release Side'] || d.ReleaseSide);
-            if (!isNaN(rs)) {
-                stats.releaseSideSum += rs;
-                if (rs > stats.maxRS) stats.maxRS = rs;
-            }
-
-            // Gyro
-            const gyro = Number(d['Gyro Degree'] || d.GyroDegree || d['Gyro'] || d['Gyro Angle'] || d['Spin Axis (Gyro)']);
-            if (!isNaN(gyro)) {
-                if (gyro !== 0) {
-                    stats.gyroSum += gyro;
-                    stats.gyroCount++;
+                if (!byType[type]) {
+                    byType[type] = {
+                        count: 0,
+                        velocitySum: 0, maxVelocity: -Infinity,
+                        spinSum: 0, maxSpin: -Infinity,
+                        efficiencySum: 0, maxEfficiency: -Infinity,
+                        vbSum: 0, maxVB: -Infinity,
+                        hbSum: 0, maxHB: -Infinity,
+                        releaseAngleSum: 0, maxRA: -Infinity,
+                        releaseHeightSum: 0, maxRH: -Infinity,
+                        releaseSideSum: 0, maxRS: -Infinity,
+                        strikeCount: 0, strikeOppCount: 0,
+                        gyroSum: 0, gyroCount: 0,
+                        maxGyro: -Infinity, minGyro: Infinity,
+                        maxClock: '-', maxVelForClock: -Infinity,
+                        spinDirections: [],
+                        bestSpinDirection: '', minDistTo12: Infinity
+                    };
                 }
-                if (gyro < stats.minGyro) stats.minGyro = gyro;
-            }
 
-            // Spin Direction
-            const sd = d['Spin Direction'] || d.SpinDirection || d['Spin Axis (Clock)'];
-            if (sd) {
-                stats.spinDirections.push(sd);
-                const dist = getMinutesFrom12(sd);
-                if (dist < stats.minDistTo12) {
-                    stats.minDistTo12 = dist;
-                    stats.bestSpinDirection = sd;
-                }
-            }
+                const stats = byType[type];
+                stats.count++;
 
-            // Strike
-            const isStrikeCol = d['Is Strike'] || d.IsStrike;
-            if (isStrikeCol !== undefined && isStrikeCol !== null && isStrikeCol !== '') {
-                stats.strikeOppCount++;
-                const val = String(isStrikeCol).toLowerCase();
-                if (val === 'yes' || val === 'true' || val === 'y' || isStrikeCol === 1) {
-                    stats.strikeCount++;
+                const vel = Number(d.Velocity);
+                if (!isNaN(vel)) {
+                    stats.velocitySum += vel;
+                    if (vel > stats.maxVelocity) stats.maxVelocity = vel;
                 }
-            } else {
-                const hasStrikeData = d.PitchResult || (d['Strike Zone Height'] && d['Strike Zone Side']);
-                if (hasStrikeData) {
+                const spin = Number(d['Total Spin'] || d.TotalSpin);
+                if (!isNaN(spin)) {
+                    stats.spinSum += spin;
+                    if (spin > stats.maxSpin) stats.maxSpin = spin;
+                }
+                const eff = Number(d['Spin Efficiency'] || d.SpinEfficiency || d['Spin Efficiency (release)']);
+                if (!isNaN(eff)) {
+                    stats.efficiencySum += eff;
+                    if (eff > stats.maxEfficiency) stats.maxEfficiency = eff;
+                }
+                const vb = Number(d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)']);
+                if (!isNaN(vb)) {
+                    stats.vbSum += vb;
+                    if (vb > stats.maxVB) stats.maxVB = vb;
+                }
+                const hb = Number(d['Horizontal Break'] || d.HorizontalBreak || d['HB (trajectory)']);
+                if (!isNaN(hb)) {
+                    stats.hbSum += hb;
+                    if (hb > stats.maxHB) stats.maxHB = hb;
+                }
+                const ra = Number(d['Release Angle'] || d.ReleaseAngle);
+                if (!isNaN(ra)) {
+                    stats.releaseAngleSum += ra;
+                    if (ra > stats.maxRA) stats.maxRA = ra;
+                }
+                const rh = Number(d['Release Height'] || d.ReleaseHeight);
+                if (!isNaN(rh)) {
+                    stats.releaseHeightSum += rh;
+                    if (rh > stats.maxRH) stats.maxRH = rh;
+                }
+                const rs = Number(d['Release Side'] || d.ReleaseSide);
+                if (!isNaN(rs)) {
+                    stats.releaseSideSum += rs;
+                    if (rs > stats.maxRS) stats.maxRS = rs;
+                }
+
+                // FIX: Check Raw Value for Gyro before Number() to avoid converting empty string to 0 and filtering it or not.
+                // We want to count 0 if it is explicitly 0, but ignore if empty.
+                const gyroRaw = d['Gyro Degree'] || d.GyroDegree || d['Gyro'] || d['Gyro Angle'] || d['Spin Axis (Gyro)'] || d['Gyro Degree (deg)'];
+                if (gyroRaw !== undefined && gyroRaw !== null && gyroRaw !== '') {
+                    const gyro = Number(gyroRaw);
+                    if (!isNaN(gyro) && gyro !== 0) { // Should we ignore 0? User says "Ignore - and 0".
+                        stats.gyroSum += gyro;
+                        stats.gyroCount++;
+                        if (gyro > stats.maxGyro) stats.maxGyro = gyro;
+                        if (gyro < stats.minGyro) stats.minGyro = gyro;
+                    }
+                }
+
+                const sd = d['Spin Direction'] || d.SpinDirection || d['Spin Axis (Clock)'];
+                if (sd) {
+                    stats.spinDirections.push(sd);
+                    const dist = getMinutesFrom12(sd);
+                    if (dist < stats.minDistTo12) {
+                        stats.minDistTo12 = dist;
+                        stats.bestSpinDirection = sd;
+                    }
+                    if (vel > stats.maxVelForClock) {
+                        stats.maxVelForClock = vel;
+                        stats.maxClock = sd;
+                    }
+                }
+
+                const isStrikeCol = d['Is Strike'] || d.IsStrike;
+                if (isStrikeCol !== undefined && isStrikeCol !== null && isStrikeCol !== '') {
                     stats.strikeOppCount++;
-                    const isStrike = ['Strike', 'InPlay'].includes(d.PitchResult) || (d['Strike Zone Height'] && d['Strike Zone Side']);
-                    if (isStrike) stats.strikeCount++;
+                    if (['yes', 'true', 'y', '1', 1].includes(String(isStrikeCol).toLowerCase())) stats.strikeCount++;
                 }
-            }
 
-            if (!isNaN(vb) && !isNaN(hb)) {
-                rawPitches.push({ type, vb, hb, velocity: vel });
-            }
-        });
+                if (!isNaN(vb) && !isNaN(hb)) {
+                    rawPitches.push({ type, vb, hb, velocity: vel });
+                }
+            });
 
-        let averages = Object.keys(byType).map(type => {
-            const s = byType[type];
-
-            let avgGyro = '-';
-            if (s.gyroCount > 0) {
-                avgGyro = (s.gyroSum / s.gyroCount).toFixed(1);
-            } else if (s.efficiencySum > 0 && s.count > 0) {
-                const avgEff = s.efficiencySum / s.count;
-                const effDecimal = Math.min(Math.max(avgEff / 100, 0), 1);
-                const gyroRad = Math.acos(effDecimal);
-                const gyroDeg = gyroRad * (180 / Math.PI);
-                avgGyro = gyroDeg.toFixed(1);
-            }
-
-            let minGyroVal = s.minGyro;
-            if (minGyroVal === Infinity && s.maxEfficiency !== -Infinity) {
-                const effDecimal = Math.min(Math.max(s.maxEfficiency / 100, 0), 1);
-                const gyroRad = Math.acos(effDecimal);
-                minGyroVal = gyroRad * (180 / Math.PI);
-            }
-
-            const fmtMax = (val, fixed) => (val === -Infinity ? '-' : val.toFixed(fixed));
-            const fmtMin = (val, fixed) => (val === Infinity ? '-' : val.toFixed(fixed));
-            const fmtMaxInt = (val) => (val === -Infinity ? '-' : Math.round(val));
-
-            return {
-                type,
-                count: s.count,
-                avgVelocity: s.count ? (s.velocitySum / s.count).toFixed(1) : 0,
-                maxVelocity: fmtMax(s.maxVelocity, 1),
-                avgSpin: s.count ? Math.round(s.spinSum / s.count) : 0,
-                maxSpin: fmtMaxInt(s.maxSpin),
-                avgEfficiency: s.count ? (s.efficiencySum / s.count).toFixed(1) : 0,
-                maxEfficiency: fmtMax(s.maxEfficiency, 1),
-                avgVB: s.count ? (s.vbSum / s.count).toFixed(1) : 0,
-                maxVB: fmtMax(s.maxVB, 1),
-                avgHB: s.count ? (s.hbSum / s.count).toFixed(1) : 0,
-                maxHB: fmtMax(s.maxHB, 1),
-                avgRA: s.count ? (s.releaseAngleSum / s.count).toFixed(2) : 0,
-                maxRA: fmtMax(s.maxRA, 2),
-                avgRH: s.count ? (s.releaseHeightSum / s.count).toFixed(2) : 0,
-                maxRH: fmtMax(s.maxRH, 2),
-                avgRS: s.count ? (s.releaseSideSum / s.count).toFixed(2) : 0,
-                maxRS: fmtMax(s.maxRS, 2),
-                avgGyro: avgGyro,
-                maxGyro: fmtMin(minGyroVal, 1),
-                avgClock: getAverageTime(s.spinDirections),
-                maxClock: formatTimeDisplay(s.bestSpinDirection),
-                strikeRate: s.strikeOppCount ? ((s.strikeCount / s.strikeOppCount) * 100).toFixed(1) : '-'
+            const getVelocityDistribution = (pitches) => {
+                const buckets = {};
+                pitches.forEach(p => {
+                    const v = parseFloat(p.Velocity);
+                    if (isNaN(v)) return;
+                    const bin = Math.floor(v / 2) * 2; // 2km/h bins
+                    buckets[bin] = (buckets[bin] || 0) + 1;
+                });
+                return Object.keys(buckets).map(bin => ({
+                    velocity: Number(bin),
+                    count: buckets[bin]
+                })).sort((a, b) => a.velocity - b.velocity);
             };
-        });
 
-        averages.sort((a, b) => {
-            const isAStraight = a.type.includes('ストレート') || a.type.includes('Fastball');
-            const isBStraight = b.type.includes('ストレート') || b.type.includes('Fastball');
-            if (isAStraight && !isBStraight) return -1;
-            if (!isAStraight && isBStraight) return 1;
-            return b.count - a.count;
-        });
+            const velocityDistribution = getVelocityDistribution(data);
 
-        return { averages, rawPitches };
+            let averages = Object.keys(byType).map(type => {
+                const s = byType[type];
+                let avgGyro = '-';
+                if (s.gyroCount > 0) avgGyro = (s.gyroSum / s.gyroCount).toFixed(1);
+
+                const fmtMax = (val, fixed) => {
+                    if (val === undefined || val === null || isNaN(val) || val === -Infinity) return '-';
+                    return Number(val).toFixed(fixed);
+                };
+                const fmtMin = (val, fixed) => {
+                    if (val === undefined || val === null || isNaN(val) || val === Infinity) return '-';
+                    return Number(val).toFixed(fixed);
+                };
+
+                return {
+                    type,
+                    count: s.count,
+                    avgVelocity: s.count ? (s.velocitySum / s.count).toFixed(1) : 0,
+                    maxVelocity: fmtMax(s.maxVelocity, 1),
+                    avgSpin: s.count ? Math.round(s.spinSum / s.count) : 0,
+                    maxSpin: fmtMax(s.maxSpin, 0),
+                    avgEfficiency: s.count ? (s.efficiencySum / s.count).toFixed(1) : 0,
+                    maxEfficiency: fmtMax(s.maxEfficiency, 1),
+                    avgClock: getAverageTime(s.spinDirections),
+                    avgVB: s.count ? (s.vbSum / s.count).toFixed(1) : 0,
+                    maxVB: fmtMax(s.maxVB, 1),
+                    avgHB: s.count ? (s.hbSum / s.count).toFixed(1) : 0,
+                    maxHB: fmtMax(s.maxHB, 1),
+                    avgRA: s.count ? (s.releaseAngleSum / s.count).toFixed(2) : 0,
+                    maxRA: fmtMax(s.maxRA, 2),
+                    avgRH: s.count ? (s.releaseHeightSum / s.count).toFixed(2) : 0,
+                    maxRH: fmtMax(s.maxRH, 2),
+                    avgRS: s.count ? (s.releaseSideSum / s.count).toFixed(2) : 0,
+                    maxRS: fmtMax(s.maxRS, 2),
+                    avgGyro: avgGyro,
+                    maxGyro: fmtMax(s.maxGyro, 1),
+                    maxClock: s.maxClock,
+                    strikeRate: s.strikeOppCount ? ((s.strikeCount / s.strikeOppCount) * 100).toFixed(1) : '-'
+                };
+            });
+
+            averages.sort((a, b) => {
+                const isAStraight = a.type.includes('ストレート');
+                const isBStraight = b.type.includes('ストレート');
+                if (isAStraight && !isBStraight) return -1;
+                if (!isAStraight && isBStraight) return 1;
+                return b.count - a.count;
+            });
+
+            return { averages, rawPitches, velocityDistribution };
+        };
+
+        return processData(playerData);
     }, [selectedPlayer, uploadData]);
 
     const handleManualChange = (e) => {
         const { name, value } = e.target;
         setManualData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleManualStrikeRateChange = (type, value) => {
+        setManualStrikeRates(prev => ({ ...prev, [type]: value }));
+    };
+
+    const [teamManualStrikeRates, setTeamManualStrikeRates] = useState({});
+    const handleTeamManualStrikeRateChange = (playerName, value) => {
+        setTeamManualStrikeRates(prev => ({ ...prev, [playerName]: value }));
     };
 
     const handlePrint = () => {
@@ -407,351 +616,586 @@ const Feedback = () => {
         document.title = originalTitle;
     };
 
+    // Fix ReferenceErrors for variables used in render
+    const teamListStats = teamStats;
+    const prevStats = null; // Placeholder for previous stats if logic is re-implemented later
+
     if (loading) return <div className="p-8 text-center">Loading...</div>;
 
     return (
-        <div className="p-6 max-w-[210mm] mx-auto bg-white min-h-screen text-black">
+        <div className="p-6 max-w-[210mm] print:max-w-[206mm] mx-auto bg-white min-h-screen text-black print:p-2 print:min-h-0 print:h-auto print:pb-0 print:overflow-hidden">
             <div className="print:hidden mb-8 space-y-6 bg-gray-50 p-6 rounded-xl border border-gray-200">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-bold text-gray-800">Rapsodo Feedback Generator</h1>
-                    <button onClick={handlePrint} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                        <Printer size={20} />
-                        {language === 'ja' ? 'PDF保存 / 印刷' : 'Print / Save PDF'}
+                <div className="flex justify-between items-start">
+                    <div className="flex gap-4 items-center flex-grow">
+                        <div className="flex bg-white rounded-lg border p-1 shadow-sm">
+                            <button
+                                onClick={() => setViewMode('individual')}
+                                className={`px-6 py-2 rounded-md font-bold transition-all ${viewMode === 'individual' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}
+                            >
+                                個人分析
+                            </button>
+                            <button
+                                onClick={() => setViewMode('team')}
+                                className={`px-6 py-2 rounded-md font-bold transition-all ${viewMode === 'team' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}
+                            >
+                                チーム一覧
+                            </button>
+                        </div>
+                        <div className="h-10 w-px bg-gray-300 mx-2"></div>
+                        <div className="grid grid-cols-2 gap-4 flex-grow">
+                            <div className="space-y-1">
+                                <label className="block text-[10px] uppercase tracking-wider font-bold text-gray-500">{language === 'ja' ? 'データアップロード' : 'Upload CSV'}</label>
+                                <div className="relative">
+                                    <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" id="feedback-upload" />
+                                    <label htmlFor="feedback-upload" className="flex items-center justify-between gap-2 px-3 py-1.5 border border-gray-300 rounded bg-white cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <span className="text-xs text-gray-600 truncate">{uploadData.length > 0 ? `${uploadData.length} rows` : 'Click to upload'}</span>
+                                        <Upload size={14} className="text-gray-500" />
+                                    </label>
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="block text-[10px] uppercase tracking-wider font-bold text-gray-500">{language === 'ja' ? '選手選択' : 'Select Player'}</label>
+                                <select value={selectedPlayer} onChange={(e) => setSelectedPlayer(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded bg-white text-xs font-bold" disabled={players.length === 0}>
+                                    <option value="">Select...</option>
+                                    {players.map(p => <option key={p} value={p}>{p}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handlePrint}
+                        className="ml-6 p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-lg flex items-center gap-2"
+                        title={language === 'ja' ? '印刷・PDF保存' : 'Print / Save as PDF'}
+                    >
+                        <Printer size={24} />
+                        <span className="font-bold">印刷</span>
                     </button>
                 </div>
-                <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">{language === 'ja' ? 'データアップロード (CSV)' : 'Upload Data (CSV)'}</label>
-                        <div className="relative">
-                            <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" id="feedback-upload" />
-                            <label htmlFor="feedback-upload" className="flex items-center justify-center gap-2 w-full p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                                <Upload className="text-gray-500" />
-                                <span className="text-gray-600">{uploadData.length > 0 ? `${uploadData.length} rows loaded` : 'Click to upload'}</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">{language === 'ja' ? '選手選択' : 'Select Player'}</label>
-                        <select value={selectedPlayer} onChange={(e) => setSelectedPlayer(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg bg-white" disabled={players.length === 0}>
-                            <option value="">Select a player...</option>
-                            {players.map(p => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                    </div>
-                </div>
-                {selectedPlayer && (
-                    <div className="space-y-4 border-t pt-4">
-                        <h3 className="font-semibold text-gray-700">{language === 'ja' ? '比較データ入力 (手動)' : 'Manual Comparison Data'}</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            <div className="col-span-2 md:col-span-3">
-                                <label className="block text-xs font-medium text-gray-500 mb-1">{language === 'ja' ? '表示名 (レポート・ファイル名用)' : 'Display Name (for Report & Filename)'}</label>
-                                <input
-                                    type="text"
-                                    value={customPlayerName}
-                                    onChange={(e) => setCustomPlayerName(e.target.value)}
-                                    className="w-full p-2 border rounded bg-white font-bold text-lg"
-                                    placeholder={selectedPlayer}
-                                />
+
+                {/* Settings Section */}
+                <div className="space-y-4 border-t pt-4">
+                    {viewMode === 'individual' ? (
+                        selectedPlayer && (
+                            <div className="flex justify-between items-center bg-white p-4 rounded-lg border">
+                                <div className="flex gap-4 items-center">
+                                    <span className="font-bold text-gray-700">形式:</span>
+                                    <div className="flex gap-2">
+                                        <span className="px-4 py-1 rounded text-sm font-bold bg-gray-800 text-white">通常分析</span>
+                                    </div>
+                                </div>
+                                <div className="flex gap-4 items-center">
+                                    <label className="text-xs font-medium text-gray-500">表示名:</label>
+                                    <input
+                                        type="text"
+                                        value={customPlayerName}
+                                        onChange={(e) => setCustomPlayerName(e.target.value)}
+                                        className="p-1.5 border rounded bg-white font-bold text-sm w-48"
+                                        placeholder={selectedPlayer}
+                                    />
+                                </div>
                             </div>
-                            <input name="prevVelocity" placeholder="前回 球速" value={manualData.prevVelocity} onChange={handleManualChange} className="p-2 border rounded" />
-                            <input name="prevSpin" placeholder="前回 回転数" value={manualData.prevSpin} onChange={handleManualChange} className="p-2 border rounded" />
-                            <input name="prevEfficiency" placeholder="前回 回転効率" value={manualData.prevEfficiency} onChange={handleManualChange} className="p-2 border rounded" />
-                            <input name="prevVB" placeholder="前回 縦変化" value={manualData.prevVB} onChange={handleManualChange} className="p-2 border rounded" />
-                            <input name="prevHB" placeholder="前回 横変化" value={manualData.prevHB} onChange={handleManualChange} className="p-2 border rounded" />
-                            <input name="prevStrike" placeholder="前回 制球率" value={manualData.prevStrike} onChange={handleManualChange} className="p-2 border rounded" />
+                        )
+                    ) : (
+                        <div className="space-y-4">
+                            {/* Team List Strike Rate Input Section */}
+                            <div className="mb-4 bg-blue-50 border border-blue-200 p-2 rounded print:hidden">
+                                <h3 className="font-bold text-sm mb-2">制球率調整 (球種別・%)</h3>
+                                <div className="overflow-x-auto whitespace-nowrap pb-2">
+                                    {teamListStats.pitchers.map(p => (
+                                        <div key={p.name} className="inline-block mr-4 text-center">
+                                            <div className="text-[10px] font-bold mb-1 text-blue-700">{p.name} ({p.avgStrikeRate}%)</div>
+                                            <input
+                                                type="text"
+                                                className="border border-gray-300 rounded text-center w-20 text-sm font-bold p-1"
+                                                placeholder={p.strikeRate}
+                                                value={teamManualStrikeRates[p.name] !== undefined ? teamManualStrikeRates[p.name] : ''}
+                                                onChange={(e) => handleTeamManualStrikeRateChange(p.name, e.target.value)}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-center bg-white p-4 rounded-lg border">
+                                <div className="flex gap-4 items-center">
+                                    <span className="font-bold text-gray-700">チームレポート設定:</span>
+                                    <div className="flex items-center gap-2 p-1 bg-gray-100 rounded">
+                                        <select value={teamPitchType} onChange={(e) => setTeamPitchType(e.target.value)} className="p-1 border border-gray-300 rounded bg-white text-xs">
+                                            <option value="ストレート">ストレート</option>
+                                            <option value="スライダー">スライダー</option>
+                                            <option value="カーブ">カーブ</option>
+                                            <option value="チェンジ">チェンジアップ</option>
+                                        </select>
+                                        <select value={selectedThrowHand} onChange={(e) => setSelectedThrowHand(e.target.value)} className="p-1 border border-gray-300 rounded bg-white text-xs font-bold">
+                                            <option value="Right">右投げ</option>
+                                            <option value="Left">左投げ</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <input name="teamQuickAvg" placeholder="チーム Ｑ平均 (秒)" value={manualData.teamQuickAvg} onChange={handleManualChange} className="p-1.5 border rounded bg-yellow-50 text-xs w-32" />
+                                </div>
+                            </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <input name="quickTimeBest" placeholder="クイック 最短 (秒)" value={manualData.quickTimeBest} onChange={handleManualChange} className="p-2 border rounded" />
-                            <input name="quickTimeAvg" placeholder="クイック 平均 (秒)" value={manualData.quickTimeAvg} onChange={handleManualChange} className="p-2 border rounded" />
-                            <input name="quickTimeTeam" placeholder="クイック チーム平均" value={manualData.quickTimeTeam} onChange={handleManualChange} className="p-2 border rounded" />
-                        </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
 
-            {selectedPlayer && playerStats && (
-                <div className="print:block print:w-full print:h-auto bg-white text-black font-sans">
-                    <style>{`
-                        @media print {
-                            @page { margin: 5mm; size: A4; }
-                            body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
-                            nav, aside, header { display: none !important; }
-                            .print\\:hidden { display: none !important; }
-                            .print\\:block { display: block !important; width: 100% !important; height: auto !important; }
-                        }
-                    `}</style>
-
-                    <div className="flex justify-between items-end mb-1 px-2">
-                        <div className="border-b-2 border-gray-400 pb-1 text-xl font-bold text-gray-700">投球データ（個人）</div>
-                        <div className="border-b-2 border-gray-400 pb-1 text-xl font-bold flex-grow text-center mx-4 flex items-end justify-center">
-                            <span className="text-gray-600 text-sm mr-2 mb-1">氏名</span>
-                            <input
-                                type="text"
-                                value={customPlayerName}
-                                onChange={(e) => setCustomPlayerName(e.target.value)}
-                                className="font-bold text-xl text-center bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none w-[200px]"
-                            />
+            {/* Individual Report Content */}
+            {
+                viewMode === 'individual' && selectedPlayer && (
+                    <div className="mt-8 flex flex-col gap-4">
+                        {/* Expanded Manual Inputs */}
+                        <div className="mb-4 bg-blue-50 border border-blue-200 p-2 rounded text-[10px] print:hidden">
+                            <h3 className="font-bold mb-1">比較データ手動入力 (前回・チーム平均)</h3>
+                            <div className="grid grid-cols-2 gap-2">
+                                {/* Previous Data */}
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-0.5">前回</h4>
+                                    <div className="grid grid-cols-3 gap-1">
+                                        <input name="prevVelocity" placeholder="球速" value={manualData.prevVelocity || ''} onChange={handleManualChange} className="border p-1 w-full" />
+                                        <input name="prevSpin" placeholder="回転数" value={manualData.prevSpin || ''} onChange={handleManualChange} className="border p-1 w-full" />
+                                        <input name="prevEfficiency" placeholder="効率(%)" value={manualData.prevEfficiency || ''} onChange={handleManualChange} className="border p-1 w-full" />
+                                        <input name="prevVB" placeholder="縦変化" value={manualData.prevVB || ''} onChange={handleManualChange} className="border p-1 w-full" />
+                                        <input name="prevHB" placeholder="横変化" value={manualData.prevHB || ''} onChange={handleManualChange} className="border p-1 w-full" />
+                                        <input name="prevStrikeRate" placeholder="制球率" value={manualData.prevStrikeRate || ''} onChange={handleManualChange} className="border p-1 w-full" />
+                                    </div>
+                                </div>
+                                {/* Team Average Data */}
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-0.5">チーム平均</h4>
+                                    <div className="grid grid-cols-3 gap-1">
+                                        <input name="teamVelocity" placeholder="球速" value={manualData.teamVelocity || ''} onChange={handleManualChange} className="border p-1 w-full" />
+                                        <input name="teamSpin" placeholder="回転数" value={manualData.teamSpin || ''} onChange={handleManualChange} className="border p-1 w-full" />
+                                        <input name="teamEfficiency" placeholder="効率(%)" value={manualData.teamEfficiency || ''} onChange={handleManualChange} className="border p-1 w-full" />
+                                        <input name="teamVB" placeholder="縦変化" value={manualData.teamVB || ''} onChange={handleManualChange} className="border p-1 w-full" />
+                                        <input name="teamHB" placeholder="横変化" value={manualData.teamHB || ''} onChange={handleManualChange} className="border p-1 w-full" />
+                                        <input name="teamStrikeRate" placeholder="制球率" value={manualData.teamStrikeRate || ''} onChange={handleManualChange} className="border p-1 w-full" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="mt-2 grid grid-cols-3 gap-1">
+                                <input name="quickTimeBest" placeholder="Ｑ最短 (秒)" value={manualData.quickTimeBest} onChange={handleManualChange} className="border p-1 w-full" />
+                                <input name="quickTimeAvg" placeholder="Ｑ平均 (秒)" value={manualData.quickTimeAvg} onChange={handleManualChange} className="border p-1 w-full" />
+                                <input name="quickTimeTeam" placeholder="Ｑチーム平均" value={manualData.quickTimeTeam} onChange={handleManualChange} className="border p-1 w-full" />
+                            </div>
                         </div>
-                        <div className="border-b-2 border-gray-400 pb-1 text-lg font-bold">
-                            <span className="text-gray-600 text-sm mr-2">計測日</span>{new Date().toLocaleDateString()}
-                        </div>
-                    </div>
 
-                    <div className="border-b-2 border-red-600 border-dashed mb-2 opacity-50"></div>
+                        {playerStats && playerStats.averages && playerStats.averages.length > 0 && (
+                            <>
+                                <div className="border border-blue-200 bg-blue-50 p-3 rounded-lg print:hidden">
+                                    <label className="block text-xs font-bold text-blue-800 mb-2">制球率調整 (球種別・%)</label>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                                        {playerStats.averages.map((stat, idx) => {
+                                            const isStraight = stat.type.includes('ストレート') || stat.type.toLowerCase().includes('straight') || stat.type.toLowerCase().includes('fastball');
+                                            // Apply Manual Strike Rate Override
+                                            const displayStrikeRate = manualStrikeRates[stat.type] || stat.strikeRate;
 
-                    {/* 1. Averages Table */}
-                    <div className="mb-2">
-                        <table className="w-full border-collapse border border-black text-[10px] text-center table-fixed">
-                            <thead>
-                                <tr className="bg-gray-100">
-                                    <th className="border border-black p-0.5 w-[12%]">球種</th>
-                                    <th className="border border-black p-0.5 w-[8%]"></th>
-                                    <th className="border border-black p-0.5">投球速度<br />(km/h)</th>
-                                    <th className="border border-black p-0.5">総回転数<br />(rpm)</th>
-                                    <th className="border border-black p-0.5">回転効率<br />(%)</th>
-                                    <th className="border border-black p-0.5">回転方向<br />(時:分)</th>
-                                    <th className="border border-black p-0.5">縦の変化<br />(cm)</th>
-                                    <th className="border border-black p-0.5">横の変化<br />(cm)</th>
-                                    <th className="border border-black p-0.5">リリース<br />角度(°)</th>
-                                    <th className="border border-black p-0.5">リリース<br />高さ(m)</th>
-                                    <th className="border border-black p-0.5">リリース<br />横(m)</th>
-                                    <th className="border border-black p-0.5">ジャイロ<br />角度(°)</th>
-                                    <th className="border border-black p-0.5">制球率<br />(%)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {playerStats.averages.map((stat, idx) => {
-                                    const showMax = shouldShowMax(stat.type);
-                                    return (
-                                        <React.Fragment key={stat.type}>
-                                            <tr className="h-6">
-                                                <td className="border border-black font-bold text-white text-xs align-middle" style={{ backgroundColor: getTypeColor(stat.type) }} rowSpan={showMax ? 2 : 1}>{stat.type}</td>
-                                                <td className="border border-black bg-gray-50 text-[9px] align-middle">平均値</td>
-                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgVelocity}</td>
-                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgSpin}</td>
-                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgEfficiency}</td>
-                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgClock}</td>
-                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgVB}</td>
-                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgHB}</td>
-                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgRA}</td>
-                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgRH}</td>
-                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgRS}</td>
-                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgGyro}</td>
-                                                <td className="border border-black font-bold text-sm align-middle" rowSpan={showMax ? 2 : 1}>{stat.strikeRate}</td>
-                                            </tr>
-                                            {showMax && (
-                                                <tr className="h-6">
-                                                    <td className="border border-black bg-gray-50 text-[9px] align-middle">最大値</td>
-                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxVelocity}</td>
-                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxSpin}</td>
-                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxEfficiency}</td>
-                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxClock}</td>
-                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxVB}</td>
-                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxHB}</td>
-                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxRA}</td>
-                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxRH}</td>
-                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxRS}</td>
-                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxGyro}</td>
+                                            return (
+                                                <div key={stat.type} className="flex gap-2 items-center text-xs">
+                                                    <span className="font-bold" style={{ color: getTypeColor(stat.type) }}>{stat.type}</span>
+                                                    <input
+                                                        className="border rounded w-12 text-center"
+                                                        placeholder={stat.strikeRate}
+                                                        value={manualStrikeRates[stat.type] !== undefined ? manualStrikeRates[stat.type] : ''}
+                                                        onChange={(e) => handleManualStrikeRateChange(stat.type, e.target.value)}
+                                                    />
+                                                    <span>%</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="print:block print:w-full bg-white text-black font-sans py-4 print:py-0">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <h2 className="text-3xl font-bold border-b-2 border-black pb-1">{customPlayerName || selectedPlayer}</h2>
+                                        <div className="text-xl font-bold">{new Date().toLocaleDateString('ja-JP')}</div>
+                                    </div>
+                                    <div className="text-red-600 text-xl font-bold leading-none tracking-tighter mb-4 print:mb-1 print:text-sm">
+                                        {"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"}
+                                    </div>
+
+                                    {/* 1. Main Stats Table */}
+                                    <div className="mb-2">
+                                        <table className="w-full border-collapse border border-black text-center table-fixed">
+                                            <thead>
+                                                <tr className="bg-gray-100 h-8 text-[10px]">
+                                                    <th className="border border-black w-20">球種</th>
+                                                    <th className="border border-black w-10">項目</th>
+                                                    <th className="border border-black">投球速度<br />(km/h)</th>
+                                                    <th className="border border-black">総回転数<br />(rpm)</th>
+                                                    <th className="border border-black">回転効率<br />(%)</th>
+                                                    <th className="border border-black">回転軸<br />(時間)</th>
+                                                    <th className="border border-black">縦の変化量<br />(cm)</th>
+                                                    <th className="border border-black">横の変化量<br />(cm)</th>
+                                                    <th className="border border-black">リリース高<br />(cm)</th>
+                                                    <th className="border border-black">リリース横<br />(cm)</th>
+                                                    <th className="border border-black">リリース<br />前後(cm)</th>
+                                                    <th className="border border-black">ジャイロ<br />角度(度)</th>
+                                                    <th className="border border-black">制球率<br />(%)</th>
                                                 </tr>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                            </thead>
+                                            <tbody>
+                                                {playerStats.averages.map((stat, idx) => {
+                                                    const isStraight = stat.type.includes('ストレート') || stat.type.toLowerCase().includes('straight') || stat.type.toLowerCase().includes('fastball');
+                                                    // Apply Manual Strike Rate Override
+                                                    const displayStrikeRate = manualStrikeRates[stat.type] || stat.strikeRate;
 
-                    {/* 2. Comparison Table */}
-                    <div className="mb-2">
-                        <table className="w-full border-collapse border border-black text-[10px] text-center table-fixed">
-                            <thead>
-                                <tr className="bg-red-600 text-white">
-                                    <th className="border border-black p-0.5">ストレート</th>
-                                    <th className="border border-black p-0.5">投球速度</th>
-                                    <th className="border border-black p-0.5">総回転数</th>
-                                    <th className="border border-black p-0.5">回転効率</th>
-                                    <th className="border border-black p-0.5">縦の変化量</th>
-                                    <th className="border border-black p-0.5">横の変化量</th>
-                                    <th className="border border-black p-0.5">制球率</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td className="border border-black font-bold bg-gray-50">今回</td>
-                                    {(() => {
-                                        const fb = playerStats.averages.find(s => s.type.includes('ストレート')) || {};
-                                        return (
-                                            <>
-                                                <td className="border border-black text-sm font-bold">{fb.maxVelocity || '-'}</td>
-                                                <td className="border border-black text-sm font-bold">{fb.avgSpin || '-'}</td>
-                                                <td className="border border-black text-sm font-bold">{fb.avgEfficiency || '-'}</td>
-                                                <td className="border border-black text-sm font-bold">{fb.avgVB || '-'}</td>
-                                                <td className="border border-black text-sm font-bold">{fb.avgHB || '-'}</td>
-                                                <td className="border border-black text-sm font-bold">{fb.strikeRate || '-'}</td>
-                                            </>
-                                        );
-                                    })()}
-                                </tr>
-                                <tr>
-                                    <td className="border border-black font-bold bg-gray-50 text-green-700">前回</td>
-                                    <td className="border border-black">{manualData.prevVelocity}</td>
-                                    <td className="border border-black">{manualData.prevSpin}</td>
-                                    <td className="border border-black">{manualData.prevEfficiency}</td>
-                                    <td className="border border-black">{manualData.prevVB}</td>
-                                    <td className="border border-black">{manualData.prevHB}</td>
-                                    <td className="border border-black">{manualData.prevStrike}</td>
-                                </tr>
-                                <tr>
-                                    <td className="border border-black font-bold bg-gray-50 text-red-700">チーム平均</td>
-                                    <td className="border border-black">{teamStats?.avgVelocity}</td>
-                                    <td className="border border-black">{teamStats?.avgSpin}</td>
-                                    <td className="border border-black">{teamStats?.avgEfficiency}</td>
-                                    <td className="border border-black">{teamStats?.avgVB}</td>
-                                    <td className="border border-black">{teamStats?.avgHB}</td>
-                                    <td className="border border-black">{teamStats?.strikeRate}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* 3. Quick Motion Times */}
-                    <div className="mb-2 flex items-center gap-4">
-                        <div className="bg-red-600 text-white font-bold px-4 py-1 border border-black text-xs">クイック</div>
-                        <table className="border-collapse border border-black text-center flex-grow text-[10px]">
-                            <thead>
-                                <tr className="bg-gray-100">
-                                    <th className="border border-black p-0.5">最短タイム (秒)</th>
-                                    <th className="border border-black p-0.5">平均タイム (秒)</th>
-                                    <th className="border border-black p-0.5">平均のチーム平均</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td className="border border-black text-base font-bold p-0.5">{manualData.quickTimeBest || '-'}</td>
-                                    <td className="border border-black text-base font-bold p-0.5">{manualData.quickTimeAvg || '-'}</td>
-                                    <td className="border border-black text-base font-bold p-0.5">{manualData.quickTimeTeam || '-'}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <div className="text-sm font-bold ml-4">目標は1.29秒以内</div>
-                    </div>
-
-                    {/* 4. Charts Section - Reduced Height */}
-                    <div className="grid grid-cols-2 gap-4 min-h-[350px]">
-                        {/* Left: Break Chart */}
-                        <div className="border border-green-600 p-1 flex flex-col items-center justify-center">
-                            <h3 className="text-center font-bold text-sm mb-1">変化量チャートと球種別平均値</h3>
-                            <div className="relative w-[280px] h-[280px] border border-gray-100">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <ScatterChart margin={{ top: 10, right: 10, bottom: 30, left: 30 }}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis type="number" dataKey="hb" name="Horizontal Break" domain={[-70, 70]} label={{ value: '横の変化量', position: 'bottom', offset: 0, fontSize: 9, dy: 5 }} tick={{ fontSize: 9 }} />
-                                        <YAxis type="number" dataKey="vb" name="Vertical Break" domain={[-70, 70]} label={{ value: '縦の変化量', angle: -90, position: 'left', offset: 0, fontSize: 9, dx: -5 }} tick={{ fontSize: 9 }} />
-                                        <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                                        <Scatter name="Pitches" data={playerStats.rawPitches} fill="#8884d8" shape={<circle r={3} />}>
-                                            {playerStats.rawPitches.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={getTypeColor(entry.type)} />
-                                            ))}
-                                        </Scatter>
-                                    </ScatterChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="mt-1 text-[8px] w-full">
-                                <table className="w-full border-collapse border border-black text-center table-fixed">
-                                    <thead>
-                                        <tr className="bg-gray-100">
-                                            <th className="border border-black p-0 w-[20%]">球種</th>
-                                            <th className="border border-black p-0 w-[20%]">回転数</th>
-                                            <th className="border border-black p-0 w-[20%]">回転効率</th>
-                                            <th className="border border-black p-0 w-[20%]">縦の変化量</th>
-                                            <th className="border border-black p-0 w-[20%]">横の変化量</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {playerStats.averages.map(s => (
-                                            <tr key={s.type}>
-                                                <td className="border border-black text-white p-0" style={{ backgroundColor: getTypeColor(s.type) }}>{s.type}</td>
-                                                <td className="border border-black p-0">{s.avgSpin}</td>
-                                                <td className="border border-black p-0">{s.avgEfficiency}</td>
-                                                <td className="border border-black p-0">{s.avgVB}</td>
-                                                <td className="border border-black p-0">{s.avgHB}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        {/* Right: Velocity Difference */}
-                        <div className="border border-green-600 p-1 flex flex-col">
-                            <h3 className="text-center font-bold text-sm mb-1">球速緩急差（平均値）</h3>
-                            <div className="flex items-start h-full">
-                                <div className="w-[50px] h-full relative mr-1 flex-shrink-0">
-                                    <div className="absolute left-[60%] top-0 bottom-0 w-0.5 bg-black transform -translate-x-1/2"></div>
-                                    {(() => {
-                                        const velocities = playerStats.averages.map(s => parseFloat(s.avgVelocity));
-                                        const maxV = Math.max(...velocities);
-                                        const minV = Math.min(...velocities);
-                                        const yMax = Math.ceil((maxV + 10) / 10) * 10;
-                                        const yMin = Math.floor((minV - 10) / 10) * 10;
-                                        const range = yMax - yMin;
-                                        const step = range > 60 ? 20 : 10;
-                                        const ticks = [];
-                                        for (let v = yMax; v >= yMin; v -= step) {
-                                            ticks.push(v);
-                                        }
-
-                                        return (
-                                            <>
-                                                {ticks.map(tick => {
-                                                    const bottomPct = ((tick - yMin) / range) * 100;
                                                     return (
-                                                        <div key={tick} className="absolute right-[50%] text-[9px] text-right transform translate-y-1/2" style={{ bottom: `${bottomPct}%` }}>
-                                                            {tick}
-                                                        </div>
+                                                        <React.Fragment key={stat.type}>
+                                                            <tr className="h-6">
+                                                                <td className="border border-black font-bold text-white text-xs align-middle" style={{ backgroundColor: getTypeColor(stat.type) }} rowSpan={isStraight ? 2 : 1}>{stat.type}</td>
+                                                                <td className="border border-black bg-gray-50 text-[9px] align-middle">平均値</td>
+                                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgVelocity}</td>
+                                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgSpin}</td>
+                                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgEfficiency}</td>
+                                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgClock}</td>
+                                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgVB}</td>
+                                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgHB}</td>
+                                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgRA}</td>
+                                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgRH}</td>
+                                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgRS}</td>
+                                                                <td className="border border-black font-bold text-sm align-middle">{stat.avgGyro}</td>
+                                                                <td className="border border-black font-bold text-sm align-middle" rowSpan={isStraight ? 2 : 1}>{displayStrikeRate}</td>
+                                                            </tr>
+                                                            {isStraight && (
+                                                                <tr className="h-6">
+                                                                    <td className="border border-black bg-gray-50 text-[9px] align-middle">最大値</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxVelocity}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxSpin}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxEfficiency}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxClock}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxVB}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxHB}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxRA}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxRH}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxRS}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxGyro}</td>
+                                                                </tr>
+                                                            )}
+                                                        </React.Fragment>
                                                     );
                                                 })}
-                                                {playerStats.averages.map(s => {
-                                                    const vel = parseFloat(s.avgVelocity);
-                                                    const percent = ((vel - yMin) / range) * 100;
-                                                    if (percent < 0 || percent > 100) return null;
-                                                    return (
-                                                        <div key={s.type} className="absolute w-3 h-3 rounded-full border border-white shadow-sm z-50" style={{ backgroundColor: getTypeColor(s.type), bottom: `${percent}%`, left: '60%', transform: 'translate(-50%, 50%)' }} title={`${s.type}: ${vel}`} />
-                                                    );
-                                                })}
-                                            </>
-                                        );
-                                    })()}
-                                </div>
-                                <div className="flex-grow flex justify-end pr-2">
-                                    <table className="w-[85%] border-collapse border border-black text-center text-[10px]">
-                                        <thead>
-                                            <tr className="bg-gray-100">
-                                                <th className="border border-black p-1 w-[35%]">球種</th>
-                                                <th className="border border-black p-1">投球<br />速度</th>
-                                                <th className="border border-black p-1">ストレート<br />に対する<br />割合(%)</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(() => {
-                                                const fb = playerStats.averages.find(s => s.type.includes('ストレート'));
-                                                const fbVel = fb ? parseFloat(fb.avgVelocity) : 0;
-                                                return playerStats.averages.map(s => {
-                                                    const vel = parseFloat(s.avgVelocity);
-                                                    const ratio = fbVel > 0 ? ((vel / fbVel) * 100).toFixed(1) : '-';
-                                                    return (
-                                                        <tr key={s.type}>
-                                                            <td className="border border-black text-white font-bold p-1" style={{ backgroundColor: getTypeColor(s.type) }}>{s.type}</td>
-                                                            <td className="border border-black text-sm font-bold p-1">{s.avgVelocity}</td>
-                                                            <td className="border border-black bg-gray-100 font-bold p-1">{ratio}</td>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* 2. Comparison Table */}
+                                    <div className="mb-2">
+                                        <table className="w-full border-collapse border border-black text-[10px] text-center table-fixed">
+                                            <thead>
+                                                <tr className="bg-red-600 text-white">
+                                                    <th className="border border-black p-0.5">ストレート</th>
+                                                    <th className="border border-black p-0.5">投球速度</th>
+                                                    <th className="border border-black p-0.5">総回転数</th>
+                                                    <th className="border border-black p-0.5">回転効率</th>
+                                                    <th className="border border-black p-0.5">縦の変化量</th>
+                                                    <th className="border border-black p-0.5">横の変化量</th>
+                                                    <th className="border border-black p-0.5">制球率</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr className="h-6">
+                                                    <td className="border border-black font-bold bg-gray-50">今回</td>
+                                                    {(() => {
+                                                        const fb = playerStats.averages.find(s => s.type.includes('ストレート')) || {};
+                                                        const displayStrikeRate = fb.type ? (manualStrikeRates[fb.type] || fb.strikeRate) : '-';
+                                                        return (
+                                                            <>
+                                                                <td className="border border-black text-[10px] font-bold">{fb.maxVelocity || '-'}</td>
+                                                                <td className="border border-black text-[10px] font-bold">{fb.maxSpin || '-'}</td>
+                                                                <td className="border border-black text-[10px] font-bold">{fb.maxEfficiency || '-'}</td>
+                                                                <td className="border border-black text-[10px] font-bold">{fb.maxVB || '-'}</td>
+                                                                <td className="border border-black text-[10px] font-bold">{fb.maxHB || '-'}</td>
+                                                                <td className="border border-black text-[10px] font-bold">{displayStrikeRate}</td>
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </tr>
+                                                <tr className="h-6">
+                                                    <td className="border border-black font-bold bg-gray-50 text-green-700">前回</td>
+                                                    <td className="border border-black font-bold">{manualData.prevVelocity || '-'}</td>
+                                                    <td className="border border-black font-bold">{manualData.prevSpin || '-'}</td>
+                                                    <td className="border border-black font-bold bg-white">{manualData.prevEfficiency || prevStats?.avgEfficiency || '-'}</td>
+                                                    <td className="border border-black font-bold bg-white">{manualData.prevVB || prevStats?.avgVB || '-'}</td>
+                                                    <td className="border border-black font-bold bg-white">{manualData.prevHB || prevStats?.avgHB || '-'}</td>
+                                                    <td className="border border-black font-bold bg-white">{manualData.prevStrikeRate || '-'}</td>
+                                                </tr>
+                                                <tr className="h-6">
+                                                    <td className="border border-black font-bold bg-gray-50 text-red-700">チーム平均</td>
+                                                    <td className="border border-black font-bold bg-white">{manualData.teamVelocity || teamStats?.avgVelocity || '-'}</td>
+                                                    <td className="border border-black font-bold bg-white">{manualData.teamSpin || teamStats?.avgSpin || '-'}</td>
+                                                    <td className="border border-black font-bold bg-white">{manualData.teamEfficiency || teamStats?.avgEfficiency || '-'}</td>
+                                                    <td className="border border-black font-bold bg-white">{manualData.teamVB || '-'}</td>
+                                                    <td className="border border-black font-bold bg-white">{manualData.teamHB || '-'}</td>
+                                                    <td className="border border-black font-bold bg-white">{manualData.teamStrikeRate || teamStats?.avgStrikeRate || '-'}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* 3. Quick Motion Times */}
+                                    <div className="mb-2 flex items-stretch gap-0">
+                                        <div className="bg-red-600 text-white font-bold w-20 flex items-center justify-center border border-black border-r-0 text-sm">クイック</div>
+                                        <table className="border-collapse border border-black text-center flex-grow text-[10px] h-full">
+                                            <thead>
+                                                <tr className="bg-[#FFE5D9] h-7">
+                                                    <th className="border border-black p-0.5">最短タイム (秒)</th>
+                                                    <th className="border border-black p-0.5">平均タイム (秒)</th>
+                                                    <th className="border border-black p-0.5">平均のチーム平均</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr className="h-7">
+                                                    <td className="border border-black text-[10px] font-bold p-0.5 bg-white">{manualData.quickTimeBest || '-'}</td>
+                                                    <td className="border border-black text-[10px] font-bold p-0.5 bg-white">{manualData.quickTimeAvg || '-'}</td>
+                                                    <td className="border border-black text-[10px] font-bold p-0.5 bg-white">{manualData.quickTimeTeam || '-'}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                        <div className="text-sm font-bold ml-4 flex items-center">目標は1.29秒以内</div>
+                                    </div>
+
+                                    {/* Equal Height Wrapper - Unified height strategy for consistent print rendering */}
+                                    <div className="flex flex-row justify-center gap-4 items-stretch print:gap-1 min-h-[400px] break-inside-avoid">
+                                        {/* Left: Change Chart & Table */}
+                                        <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 flex flex-col h-full relative" style={{ height: 'auto' }}>
+                                            <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">変化量チャートと球種別平均値</h3>
+                                            <div className="relative ml-0 h-[240px] mb-2 print:mb-0" style={{ width: '90%' }}>
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" />
+                                                        <XAxis type="number" dataKey="hb" domain={[-70, 70]} tick={{ fontSize: 9 }} label={{ value: '横の変化量', position: 'insideBottom', offset: 0, fontSize: 10 }} />
+                                                        <YAxis type="number" dataKey="vb" domain={[-70, 70]} tick={{ fontSize: 9 }} label={{ value: '縦の変化量', angle: -90, position: 'insideLeft', dx: 20, dy: -5, textAnchor: 'middle', fontSize: 10 }} />
+                                                        <Scatter data={playerStats.rawPitches}>
+                                                            {playerStats.rawPitches.map((entry, index) => (
+                                                                <Cell key={index} fill={getTypeColor(entry.type)} />
+                                                            ))}
+                                                        </Scatter>
+                                                    </ScatterChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                            <table className="w-full border-collapse border border-black text-[10px] text-center table-fixed mt-auto print:mt-0">
+                                                <thead>
+                                                    <tr className="bg-gray-100 h-8">
+                                                        <th className="border border-black">球種<br />(平均値)</th>
+                                                        <th className="border border-black">回転数</th>
+                                                        <th className="border border-black">回転<br />効率</th>
+                                                        <th className="border border-black">縦の<br />変化量</th>
+                                                        <th className="border border-black">横の<br />変化量</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {playerStats.averages.map(stat => (
+                                                        <tr key={stat.type} className="h-6">
+                                                            <td className="border border-black text-white font-bold" style={{ backgroundColor: getTypeColor(stat.type) }}>{stat.type}</td>
+                                                            <td className="border border-black">{stat.avgSpin}</td>
+                                                            <td className="border border-black">{stat.avgEfficiency}</td>
+                                                            <td className="border border-black">{stat.avgVB}</td>
+                                                            <td className="border border-black">{stat.avgHB}</td>
                                                         </tr>
-                                                    );
-                                                });
-                                            })()}
-                                        </tbody>
-                                    </table>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Right: Velocity Difference Vertical Chart */}
+                                        <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 flex flex-col h-full relative" style={{ height: 'auto' }}>
+                                            <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">球速緩急差（平均値）</h3>
+                                            <div className="flex flex-grow items-stretch relative">
+                                                {/* Vertical Velocity Scale */}
+                                                <div className="w-[30%] relative flex justify-end pr-6">
+                                                    {/* The single vertical line - Reduced to 3/4 length, centered */}
+                                                    <div className="absolute right-4 top-[12.5%] h-[75%] w-[2px] bg-gray-400"></div>
+
+                                                    {(() => {
+                                                        // Dynamic Scale Calculation
+                                                        const vels = playerStats.averages.map(s => Number(s.avgVelocity)).filter(v => !isNaN(v) && v > 0);
+                                                        const minV = vels.length ? Math.min(...vels) : 100;
+                                                        const maxV = vels.length ? Math.max(...vels) : 140;
+
+                                                        let minScale = Math.floor(minV / 10) * 10;
+                                                        let maxScale = Math.ceil(maxV / 10) * 10;
+
+                                                        if (maxScale - minScale < 40) {
+                                                            maxScale = minScale + 40;
+                                                        }
+
+                                                        const ticks = [];
+                                                        for (let v = maxScale; v >= minScale; v -= 5) {
+                                                            ticks.push(v);
+                                                        }
+
+                                                        return (
+                                                            <>
+                                                                {ticks.map(v => (
+                                                                    <div key={v} className="absolute flex items-center"
+                                                                        style={{ bottom: `calc(12.5% + ${((v - minScale) / (maxScale - minScale)) * 75}%)` }}>
+                                                                        <span className="text-[11px] font-bold pr-3">{v}</span>
+                                                                    </div>
+                                                                ))}
+
+                                                                {playerStats.averages.map(stat => (
+                                                                    <div
+                                                                        key={stat.type}
+                                                                        className="absolute w-4 h-4 rounded-full border border-white shadow-sm ring-1 ring-gray-200"
+                                                                        style={{
+                                                                            bottom: `calc(12.5% + ${((Math.max(minScale, Math.min(maxScale, Number(stat.avgVelocity))) - minScale) / (maxScale - minScale)) * 75}% - 8px)`,
+                                                                            right: '9px',
+                                                                            backgroundColor: getTypeColor(stat.type),
+                                                                            zIndex: 10
+                                                                        }}
+                                                                    />
+                                                                ))}
+                                                            </>
+                                                        );
+                                                    })()}
+
+                                                    <div className="absolute top-[88%] right-4 translate-x-1/2 text-[10px] font-bold text-center w-20 whitespace-nowrap">
+                                                        投球速度
+                                                    </div>
+                                                </div>
+
+                                                {/* Speed Ratio Table */}
+                                                <div className="w-[70%] flex flex-col justify-center">
+                                                    <table className="border-collapse border border-black text-[9px] text-center table-fixed h-fit">
+                                                        <thead>
+                                                            <tr className="bg-gray-100 h-10">
+                                                                <th className="border border-black w-[30%] text-[8px]">球種</th>
+                                                                <th className="border border-black w-[30%] text-[8px]">投球<br />速度</th>
+                                                                <th className="border border-black w-[40%] text-[8px]">ストレート<br />に対する<br />割合<br />(%)</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {(() => {
+                                                                const fb = playerStats.averages.find(s => s.type.includes('ストレート')) || { avgVelocity: 1 };
+                                                                return playerStats.averages.map(stat => (
+                                                                    <tr key={stat.type} className="h-8">
+                                                                        <td className="border border-black text-white font-bold" style={{ backgroundColor: getTypeColor(stat.type) }}>
+                                                                            {stat.type.includes('(クイック)') ? 'クイック' : stat.type}
+                                                                        </td>
+                                                                        <td className="border border-black font-bold text-[10px]">{stat.avgVelocity}</td>
+                                                                        <td className="border border-black bg-gray-50 font-bold text-[10px]">
+                                                                            {stat.type.includes('ストレート') ? '100' : (Number(stat.avgVelocity) / Number(fb.avgVelocity) * 100).toFixed(0)}
+                                                                        </td>
+                                                                    </tr>
+                                                                ));
+                                                            })()}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
+                            </>
+                        )}
+                    </div>
+                )
+            }
+            {viewMode === 'team' && teamStats && (
+                <div className="print:block print:w-full no-break bg-white text-black font-sans py-4">
+                    <div className="flex justify-between items-center mb-1">
+                        <h2 className="text-3xl font-bold border-b-2 border-black pb-1">チーム：{teamPitchType}データ一覧</h2>
+                        <div className="text-xl font-bold">{new Date().toLocaleDateString('ja-JP')}</div>
+                    </div>
+                    <div className="text-red-600 text-xl font-bold leading-none tracking-tighter mb-4">
+                        {"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"}
+                    </div>
+
+                    <div className="text-red-600 font-bold text-2xl mb-4">{selectedThrowHand === 'Right' ? '右投げ' : '左投げ'}</div>
+
+                    <table className="w-full border-collapse border border-black text-center text-[10px] table-fixed">
+                        <thead>
+                            <tr className="bg-gray-100">
+                                <th className="border border-black p-0.5 w-[10%]">氏名</th>
+                                <th className="border border-black p-0.5 w-[4%]"></th>
+                                <th className="border border-black p-0.5">投球速度<br />(km/h)</th>
+                                <th className="border border-black p-0.5">総回転数<br />(rpm)</th>
+                                <th className="border border-black p-0.5">回転効率<br />(%)</th>
+                                <th className="border border-black p-0.5">回転軸<br />(時:分)</th>
+                                <th className="border border-black p-0.5">縦変化<br />(cm)</th>
+                                <th className="border border-black p-0.5">横変化<br />(cm)</th>
+                                <th className="border border-black p-0.5">リリース<br />角度(横)</th>
+                                <th className="border border-black p-0.5">リリース<br />角度(縦)</th>
+                                <th className="border border-black p-0.5">リリース<br />高さ</th>
+                                <th className="border border-black p-0.5">リリース<br />横</th>
+                                <th className="border border-black p-0.5">ジャイロ<br />角度</th>
+                                <th className="border border-black p-0.5">制球率<br />(%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {teamStats.pitchers.map(p => (
+                                <React.Fragment key={p.name}>
+                                    <tr className="h-6">
+                                        <td className="border border-black font-bold p-0.5 bg-white align-middle" rowSpan={2}>{p.name}</td>
+                                        <td className="border border-black bg-gray-50 p-0.5 text-[7px] text-gray-500">平均値</td>
+                                        <td className={`border border-black font-bold p-0.5 ${Number(p.avgVelocity) >= Number(teamStats.avgVelocity) ? 'bg-yellow-200' : ''}`}>{p.avgVelocity}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${Number(p.avgSpin) >= Number(teamStats.avgSpin) ? 'bg-yellow-200' : ''}`}>{p.avgSpin}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.avgEff}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.avgSpinDir}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.avgVB}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.avgHB}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.avgRah}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.avgRav}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.avgRh}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.avgRs}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.avgGyro}</td>
+                                        <td className="border border-black font-bold p-0.5 align-middle" rowSpan={2}>
+                                            <input
+                                                type="text"
+                                                value={teamManualStrikeRates[p.name] !== undefined ? teamManualStrikeRates[p.name] : p.strikeRate}
+                                                onChange={(e) => handleTeamManualStrikeRateChange(p.name, e.target.value)}
+                                                className="w-full h-full text-center bg-transparent border-none outline-none font-bold p-0 m-0"
+                                            />
+                                        </td>
+                                    </tr>
+                                    <tr className="h-6">
+                                        <td className="border border-black bg-gray-50 p-0.5 text-[7px] text-gray-500">最大値</td>
+                                        <td className="border border-black font-bold p-0.5">{p.maxStraightVelocity}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.maxSpin}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.maxEfficiency}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.maxSpinDir || '-'}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.maxVB || '-'}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.maxHB || '-'}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.maxRAH || '-'}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.maxRAV || '-'}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.maxRH || '-'}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.maxRS || '-'}</td>
+                                        <td className="border border-black font-bold p-0.5">{p.maxGyro || '-'}</td>
+                                    </tr>
+                                </React.Fragment>
+                            ))}
+                        </tbody>
+                    </table>
+
+                    <div className="mt-8 flex justify-center items-center gap-4">
+                        <div className="bg-yellow-200 w-12 h-6 border border-black"></div>
+                        <div className="font-bold text-lg">投球速度、回転数が平均以上、制球率が60%以上</div>
+                    </div>
+
+                    <div className="mt-8 flex justify-center">
+                        <table className="w-[70%] border-collapse border border-black text-center table-fixed">
+                            <thead>
+                                <tr className="bg-blue-600 text-white h-10">
+                                    <th className="border border-black text-sm"></th>
+                                    <th className="border border-black text-sm">投球速度<br />(km/h)</th>
+                                    <th className="border border-black text-sm">総回転数<br />(rpm)</th>
+                                    <th className="border border-black text-sm">制球率<br />(%)</th>
+                                    <th className="border border-black text-sm">チーム クイック平均<br />(秒)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="h-12">
+                                <tr className="text-2xl font-bold">
+                                    <td className="border border-black bg-gray-50 text-sm">平均値</td>
+                                    <td className="border border-black">{teamStats.avgMaxVelocity}</td>
+                                    <td className="border border-black">{teamStats.avgSpin}</td>
+                                    <td className="border border-black">{teamStats.avgStrikeRate}</td>
+                                    <td className="border border-black text-blue-700">{manualData.teamQuickAvg || '-'}</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}
