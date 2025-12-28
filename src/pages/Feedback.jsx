@@ -825,7 +825,7 @@ const Feedback = () => {
 
                                 <div className="print:block print:w-full bg-white text-black font-sans py-4 print:py-0">
                                     <div className="flex justify-between items-center mb-1 print:mb-0">
-                                        <h2 className="text-3xl font-bold border-b-2 border-black pb-1">{customPlayerName || selectedPlayer}</h2>
+                                        <h2 className="text-3xl font-bold border-b-2 border-black pb-1 print:pb-0">{customPlayerName || selectedPlayer}</h2>
                                         <div className="text-xl font-bold">{new Date().toLocaleDateString('ja-JP')}</div>
                                     </div>
                                     <div className="text-red-600 text-xl font-bold leading-none tracking-tighter mb-4 print:mb-0 print:text-sm">
@@ -833,7 +833,7 @@ const Feedback = () => {
                                     </div>
 
                                     {/* 1. Main Stats Table */}
-                                    <div className="mb-2 print:mb-1">
+                                    <div className="mb-2 print:mb-0">
                                         <table className="w-full border-collapse border border-black text-center table-fixed">
                                             <thead>
                                                 <tr className="bg-gray-100 h-8 text-[10px]">
@@ -878,16 +878,16 @@ const Feedback = () => {
                                                             {isStraight && (
                                                                 <tr className="h-6 print:h-5">
                                                                     <td className="border border-black bg-gray-50 text-[9px] align-middle">最大値</td>
-                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxVelocity}</td>
-                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxSpin}</td>
-                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxEfficiency}</td>
-                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxClock}</td>
-                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxVB}</td>
-                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxHB}</td>
-                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxRA}</td>
-                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxRH}</td>
-                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxRS}</td>
-                                                                    <td className="border border-black font-bold text-sm align-middle">{stat.maxGyro}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxVelocity}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxSpin}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxEfficiency}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxClock}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxVB}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxHB}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxRA}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxRH}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxRS}</td>
+                                                                    <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxGyro}</td>
                                                                 </tr>
                                                             )}
                                                         </React.Fragment>
@@ -898,7 +898,7 @@ const Feedback = () => {
                                     </div>
 
                                     {/* 2. Comparison Table */}
-                                    <div className="mb-2">
+                                    <div className="mb-2 print:mt-2">
                                         <table className="w-full border-collapse border border-black text-[10px] text-center table-fixed">
                                             <thead>
                                                 <tr className="bg-red-600 text-white">
@@ -952,7 +952,7 @@ const Feedback = () => {
                                     </div>
 
                                     {/* 3. Quick Motion Times */}
-                                    <div className="mb-2 flex items-stretch gap-0">
+                                    <div className="mb-2 print:mb-0 flex items-stretch gap-0">
                                         <div className="bg-red-600 text-white font-bold w-20 flex items-center justify-center border border-black border-r-0 text-sm">クイック</div>
                                         <table className="border-collapse border border-black text-center flex-grow text-[10px] h-full">
                                             <thead>
@@ -976,9 +976,9 @@ const Feedback = () => {
                                     {/* Equal Height Wrapper - Unified height strategy for consistent print rendering */}
                                     <div className="flex flex-row justify-center gap-4 items-stretch print:gap-1 print:gap-2 min-h-[400px] print:min-h-0 break-inside-avoid print:w-[98%] print:mx-auto">
                                         {/* Left: Change Chart & Table */}
-                                        <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-2 flex flex-col h-full relative" style={{ height: 'auto' }}>
+                                        <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-4 print:pb-[26px] flex flex-col h-full relative" style={{ height: 'auto' }}>
                                             <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">変化量チャートと球種別平均値</h3>
-                                            <div className="relative ml-0 h-[240px] print:h-[200px] mb-2 print:mb-0 w-[90%] print:w-[85%]">
+                                            <div className="relative ml-0 print:ml-[-6px] h-[240px] print:h-[200px] mb-2 print:mb-0 w-[90%] print:w-[75%]">
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
                                                         <CartesianGrid strokeDasharray="3 3" />
@@ -992,24 +992,24 @@ const Feedback = () => {
                                                     </ScatterChart>
                                                 </ResponsiveContainer>
                                             </div>
-                                            <table className="w-full border-collapse border border-black text-[10px] text-center table-fixed mt-auto print:mt-0">
+                                            <table className="w-full print:w-[95%] print:mx-auto border-collapse border border-black text-[10px] print:text-[8px] text-center table-fixed mt-auto print:mt-[48px]">
                                                 <thead>
-                                                    <tr className="bg-gray-100 h-8">
+                                                    <tr className="bg-gray-100 h-8 print:h-6">
                                                         <th className="border border-black">球種<br />(平均値)</th>
                                                         <th className="border border-black">回転数</th>
-                                                        <th className="border border-black">回転<br />効率</th>
+                                                        <th className="border border-black bg-gray-300">回転<br />効率</th>
                                                         <th className="border border-black">縦の<br />変化量</th>
-                                                        <th className="border border-black">横の<br />変化量</th>
+                                                        <th className="border border-black bg-gray-300">横の<br />変化量</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {playerStats.averages.map(stat => (
-                                                        <tr key={stat.type} className="h-6">
-                                                            <td className="border border-black text-white font-bold" style={{ backgroundColor: getTypeColor(stat.type) }}>{formatPitchTypeName(stat.type)}</td>
+                                                        <tr key={stat.type} className="h-6 print:h-5">
+                                                            <td className="border border-black text-white font-bold print:text-[8px]" style={{ backgroundColor: getTypeColor(stat.type) }}>{formatPitchTypeName(stat.type)}</td>
                                                             <td className="border border-black">{stat.avgSpin}</td>
-                                                            <td className="border border-black">{stat.avgEfficiency}</td>
+                                                            <td className="border border-black bg-gray-300">{stat.avgEfficiency}</td>
                                                             <td className="border border-black">{stat.avgVB}</td>
-                                                            <td className="border border-black">{stat.avgHB}</td>
+                                                            <td className="border border-black bg-gray-300">{stat.avgHB}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -1017,13 +1017,13 @@ const Feedback = () => {
                                         </div>
 
                                         {/* Right: Velocity Difference Vertical Chart */}
-                                        <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-2 flex flex-col h-full relative" style={{ height: 'auto' }}>
+                                        <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-4 print:pb-[26px] flex flex-col h-full relative" style={{ height: 'auto' }}>
                                             <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">球速緩急差（平均値）</h3>
                                             <div className="flex flex-grow items-stretch relative print:pr-2">
                                                 {/* Vertical Velocity Scale */}
                                                 <div className="w-[30%] relative flex justify-end pr-6 print:pr-8">
                                                     {/* The single vertical line - Reduced to 3/4 length, centered */}
-                                                    <div className="absolute right-4 print:right-8 top-[12.5%] h-[75%] w-[2px] bg-gray-400"></div>
+                                                    <div className="absolute right-4 top-[12.5%] h-[75%] w-[2px] bg-gray-400"></div>
 
                                                     {(() => {
                                                         // Dynamic Scale Calculation
@@ -1058,7 +1058,7 @@ const Feedback = () => {
                                                                         className="absolute w-4 h-4 rounded-full border border-white shadow-sm ring-1 ring-gray-200"
                                                                         style={{
                                                                             bottom: `calc(12.5% + ${((Math.max(minScale, Math.min(maxScale, Number(stat.avgVelocity))) - minScale) / (maxScale - minScale)) * 75}% - 8px)`,
-                                                                            right: '25px',
+                                                                            right: '9px',
                                                                             backgroundColor: getTypeColor(stat.type),
                                                                             zIndex: 10
                                                                         }}
@@ -1068,7 +1068,7 @@ const Feedback = () => {
                                                         );
                                                     })()}
 
-                                                    <div className="absolute top-[88%] right-4 print:right-8 translate-x-1/2 text-[10px] font-bold text-center w-20 whitespace-nowrap">
+                                                    <div className="absolute top-[88%] right-4 translate-x-1/2 text-[10px] font-bold text-center w-20 whitespace-nowrap">
                                                         投球速度
                                                     </div>
                                                 </div>
@@ -1080,7 +1080,7 @@ const Feedback = () => {
                                                             <tr className="bg-gray-100 h-10">
                                                                 <th className="border border-black w-[30%] text-[8px]">球種</th>
                                                                 <th className="border border-black w-[30%] text-[8px]">投球<br />速度</th>
-                                                                <th className="border border-black w-[40%] text-[8px]">ストレート<br />に対する<br />割合<br />(%)</th>
+                                                                <th className="border border-black w-[40%] text-[8px] bg-gray-300">ストレート<br />に対する<br />割合<br />(%)</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
@@ -1092,7 +1092,7 @@ const Feedback = () => {
                                                                             {stat.type.includes('(クイック)') ? 'クイック' : formatPitchTypeName(stat.type)}
                                                                         </td>
                                                                         <td className="border border-black font-bold text-[10px]">{stat.avgVelocity}</td>
-                                                                        <td className="border border-black bg-gray-50 font-bold text-[10px]">
+                                                                        <td className="border border-black bg-gray-300 font-bold text-[10px]">
                                                                             {stat.type.includes('ストレート') ? '100' : (Number(stat.avgVelocity) / Number(fb.avgVelocity) * 100).toFixed(0)}
                                                                         </td>
                                                                     </tr>
@@ -1111,7 +1111,7 @@ const Feedback = () => {
                 )
             }
             {viewMode === 'team' && teamStats && (
-                <div id="report-container" className="print:block print:w-full bg-white text-black font-sans print:py-0 py-4">
+                <div id="report-container" className="print:block print:w-full bg-white text-black font-sans print:py-0 print:pb-3 py-4">
                     <div className="flex justify-between items-center mb-1">
                         <h2 className="text-3xl font-bold border-b-2 border-black pb-1">チーム：{teamPitchType}データ一覧</h2>
                         <div className="text-xl font-bold">{new Date().toLocaleDateString('ja-JP')}</div>
@@ -1142,23 +1142,23 @@ const Feedback = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {teamStats.pitchers.map(p => (
+                            {teamStats.pitchers.map((p, index) => (
                                 <React.Fragment key={p.name}>
                                     <tr className="h-5">
-                                        <td className="border border-black font-bold p-0.5 bg-white align-middle" rowSpan={2}>{p.name}</td>
-                                        <td className="border border-black bg-gray-50 p-0.5 text-[7px] text-gray-500">平均値</td>
-                                        <td className={`border border-black font-bold p-0.5 ${Number(p.avgVelocity) >= Number(teamStats.avgVelocity) ? 'bg-yellow-200' : ''}`}>{p.avgVelocity}</td>
-                                        <td className={`border border-black font-bold p-0.5 ${Number(p.avgSpin) >= Number(teamStats.avgSpin) ? 'bg-yellow-200' : ''}`}>{p.avgSpin}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.avgEff}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.avgSpinDir}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.avgVB}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.avgHB}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.avgRah}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.avgRav}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.avgRh}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.avgRs}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.avgGyro}</td>
-                                        <td className="border border-black font-bold p-0.5 align-middle" rowSpan={2}>
+                                        <td className={`border border-black font-bold p-0.5 align-middle ${index % 2 === 1 ? 'bg-gray-200' : 'bg-white'}`} rowSpan={2}>{p.name}</td>
+                                        <td className={`border border-black p-0.5 text-[7px] text-gray-500 ${index % 2 === 1 ? 'bg-gray-200' : 'bg-gray-50'}`}>平均値</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''} ${Number(p.avgVelocity) >= Number(teamStats.avgVelocity) ? 'bg-yellow-200' : ''}`}>{p.avgVelocity}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''} ${Number(p.avgSpin) >= Number(teamStats.avgSpin) ? 'bg-yellow-200' : ''}`}>{p.avgSpin}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgEff}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgSpinDir}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgVB}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgHB}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgRah}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgRav}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgRh}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgRs}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgGyro}</td>
+                                        <td className={`border border-black font-bold p-0.5 align-middle ${index % 2 === 1 ? 'bg-gray-200' : ''}`} rowSpan={2}>
                                             <input
                                                 type="text"
                                                 value={teamManualStrikeRates[p.name] !== undefined ? teamManualStrikeRates[p.name] : p.strikeRate}
@@ -1168,18 +1168,18 @@ const Feedback = () => {
                                         </td>
                                     </tr>
                                     <tr className="h-5">
-                                        <td className="border border-black bg-gray-50 p-0.5 text-[7px] text-gray-500">最大値</td>
-                                        <td className="border border-black font-bold p-0.5">{p.maxStraightVelocity}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.maxSpin}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.maxEfficiency}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.maxSpinDir || '-'}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.maxVB || '-'}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.maxHB || '-'}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.maxRAH || '-'}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.maxRAV || '-'}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.maxRH || '-'}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.maxRS || '-'}</td>
-                                        <td className="border border-black font-bold p-0.5">{p.maxGyro || '-'}</td>
+                                        <td className={`border border-black p-0.5 text-[7px] text-gray-500 ${index % 2 === 1 ? 'bg-gray-200' : 'bg-gray-50'}`}>最大値</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxStraightVelocity}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxSpin}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxEfficiency}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxSpinDir || '-'}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxVB || '-'}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxHB || '-'}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRAH || '-'}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRAV || '-'}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRH || '-'}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRS || '-'}</td>
+                                        <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxGyro || '-'}</td>
                                     </tr>
                                 </React.Fragment>
                             ))}
