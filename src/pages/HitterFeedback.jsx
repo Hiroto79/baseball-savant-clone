@@ -57,12 +57,28 @@ const HitterFeedback = () => {
         return [...unique].sort();
     }, [allData]);
 
-    // Unique Grades for Team Report
-    const uniqueGrades = useMemo(() => {
-        const s = new Set(allData.map(d => (d['学年'] || d['Grade'] || d['Year'] || '').toString()).filter(Boolean));
-        // Sort mechanism: numeric-ish
-        return Array.from(s).sort();
+    // Added: Check if MS3 exists in data
+    const hasMS3 = useMemo(() => {
+        return allData.some(d => {
+            const g = d['学年'] || d['Grade'] || d['Year'] || '';
+            return g.includes('3') && (g.includes('中') || g.includes('MS'));
+        });
     }, [allData]);
+
+    // Unique Grades and Color Logic
+    const getGradeInfo = (raw) => {
+        const s = String(raw || '').trim();
+        if (s.includes('2')) return { label: '2年生', color: 'text-red-600', order: 2, group: '2' };
+        if (s.includes('3') && (s.includes('中') || s.includes('MS'))) return { label: '中学3年生', color: 'text-blue-600', order: 4, group: 'MS3' }; // MS3
+        if (s.includes('3')) return { label: '3年生', color: 'text-blue-600', order: 1, group: '3' }; // HS3
+        return { label: '1年生', color: 'text-black', order: 3, group: '1' }; // Default 1st
+    };
+
+    const getPlayerGradeInfo = (player) => {
+        const row = allData.find(d => (d['Player Name'] || d.PlayerName) === player);
+        if (!row) return { color: 'text-black' };
+        return getGradeInfo(row['学年'] || row['Grade'] || row['Year'] || '');
+    };
 
     useEffect(() => {
         if (players.length > 0 && !selectedPlayer) {
@@ -143,18 +159,22 @@ const HitterFeedback = () => {
 
     const getAverage = (tagConfig, key) => {
         const rows = getFilteredRows(tagConfig, null); // null = all players
-        if (rows.length === 0) return 0;
+        if (rows.length === 0) return null;
         const vals = rows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
-        if (vals.length === 0) return 0;
+        if (vals.length === 0) return null;
         return parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1));
     };
 
-    const getGradeAverage = (tagConfig, key, gradeRaw) => {
-        // Filter by Grade
-        const rows = getFilteredRows(tagConfig, null).filter(r => (r['学年'] || r['Grade'] || r['Year'] || '').toString() === gradeRaw);
-        if (rows.length === 0) return '';
+    const getGradeAverage = (tagConfig, key, gradeGroup) => {
+        // Filter by Grade Group logic
+        const rows = getFilteredRows(tagConfig, null).filter(r => {
+            const info = getGradeInfo(r['学年'] || r['Grade'] || r['Year'] || '');
+            return info.group === gradeGroup;
+        });
+
+        if (rows.length === 0) return '/';
         const vals = rows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
-        if (vals.length === 0) return '';
+        if (vals.length === 0) return '/';
         return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
     };
 
@@ -203,37 +223,47 @@ const HitterFeedback = () => {
 
     // --- RENDER ---
     return (
-        <div className="p-6 max-w-[210mm] mx-auto bg-gray-50 min-h-screen text-black font-sans print:max-w-[200mm] print:mx-auto print:min-h-0 print:h-auto print:pb-0 print:overflow-hidden">
+        <div className="p-6 max-w-[210mm] mx-auto bg-gray-50 min-h-screen text-black font-sans print:max-w-none print:w-full print:mx-0 print:p-0 print:min-h-0 print:h-auto print:overflow-visible print:absolute print:top-0 print:left-0">
 
             {/* Force Print Styles & Reset */}
             <style>{`
                 @media print {
-                    @page { size: A4 portrait; margin: 0; }
-                    html, body { 
-                        width: 210mm; 
-                        height: 297mm; 
-                        background: white !important; 
-                        -webkit-print-color-adjust: exact; 
-                        margin: 0 !important; 
+                    @page { size: A4 landscape; margin: 0mm; }
+                    html, body {
+                        width: 297mm;
+                        height: auto;
+                        min-height: 100vh;
+                        background: white !important;
+                        -webkit-print-color-adjust: exact;
+                        margin: 0 !important;
                         padding: 0 !important;
-                        overflow: hidden !important; /* Prevent 2nd page if close */
+                        overflow: visible !important;
                     }
+                    /* Explicit Print Column Widths Override - Removed in favor of inline pixel widths for exact control */
+                    /* .print-col-player { width: 48mm !important; } */
+                    /* .print-col-data { width: 19mm !important; } */
+
                     /* Hide EVERYTHING by default */
                     body * { visibility: hidden; }
                     /* Only show the report container and its children */
                     #report-container, #report-container * { visibility: visible; }
-                    
+
                     /* Position the report at absolute top-left */
                     #report-container {
                         position: relative;
                         width: 100% !important;
                         height: auto !important;
                         margin: 0 auto !important;
-                        padding: 5mm !important;
-                        box-shadow: none !important;
+                        padding-left: 5mm !important;
+                        padding-right: 5mm !important;
                         border: none !important;
+                        box-shadow: none !important;
                         background: white !important;
-                        overflow: hidden !important;
+                        overflow: visible !important;
+                        page-break-after: always;
+                    }
+                    #report-container:last-child {
+                        page-break-after: auto;
                     }
 
                     /* Hide specific UI elements just in case */
@@ -560,7 +590,7 @@ const HitterFeedback = () => {
                                         </div>
 
                                         {/* Legend */}
-                                        <div className="w-full flex justify-end pr-8 pb-1 h-[45px] absolute bottom-[-49px] right-0">
+                                        <div className="w-full flex justify-end h-[45px] absolute bottom-[-49px] right-0">
                                             <img src="/assets/launch_angle_legend.png" alt="Legend" className="h-full object-contain" />
                                         </div>
                                     </div>
@@ -606,11 +636,11 @@ const HitterFeedback = () => {
                                         <h3 className="font-bold text-lg absolute top-[-25px] left-0">打球速度とバット速度 ({reportType === 'hand' ? '置きT' : '条件別'})</h3>
 
                                         <div className="relative h-[240px] w-full border border-black mt-1">
-                                            {/* Top Gradient - Thicker, No Cap */}
-                                            <div className="absolute top-[-10px] left-[18%] right-[2px] h-4 bg-gradient-to-r from-blue-300 via-white to-red-400 border border-gray-400 z-10"></div>
+                                            {/* Top Gradient - Thicker, No Cap - Aligned to corner */}
+                                            <div className="absolute top-[-10px] left-[18%] right-[-10px] h-4 bg-gradient-to-r from-blue-300 via-white to-red-400 border border-gray-400 z-10 border-r-0"></div>
 
-                                            {/* Right Gradient - Thicker, No Cap */}
-                                            <div className="absolute top-[2px] right-[-10px] bottom-[18%] w-4 bg-gradient-to-t from-blue-300 via-white to-red-400 border border-gray-400 z-10"></div>
+                                            {/* Right Gradient - Thicker, No Cap - Aligned to corner */}
+                                            <div className="absolute top-[-10px] right-[-10px] bottom-[18%] w-4 bg-gradient-to-t from-blue-300 via-white to-red-400 border border-gray-400 z-10 border-t-0"></div>
 
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <ScatterChart margin={{ top: 10, right: 10, bottom: 15, left: 15 }}>
@@ -941,141 +971,221 @@ const HitterFeedback = () => {
 
             {/* ============== TEAM REPORT ============== */}
             {
-                viewMode === 'team' && (
-                    <div id="report-container" className="bg-white mx-auto text-black leading-tight border border-gray-200 shadow relative p-12 pt-12 flex flex-col items-stretch" style={{ width: '297mm', minHeight: '210mm', writingMode: 'horizontal-tb' }}>
-                        {/* Print Spacer (Adjust this height to lower the title in PDF) */}
-                        <div className="hidden print:block print:h-[30px]"></div>
-                        <div className="mb-4">
-                            <h2 className="text-3xl font-bold border-b border-black inline-block pb-1">チーム：打球データ一覧</h2>
-                        </div>
-                        <div className="text-red-600 text-xl font-bold leading-none select-none">
-                            {"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"}
-                        </div>
-                        <div className="text-2xl font-bold mt-2 mb-4">
-                            {reportDate.split('-')[0]}年{reportDate.split('-')[1].replace(/^0/, '')}月{reportDate.split('-')[2].replace(/^0/, '')}日
-                        </div>
-
-
-                        <table className="border-collapse border border-black text-[10px] text-center table-fixed bg-white" style={{ minWidth: CONFIG[reportType].length === 2 ? '1040px' : '1060px', width: '100%' }}>
-                            <colgroup>
-                                <col style={{ width: CONFIG[reportType].length === 2 ? '150px' : '165px' }} />
-                                {Array.from({ length: CONFIG[reportType].length * 6 }).map((_, i) => (
-                                    <col key={i} style={{ width: CONFIG[reportType].length === 2 ? '75px' : '50px' }} />
-                                ))}
-                            </colgroup>
-                            <thead>
-                                {/* 1st Row: Category Headers */}
-                                <tr className="bg-white">
-                                    <th className="border border-black p-2 align-middle text-base font-bold text-center" rowSpan="3">選手名</th>
-                                    {CONFIG[reportType].map(cat => (
-                                        <th key={cat.id} className="border border-black p-1 text-sm font-bold bg-white h-8" colSpan="6">{cat.label.split(' ')[0]}</th>
-                                    ))}
-                                </tr>
-                                {/* 2nd Row: Metric Names */}
-                                <tr className="bg-white font-bold text-white h-8">
-                                    {CONFIG[reportType].map(cat => (
-                                        <React.Fragment key={cat.id}>
-                                            <th className="border border-black p-1 bg-[#ff0000] text-[10px] whitespace-nowrap">打球速度</th>
-                                            <th className="border border-black p-1 bg-[#ff0000] text-[10px] whitespace-nowrap">打球角度</th>
-                                            <th className="border border-black p-1 bg-[#ff0000] text-[10px] whitespace-nowrap">飛距離</th>
-                                            <th className="border border-black p-1 bg-[#00ccff] text-[10px] whitespace-nowrap">バット速度</th>
-                                            <th className="border border-black p-1 bg-[#00ccff] text-[10px] whitespace-nowrap">パワー</th>
-                                            <th className="border border-black p-1 bg-[#00ccff] text-[10px] whitespace-nowrap">アジャスト率</th>
-                                        </React.Fragment>
-                                    ))}
-                                </tr>
-                                {/* 3rd Row: Units */}
-                                <tr className="bg-white font-bold text-black h-6">
-                                    {CONFIG[reportType].map(cat => (
-                                        <React.Fragment key={cat.id}>
-                                            <th className="border border-black p-0 text-[10px] whitespace-nowrap">(km/h)</th>
-                                            <th className="border border-black p-0 text-[10px] whitespace-nowrap">(deg)</th>
-                                            <th className="border border-black p-0 text-[10px] whitespace-nowrap">(m)</th>
-                                            <th className="border border-black p-0 text-[10px] whitespace-nowrap">(km/h)</th>
-                                            <th className="border border-black p-0 text-[10px] whitespace-nowrap">(kW)</th>
-                                            <th className="border border-black p-0 text-[10px] whitespace-nowrap">(%)</th>
-                                        </React.Fragment>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {players.map(player => (
-                                    <tr key={player} className="h-6">
-                                        <td className="border border-black p-1 font-bold text-red-600 text-center bg-white align-middle">{player}</td>
-                                        {CONFIG[reportType].map((cat, idx) => {
-                                            const stats = getStats(cat, player);
-                                            // Calculate Team Average for this Category
-                                            const teamEV = getAverage(cat, 'ExitVelocity');
-                                            const teamAng = getAverage(cat, 'LaunchAngle');
-                                            const teamDist = getAverage(cat, 'Distance');
-                                            const teamBat = getAverage(cat, 'BatSpeed');
-                                            // Placeholders for now for Power/Adjust if not calculated
-                                            const teamPower = 0;
-                                            const teamAdjust = 0;
-
-                                            const isHighEV = stats && stats.ev !== '-' && parseFloat(stats.ev) >= teamEV;
-                                            const isHighAng = stats && stats.angle !== '-' && parseFloat(stats.angle) >= teamAng;
-                                            const isHighDist = stats && stats.dist !== '-' && parseFloat(stats.dist) >= teamDist;
-                                            const isHighBat = stats && stats.batSpeed !== '-' && parseFloat(stats.batSpeed) >= teamBat;
-
-                                            // Note: Power and Adjust are placeholders in getStats currently, so no highlight logic yet for them.
-
-                                            return (
-                                                <React.Fragment key={cat.id}>
-                                                    <td className={`border border-black p-1 font-bold ${isHighEV ? 'bg-yellow-300' : ''}`}>{stats ? stats.ev : '-'}</td>
-                                                    <td className={`border border-black p-1 font-bold ${isHighAng ? 'bg-yellow-300' : ''}`}>{stats ? stats.angle : '-'}</td>
-                                                    <td className={`border border-black p-1 font-bold ${isHighDist ? 'bg-yellow-300' : ''}`}>{stats ? stats.dist : '-'}</td>
-                                                    <td className={`border border-black p-1 font-bold ${isHighBat ? 'bg-yellow-300' : ''}`}>{stats ? stats.batSpeed : '-'}</td>
-                                                    <td className="border border-black p-1 font-bold">{stats ? stats.power : '-'}</td>
-                                                    <td className="border border-black p-1 font-bold">{stats ? stats.adjust : '-'}</td>
-                                                </React.Fragment>
-                                            );
-                                        })}
-                                    </tr>
-                                ))}
-                                {/* Legend Row */}
-                                <tr className="bg-white border text-[10px] h-6 border-black">
-                                    <td className="border border-black p-0 bg-white"></td>
-                                    <td className="border border-black p-0 bg-yellow-400 w-14" style={{ height: '1.5rem' }}></td>
-                                    <td colSpan={CONFIG[reportType].length * 6 - 1} className="border border-black p-1 text-left bg-white font-normal align-middle">
-                                        は同学年の平均値以上
+                viewMode === 'team' && (() => {
+                    const renderTeamReportPage = (pageCategories, pageIndex, totalPages) => {
+                        const colPlayerWidth = 140;
+                        const colDataWidth = 75;
+                        const renderCell = (val) => {
+                            if (val === '/') {
+                                return (
+                                    <td className="border border-black p-0 relative overflow-hidden">
+                                        <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+                                            <line x1="100%" y1="0%" x2="0%" y2="100%" stroke="black" strokeWidth="1.5" />
+                                        </svg>
                                     </td>
-                                </tr>
+                                );
+                            }
+                            return <td className="border border-black p-1 text-[1.3em]">{val}</td>;
+                        };
 
-                                {/* Grade Average Rows */}
-                                {uniqueGrades.map(g => (
-                                    <tr key={g} className="bg-white border text-xs h-6 font-bold text-red-600">
-                                        <td className="border border-black p-1 text-center font-bold bg-white align-middle">{g === '中3' ? '中学3年生平均' : g === '中2' ? '中学2年生平均' : `${g}年生平均`}</td>
-                                        {CONFIG[reportType].map(cat => (
-                                            <React.Fragment key={cat.id}>
-                                                <td className="border border-black p-1">{getGradeAverage(cat, 'ExitVelocity', g)}</td>
-                                                <td className="border border-black p-1">{getGradeAverage(cat, 'LaunchAngle', g)}</td>
-                                                <td className="border border-black p-1">{getGradeAverage(cat, 'Distance', g)}</td>
-                                                <td className="border border-black p-1">{getGradeAverage(cat, 'BatSpeed', g)}</td>
-                                                <td className="border border-black p-1">-</td>
-                                                <td className="border border-black p-1">-</td>
-                                            </React.Fragment>
-                                        ))}
-                                    </tr>
-                                ))}
-                                {/* Summary Rows */}
-                                <tr className="bg-white border-t-2 border-black font-bold">
-                                    <td className="border border-black p-1 text-center font-bold">平均値</td>
-                                    {CONFIG[reportType].map(cat => (
-                                        <React.Fragment key={cat.id}>
-                                            <td className="border border-black p-1">{getAverage(cat, 'ExitVelocity').toFixed(1)}</td>
-                                            <td className="border border-black p-1">{getAverage(cat, 'LaunchAngle').toFixed(1)}</td>
-                                            <td className="border border-black p-1">{getAverage(cat, 'Distance').toFixed(1)}</td>
-                                            <td className="border border-black p-1">{getAverage(cat, 'BatSpeed').toFixed(1)}</td>
-                                            <td className="border border-black p-1">-</td>
-                                            <td className="border border-black p-1">-</td>
-                                        </React.Fragment>
-                                    ))}
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                )
+                        const totalTableWidth = colPlayerWidth + (pageCategories.length * 6 * colDataWidth);
+
+                        return (
+                            <div key={pageIndex} id="report-container" className={`bg-white mx-auto text-black leading-tight border border-gray-200 shadow relative p-8 print:px-[2mm] print:pt-[75px] print:pb-[20px] flex flex-col items-center ${pageIndex > 0 ? 'print:break-before-page' : ''}`} style={{ width: '297mm', minHeight: '210mm', writingMode: 'horizontal-tb', marginBottom: '20px' }}>
+                                {/* Print Spacer (Adjust this height to lower the title in PDF) */}
+                                <div className="mb-2 w-full text-left">
+                                    <h2 className="text-3xl font-bold border-b border-black inline-block pb-1">チーム：打球データ一覧 {totalPages > 1 ? `(${pageIndex + 1}/${totalPages})` : ''}</h2>
+                                </div>
+                                <div className="text-red-600 text-xl font-bold leading-none select-none w-full text-left">
+                                    {"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"}
+                                </div>
+                                <div className="text-2xl font-bold mt-1 mb-16 w-full text-left">
+                                    {reportDate.split('-')[0]}年{reportDate.split('-')[1].replace(/^0/, '')}月{reportDate.split('-')[2].replace(/^0/, '')}日
+                                </div>
+
+                                <div className="w-full flex justify-center p-[1px]">
+                                    <table className="border-collapse border border-black text-[10px] text-center table-fixed bg-white mx-auto" style={{ width: `${totalTableWidth}px` }}> {/* Removed margin:0 auto in favor of flex parent centering */}
+                                        <colgroup>
+                                            <col style={{ width: `${colPlayerWidth}px` }} />
+                                            {Array.from({ length: pageCategories.length * 6 }).map((_, i) => (
+                                                <col key={i} style={{ width: `${colDataWidth}px` }} />
+                                            ))}
+                                        </colgroup>
+                                        <thead>
+                                            {/* 1st Row: Category Headers */}
+                                            <tr className="bg-white">
+                                                <th className="border border-black p-2 align-middle text-base font-bold text-center" rowSpan="3">選手名</th>
+                                                {pageCategories.map(cat => (
+                                                    <th key={cat.id} className="border border-black p-1 text-sm font-bold bg-white h-8" colSpan="6">{cat.label.split(' ')[0]}</th>
+                                                ))}
+                                            </tr>
+                                            {/* 2nd Row: Metric Names */}
+                                            <tr className="bg-white font-bold text-white h-8">
+                                                {pageCategories.map(cat => (
+                                                    <React.Fragment key={cat.id}>
+                                                        <th className="border border-black p-1 bg-[#ff0000] text-[10px] whitespace-nowrap">打球速度</th>
+                                                        <th className="border border-black p-1 bg-[#ff0000] text-[10px] whitespace-nowrap">打球角度</th>
+                                                        <th className="border border-black p-1 bg-[#ff0000] text-[10px] whitespace-nowrap">飛距離</th>
+                                                        <th className="border border-black p-1 bg-[#00ccff] text-[10px] whitespace-nowrap">バット速度</th>
+                                                        <th className="border border-black p-1 bg-[#00ccff] text-[10px] whitespace-nowrap">パワー</th>
+                                                        <th className="border border-black p-1 bg-[#00ccff] text-[10px] whitespace-nowrap">アジャスト率</th>
+                                                    </React.Fragment>
+                                                ))}
+                                            </tr>
+                                            {/* 3rd Row: Units */}
+                                            <tr className="bg-white font-bold text-black h-6">
+                                                {pageCategories.map(cat => (
+                                                    <React.Fragment key={cat.id}>
+                                                        <th className="border border-black p-0 text-[9px] whitespace-nowrap">(km/h)</th>
+                                                        <th className="border border-black p-0 text-[9px] whitespace-nowrap">(deg)</th>
+                                                        <th className="border border-black p-0 text-[9px] whitespace-nowrap">(m)</th>
+                                                        <th className="border border-black p-0 text-[9px] whitespace-nowrap">(km/h)</th>
+                                                        <th className="border border-black p-0 text-[9px] whitespace-nowrap">(kW)</th>
+                                                        <th className="border border-black p-0 text-[9px] whitespace-nowrap">(%)</th>
+                                                    </React.Fragment>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {/* PLAYER ROWS */}
+                                            {players.map((row) => {
+                                                const pName = row; // row is the player name string in players array
+                                                return (
+                                                    <tr key={pName} className="bg-white border text-xs h-6 font-bold text-black border-b-[1.5px] border-b-black">
+                                                        <td className="border border-black p-1 font-bold bg-white align-middle text-[1.4em] overflow-hidden whitespace-nowrap text-ellipsis px-1">{pName}</td>
+                                                        {pageCategories.map(cat => {
+                                                            const stats = getStats(cat, pName);
+                                                            return (
+                                                                <React.Fragment key={cat.id}>
+                                                                    <td className="border border-black p-1 text-[1.3em]">{stats ? stats.ev : '-'}</td>
+                                                                    <td className="border border-black p-1 text-[1.3em]">{stats ? stats.angle : '-'}</td>
+                                                                    <td className="border border-black p-1 text-[1.3em]">{stats ? stats.dist : '-'}</td>
+                                                                    <td className="border border-black p-1 text-[1.3em]">{stats ? stats.batSpeed : '-'}</td>
+                                                                    <td className="border border-black p-1 text-[1.3em]">{stats ? stats.power : '-'}</td>
+                                                                    <td className="border border-black p-1 text-[1.3em]">{stats ? stats.adjust : '-'}</td>
+                                                                </React.Fragment>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                );
+                                            })}
+
+                                            {/* SPACER ROW */}
+                                            <tr className="h-4 border-none">
+                                                <td colSpan={1 + (pageCategories.length * 6)} className="border-none"></td>
+                                            </tr>
+
+                                            {/* 2nd Year (Red) */}
+                                            <tr className="bg-white border text-xs h-6 font-bold text-red-600">
+                                                <td className="border border-black p-1 text-center font-bold bg-white align-middle text-[1.3em]">2年生平均</td>
+                                                {pageCategories.map(cat => (
+                                                    <React.Fragment key={cat.id}>
+                                                        {renderCell(getGradeAverage(cat, 'ExitVelocity', '2'))}
+                                                        {renderCell(getGradeAverage(cat, 'LaunchAngle', '2'))}
+                                                        {renderCell(getGradeAverage(cat, 'Distance', '2'))}
+                                                        {renderCell(getGradeAverage(cat, 'BatSpeed', '2'))}
+                                                        <td className="border border-black p-1 text-[1.3em] text-black text-center">-</td>
+                                                        <td className="border border-black p-1 text-[1.3em] text-black text-center">-</td>
+                                                    </React.Fragment>
+                                                ))}
+                                            </tr>
+                                            {/* 1st Year (Black) */}
+                                            <tr className="bg-white border text-xs h-6 font-bold text-black">
+                                                <td className="border border-black p-1 text-center font-bold bg-white align-middle text-[1.3em]">1年生平均</td>
+                                                {pageCategories.map(cat => (
+                                                    <React.Fragment key={cat.id}>
+                                                        {renderCell(getGradeAverage(cat, 'ExitVelocity', '1'))}
+                                                        {renderCell(getGradeAverage(cat, 'LaunchAngle', '1'))}
+                                                        {renderCell(getGradeAverage(cat, 'Distance', '1'))}
+                                                        {renderCell(getGradeAverage(cat, 'BatSpeed', '1'))}
+                                                        {renderCell('-')}
+                                                        {renderCell('-')}
+                                                    </React.Fragment>
+                                                ))}
+                                            </tr>
+                                            {/* MS3 (Blue) - Conditional Render */}
+                                            {hasMS3 && (
+                                                <tr className="bg-white border text-xs h-6 font-bold text-[#3b82f6]">
+                                                    <td className="border border-black p-1 text-center font-bold bg-white align-middle text-[1.3em]">MS3平均</td>
+                                                    {pageCategories.map(cat => (
+                                                        <React.Fragment key={cat.id}>
+                                                            {renderCell(getGradeAverage(cat, 'ExitVelocity', 'MS3'))}
+                                                            {renderCell(getGradeAverage(cat, 'LaunchAngle', 'MS3'))}
+                                                            {renderCell(getGradeAverage(cat, 'Distance', 'MS3'))}
+                                                            {renderCell(getGradeAverage(cat, 'BatSpeed', 'MS3'))}
+                                                            {renderCell('-')}
+                                                            {renderCell('-')}
+                                                        </React.Fragment>
+                                                    ))}
+                                                </tr>
+                                            )}
+                                            {/* Team Average Row (Black) */}
+                                            <tr className="bg-white border text-xs h-6 font-bold text-black">
+                                                <td className="border border-black p-1 text-center font-bold bg-white align-middle text-[1.3em]">チーム平均</td>
+                                                {pageCategories.map(cat => {
+                                                    const avgEV = getAverage(cat, 'ExitVelocity');
+                                                    const avgAng = getAverage(cat, 'LaunchAngle');
+                                                    const avgDist = getAverage(cat, 'Distance');
+                                                    const avgBat = getAverage(cat, 'BatSpeed');
+
+                                                    return (
+                                                        <React.Fragment key={cat.id}>
+                                                            <td className="border border-black p-1 text-[1.3em]">{avgEV !== null ? avgEV.toFixed(1) : '-'}</td>
+                                                            <td className="border border-black p-1 text-[1.3em]">{avgAng !== null ? avgAng.toFixed(1) : '-'}</td>
+                                                            <td className="border border-black p-1 text-[1.3em]">{avgDist !== null ? avgDist.toFixed(1) : '-'}</td>
+                                                            <td className="border border-black p-1 text-[1.3em]">{avgBat !== null ? avgBat.toFixed(1) : '-'}</td>
+                                                            <td className="border border-black p-1 text-[1.3em]">-</td>
+                                                            <td className="border border-black p-1 text-[1.3em]">-</td>
+                                                        </React.Fragment>
+                                                    );
+                                                })}
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        );
+                    };
+
+                    const categories = CONFIG[reportType];
+                    if (categories.length === 3) {
+                        return (
+                            <>
+                                <style>{`
+                                    @media print {
+                                        @page {
+                                            size: A4 landscape;
+                                            margin: 0;
+                                        }
+                                        body {
+                                            -webkit-print-color-adjust: exact;
+                                            print-color-adjust: exact;
+                                        }
+                                    }
+                                `}</style>
+                                {renderTeamReportPage(categories.slice(0, 2), 0, 2)}
+                                {renderTeamReportPage(categories.slice(2, 3), 1, 2)}
+                            </>
+                        );
+                    }
+                    return (
+                        <>
+                            <style>{`
+                                    @media print {
+                                        @page {
+                                            size: A4 landscape;
+                                            margin: 0;
+                                        }
+                                        body {
+                                            -webkit-print-color-adjust: exact;
+                                            print-color-adjust: exact;
+                                        }
+                                    }
+                                `}</style>
+                            {renderTeamReportPage(categories, 0, 1)}
+                        </>
+                    );
+                })()
             }
         </div >
     );
