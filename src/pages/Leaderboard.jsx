@@ -143,7 +143,15 @@ const Leaderboard = () => {
                 });
             }
         } else if (activeTab === 'blast') {
-            blastData.forEach(d => {
+            // Flatten Blast Data
+            const allSwings = [];
+            Object.values(blastData).forEach(teamPlayers => {
+                Object.values(teamPlayers).forEach(swings => {
+                    allSwings.push(...swings);
+                });
+            });
+
+            allSwings.forEach(d => {
                 const p = d.PlayerName;
                 if (!p) return;
 

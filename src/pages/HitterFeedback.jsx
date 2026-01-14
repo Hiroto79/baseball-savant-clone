@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import Papa from 'papaparse';
 import { Upload, Printer, Info } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, ReferenceArea } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, ReferenceArea, ReferenceDot } from 'recharts';
 
 const HitterFeedback = () => {
     const { language } = useSettings();
@@ -14,6 +14,13 @@ const HitterFeedback = () => {
     const [reportType, setReportType] = useState('point'); // point, height, course, hand
     const [viewMode, setViewMode] = useState('individual'); // 'individual' or 'team'
     const [subViewMode, setSubViewMode] = useState('analysis'); // 'analysis' (P1) or 'detail' (P2) for individual report
+    const [customPlayerName, setCustomPlayerName] = useState('');
+
+    useEffect(() => {
+        if (selectedPlayer) {
+            setCustomPlayerName(selectedPlayer);
+        }
+    }, [selectedPlayer]);
 
     // Manual Benchmarks (Previous & Target only)
     const [benchmarks, setBenchmarks] = useState({
@@ -26,6 +33,7 @@ const HitterFeedback = () => {
         targetSpeed: '150.0',
         targetBatSpeed: '120.0'
     });
+    const [manualAdjustments, setManualAdjustments] = useState({});
 
     // Configuration for Categories
     const CONFIG = {
@@ -60,7 +68,7 @@ const HitterFeedback = () => {
     // Added: Check if MS3 exists in data
     const hasMS3 = useMemo(() => {
         return allData.some(d => {
-            const g = d['学年'] || d['Grade'] || d['Year'] || '';
+            const g = String(d['学年'] || d['Grade'] || d['Year'] || '');
             return g.includes('3') && (g.includes('中') || g.includes('MS'));
         });
     }, [allData]);
@@ -98,13 +106,216 @@ const HitterFeedback = () => {
             skipEmptyLines: true,
             dynamicTyping: true,
             complete: (results) => {
-                const data = results.data;
-                if (!data[0] || (!data[0]['Player Name'] && !data[0].PlayerName)) {
-                    alert('Invalid CSV. Missing "Player Name" column.');
+                const rawData = results.data;
+                if (!rawData[0]) {
+                    alert('Invalid CSV. No data found.');
                     setLoading(false);
                     return;
                 }
-                setAllData(data);
+
+                // Helper to normalize keys
+                const normalizeRow = (row) => {
+                    const newRow = { ...row };
+
+                    // Map of Variations -> Standard Key
+                    const keyMap = {
+                        // Bat Speed
+                        'Bat Speed (mph)': 'BatSpeed',
+                        'Bat Speed': 'BatSpeed',
+                        'バットスピード': 'BatSpeed',
+                        'バットスピード (mph)': 'BatSpeed',
+                        'バット速度': 'BatSpeed',
+                        'バット速度 (km/h)': 'BatSpeed',
+                        'Bat Speed (km/h)': 'BatSpeed',
+                        'BatSpeed': 'BatSpeed',
+
+
+                        // Exit Velocity
+                        'Exit Velocity': 'ExitVelocity',
+                        'ExitVelocity': 'ExitVelocity',
+                        '打球速度': 'ExitVelocity',
+                        '打球速度 (km/h)': 'ExitVelocity',
+                        'Exit Velocity (mph)': 'ExitVelocity',
+
+                        // Launch Angle
+                        'Launch Angle': 'LaunchAngle',
+                        'LaunchAngle': 'LaunchAngle',
+                        '打球角度': 'LaunchAngle',
+                        '打球角度 (deg)': 'LaunchAngle',
+                        'Launch Angle (deg)': 'LaunchAngle',
+
+                        // Distance
+                        'Distance': 'Distance',
+                        'Hit Distance': 'Distance',
+                        '飛距離': 'Distance',
+                        '推定飛距離': 'Distance',
+
+                        // Spin Rate
+                        'Spin Rate': 'SpinRate',
+                        'SpinRate': 'SpinRate',
+                        '回転数': 'SpinRate',
+                        'Total Spin': 'SpinRate',
+
+                        // Player Name
+                        'Player Name': 'PlayerName',
+                        'PlayerName': 'PlayerName',
+                        '名前': 'PlayerName',
+                        '選手名': 'PlayerName',
+
+                        // Tags
+                        'Tag': 'Tag',
+                        'Tags': 'Tag',
+                        'Note': 'Tag',
+                        'Notes': 'Tag',
+                        'タグ': 'Tag',
+                        'Category': 'Tag',
+
+                        // Grade
+                        '学年': 'Grade',
+                        'Grade': 'Grade',
+                        'Year': 'Grade',
+
+                        // Blast Metrics
+                        // Blast Metrics
+                        'パワー': 'Power',
+                        'パワー (kW)': 'Power',
+                        'Power': 'Power',
+                        'Power (kW)': 'Power',
+                        '加速度': 'Acceleration',
+                        '加速度 (G)': 'Acceleration',
+                        '加速度(G)': 'Acceleration',
+                        'ACC': 'Acceleration',
+                        'Acc': 'Acceleration',
+                        'Acceleration': 'Acceleration',
+                        'Acceleration (G)': 'Acceleration',
+                        'Acceleration(G)': 'Acceleration',
+                        'Max Acceleration(G)': 'Acceleration',
+                        'Maximum Acceleration': 'Acceleration',
+                        'Maximum Acceleration (G)': 'Acceleration',
+                        'Peak Hand Speed': 'PeakHandSpeed',
+                        'Peak Hand Speed (mph)': 'PeakHandSpeed',
+                        'Peak Hand Speed (km/h)': 'PeakHandSpeed',
+                        'アジャスト率': 'Adjust',
+                        'アジャスト率 (%)': 'Adjust',
+                        'アジャスト率(%)': 'Adjust',
+                        'Adjust': 'Adjust',
+                        'Adjust (%)': 'Adjust',
+                        'AdjustRate': 'Adjust',
+                        'On Plane Efficiency': 'OnPlaneEfficiency',
+                        'On Plane Efficiency (%)': 'OnPlaneEfficiency',
+                        'Attack Angle': 'AttackAngle',
+                        'Attack Angle (deg)': 'AttackAngle',
+                        'Vertical Bat Angle': 'VerticalBatAngle',
+                        'Vertical Bat Angle (deg)': 'VerticalBatAngle',
+                        'Early Connection': 'EarlyConnection',
+                        'Connection at Impact': 'ConnectionAtImpact',
+                        'Rotation Score': 'RotationScore',
+                        'スイング時間': 'Time',
+                        'Time to Contact': 'Time',
+                    };
+
+                    // Expanded Acceleration Keys - with all spacing and parenthesis variations
+                    const manualKeys = {
+                        'Acceleration': 'Acceleration',
+                        'Acceleration (g)': 'Acceleration',
+                        'Acceleration(g)': 'Acceleration',
+                        'Acceleration（g）': 'Acceleration',
+                        'Acceleration (G)': 'Acceleration',
+                        'Acceleration(G)': 'Acceleration',
+                        'Acceleration（G）': 'Acceleration',
+                        'Accel': 'Acceleration',
+                        'Accel (g)': 'Acceleration',
+                        'Accel(g)': 'Acceleration',
+                        'Accel（g）': 'Acceleration',
+                        'Accel (G)': 'Acceleration',
+                        'Accel(G)': 'Acceleration',
+                        'Accel（G）': 'Acceleration',
+                        'Body Rotational Acceleration': 'Acceleration',
+                        'Body Rotational Acceleration (g)': 'Acceleration',
+                        'Rotational Acceleration': 'Acceleration',
+                        'Rotational Accel': 'Acceleration',
+                        'Bat Accel': 'Acceleration',
+                        'Bat Acceleration': 'Acceleration',
+                        '加速度': 'Acceleration',
+                        '加速度 (G)': 'Acceleration',
+                        '加速度(G)': 'Acceleration',
+                        '加速度（G）': 'Acceleration',
+                        '加速度 (g)': 'Acceleration',
+                        '加速度(g)': 'Acceleration',
+                        '加速度（g）': 'Acceleration',
+                        '体の回転によるバットの加速の大きさ（初動）': 'Acceleration',
+                        '体の回転によるバットの加速の大きさ（初動） (g)': 'Acceleration',
+                        '体の回転によるバットの加速の大きさ（初動）(g)': 'Acceleration',
+                        '体の回転によるバットの加速の大きさ（初動）（g）': 'Acceleration',
+                        '体の回転によるバットの加速の大きさ(初動)': 'Acceleration',
+                        '体の回転によるバットの加速の大きさ(初動) (g)': 'Acceleration',
+                        '体の回転によるバットの加速の大きさ(初動)(g)': 'Acceleration',
+                        '体の回転によるバットの加速の大きさ(初動)（g）': 'Acceleration',
+                        'Acceleration ( g)': 'Acceleration',
+                        'Acceleration( g)': 'Acceleration'
+                    };
+                    Object.assign(keyMap, manualKeys);
+
+                    Object.keys(row).forEach(key => {
+                        // Check exact match or partial match for mapped keys
+                        // We prioritize exact match first
+                        const cleanKey = key.trim();
+                        const lowerKey = cleanKey.toLowerCase();
+
+                        // Try direct lookup (exact)
+                        if (keyMap[cleanKey]) {
+                            newRow[keyMap[cleanKey]] = row[key];
+                            return;
+                        }
+
+                        // Try case-insensitive lookup
+                        const foundKey = Object.keys(keyMap).find(k => k.toLowerCase() === lowerKey);
+                        if (foundKey) {
+                            newRow[keyMap[foundKey]] = row[key];
+                            return;
+                        }
+
+                        // Try finding a mapping that contains this key or vice versa (fuzzy)
+                        for (const [mapSrc, mapDest] of Object.entries(keyMap)) {
+                            if (lowerKey.includes(mapSrc.toLowerCase())) {
+                                newRow[mapDest] = row[key];
+                                break;
+                            }
+                        }
+                    });
+
+                    // Ensure numeric conversion for key metrics
+                    ['BatSpeed', 'ExitVelocity', 'LaunchAngle', 'Distance', 'SpinRate', 'Acceleration', 'Power', 'Adjust'].forEach(field => {
+                        if (newRow[field]) {
+                            let val = parseFloat(newRow[field]);
+                            if (!isNaN(val)) {
+                                // Bat Speed Unit Correction
+                                if (field === 'BatSpeed') {
+                                    if (val < 20) {
+                                        // Assume convert 11.2 -> 112.0 (x10 scaling error)
+                                        val *= 10;
+                                    } else if (val < 50) {
+                                        // Assume m/s -> km/h (20 m/s = 72 km/h, 50 m/s = 180 km/h)
+                                        val *= 3.6;
+                                    }
+                                }
+                                newRow[field] = val;
+                            }
+                        }
+                    });
+
+                    return newRow;
+                };
+
+                const processedData = rawData.map(normalizeRow);
+
+                if (!processedData[0].PlayerName) {
+                    alert('Invalid CSV. Could not find "Player Name" column.');
+                    setLoading(false);
+                    return;
+                }
+
+                setAllData(processedData);
                 setLoading(false);
             },
             error: (err) => {
@@ -145,24 +356,66 @@ const HitterFeedback = () => {
         // Image 3 boxes are big, imply single value.
         // Let's use AVG for consistency.
 
+        const avgAccel = (key) => {
+            const vals = rows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
+            if (vals.length === 0) return '';
+            return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2);
+        };
+
         return {
             ev: avg('ExitVelocity'),
             angle: avg('LaunchAngle'),
             dist: avg('Distance'),
             spin: avg('SpinRate'),
             batSpeed: avg('BatSpeed') || '',
-            accel: '',
-            power: '',
-            adjust: ''
+            accel: avgAccel('Acceleration'),
+            power: avg('Power'),
+            adjust: avg('Adjust')
         };
     };
 
     const getAverage = (tagConfig, key) => {
-        const rows = getFilteredRows(tagConfig, null); // null = all players
+        const rows = getFilteredRows(tagConfig, null);
         if (rows.length === 0) return null;
         const vals = rows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
         if (vals.length === 0) return null;
         return parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1));
+    };
+
+    // Optimized: Calculate average including manual adjustments (Single Pass)
+    const getAdjustAverage = (categoryId, tagConfig) => {
+        // 1. Get all rows for this category (One scan)
+        const catRows = getFilteredRows(tagConfig, null);
+
+        // 2. Build map of player -> average adjust
+        const playerAdjustMap = {};
+        catRows.forEach(r => {
+            const p = r['Player Name'] || r.PlayerName;
+            const val = r.Adjust; // Assuming normalized key 'Adjust' exists
+            if (typeof val === 'number') {
+                if (!playerAdjustMap[p]) playerAdjustMap[p] = { sum: 0, count: 0 };
+                playerAdjustMap[p].sum += val;
+                playerAdjustMap[p].count += 1;
+            }
+        });
+
+        // 3. Iterate players
+        const validValues = players.map(player => {
+            // Manual adjustment priority
+            const manualKey = `${player}-${categoryId}`;
+            if (manualAdjustments[manualKey] !== undefined && manualAdjustments[manualKey] !== '') {
+                const val = parseFloat(manualAdjustments[manualKey]);
+                return isNaN(val) ? null : val;
+            }
+            // Data fallback
+            if (playerAdjustMap[player]) {
+                return playerAdjustMap[player].sum / playerAdjustMap[player].count;
+            }
+            return null;
+        }).filter(v => v !== null);
+
+        if (validValues.length === 0) return null;
+        return (validValues.reduce((a, b) => a + b, 0) / validValues.length);
     };
 
     const getGradeAverage = (tagConfig, key, gradeGroup) => {
@@ -173,6 +426,48 @@ const HitterFeedback = () => {
         });
 
         if (rows.length === 0) return '/';
+
+        // Special handling for Adjust (use Manual Adjustments)
+        if (key === 'Adjust') {
+            const gradePlayers = players.filter(p => {
+                const info = getPlayerGradeInfo(p);
+                return info.group === gradeGroup;
+            });
+
+            // Build map for efficient lookup (avoid N*M scan)
+            const playerMap = {};
+            rows.forEach(r => {
+                const p = r['Player Name'] || r.PlayerName;
+                const val = r.Adjust || 0;
+                if (!playerMap[p]) playerMap[p] = { sum: 0, count: 0 };
+                playerMap[p].sum += val;
+                playerMap[p].count += 1;
+            });
+
+            const validAdjusts = gradePlayers.map(p => {
+                // Check Manual First
+                const manualKey = `${p}-${tagConfig.id}`;
+                if (manualAdjustments[manualKey] !== undefined && manualAdjustments[manualKey] !== '') {
+                    return parseFloat(manualAdjustments[manualKey]);
+                }
+                // Check Data from Map
+                if (playerMap[p] && playerMap[p].count > 0) {
+                    return playerMap[p].sum / playerMap[p].count;
+                }
+                return null;
+            }).filter(v => v !== null && !isNaN(v));
+
+            if (validAdjusts.length === 0) return '/';
+            return (validAdjusts.reduce((a, b) => a + b, 0) / validAdjusts.length).toFixed(1);
+        }
+
+        // Special handling for Power
+        if (key === 'Power') {
+            const vals = rows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
+            if (vals.length === 0) return '/';
+            return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+        }
+
         const vals = rows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
         if (vals.length === 0) return '/';
         return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
@@ -210,6 +505,59 @@ const HitterFeedback = () => {
             bat: r.BatSpeed || r['Bat Speed'] || 0
         })).filter(d => typeof d.ev === 'number' && typeof d.ang === 'number');
     };
+
+    // Performance Optimization: Memoize expensive data derivations
+    const scatterData = useMemo(() => getScatterData(selectedPlayer), [selectedPlayer, reportType, allData]);
+    const teamStats = useMemo(() => getTeamStats(), [reportType, allData]);
+
+    // Performance Optimization: Memoize static stats (Team/Grade Averages)
+    const staticTableStats = useMemo(() => {
+        if (!allData.length) return null;
+        const result = { team: {}, grade2: {}, grade1: {}, ms3: {}, grade3: {} };
+        const cats = CONFIG[reportType];
+
+        cats.forEach(cat => {
+            const catRows = getFilteredRows(cat, null);
+            const calcAvg = (key) => {
+                const vals = catRows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
+                return vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+            };
+
+            // Team Avgs
+            result.team[cat.id] = {
+                ev: calcAvg('ExitVelocity'),
+                ang: calcAvg('LaunchAngle'),
+                dist: calcAvg('Distance'),
+                bat: calcAvg('BatSpeed'),
+                power: calcAvg('Power')
+            };
+
+            // Grade Avgs
+            const calcGradeAvg = (filterFn) => {
+                const gRows = catRows.filter(r => {
+                    const info = getGradeInfo(r['学年'] || r['Grade'] || r['Year'] || '');
+                    return filterFn(info);
+                });
+                const gCalc = (key) => {
+                    const vals = gRows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
+                    return vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+                };
+                return {
+                    ev: gCalc('ExitVelocity'),
+                    ang: gCalc('LaunchAngle'),
+                    dist: gCalc('Distance'),
+                    bat: gCalc('BatSpeed'),
+                    power: gCalc('Power')
+                };
+            };
+
+            result.grade2[cat.id] = calcGradeAvg(i => i.group === '2');
+            result.grade1[cat.id] = calcGradeAvg(i => i.group === '1');
+            result.ms3[cat.id] = calcGradeAvg(i => i.group === 'MS3');
+            result.grade3[cat.id] = calcGradeAvg(i => i.group === '3');
+        });
+        return result;
+    }, [allData, reportType]);
 
     const handlePrint = () => window.print();
     const getTypeColor = (ang) => {
@@ -338,7 +686,8 @@ const HitterFeedback = () => {
                             </div>
                         )}
                     </div>
-                    {/* Benchmark Inputs */}
+
+                    {/* Benchmark Inputs - Restored */}
                     <div className="mt-4 pt-4 border-t border-gray-200">
                         <h4 className="text-xs font-bold mb-2">前回データ入力 (置きT)</h4>
                         <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
@@ -372,36 +721,6 @@ const HitterFeedback = () => {
                                     placeholder="km/h"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-[10px] font-bold mb-1">加速度</label>
-                                <input
-                                    type="text"
-                                    className="border p-1 rounded w-full text-sm"
-                                    value={benchmarks.prevAccel}
-                                    onChange={e => setBenchmarks({ ...benchmarks, prevAccel: e.target.value })}
-                                    placeholder="G"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold mb-1">パワー</label>
-                                <input
-                                    type="text"
-                                    className="border p-1 rounded w-full text-sm"
-                                    value={benchmarks.prevPower}
-                                    onChange={e => setBenchmarks({ ...benchmarks, prevPower: e.target.value })}
-                                    placeholder="kW"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold mb-1">アジャスト率</label>
-                                <input
-                                    type="text"
-                                    className="border p-1 rounded w-full text-sm"
-                                    value={benchmarks.prevAdjust}
-                                    onChange={e => setBenchmarks({ ...benchmarks, prevAdjust: e.target.value })}
-                                    placeholder="%"
-                                />
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -409,12 +728,13 @@ const HitterFeedback = () => {
 
             {/* ============== INDIVIDUAL REPORT ============== */}
             {viewMode === 'individual' && selectedPlayer && (
-                <div id="report-container" className="bg-white mx-auto text-black leading-tight border border-gray-200 shadow relative print:transform-none" style={{ width: '100%', minHeight: 'auto', padding: '10mm' }}>
+                <div id="report-container" className="mx-auto bg-white min-h-screen text-black print:p-[4px] print:min-h-0 print:h-auto print:pb-0 print:overflow-hidden max-w-[210mm] print:max-w-[190mm] print:transform print:scale-[1.6] print:origin-top print:pt-0" style={{ width: '100%', minHeight: 'auto', padding: '10mm' }}>
+
                     {/* Print Spacer (Adjust this height to lower the title in PDF) */}
-                    <div className="hidden print:block print:h-[10px]"></div>
+                    <div className="hidden print:block print:h-[0px]"></div>
 
                     {/* Report Type / Page Toggle for Screen */}
-                    <div className="absolute top-0 right-full mr-4 mt-4 flex flex-col gap-2 print:hidden">
+                    <div className="flex gap-2 mb-4 justify-end print:hidden">
                         <button
                             className={`px-4 py-2 rounded shadow font-bold ${subViewMode === 'analysis' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
                             onClick={() => setSubViewMode('analysis')}
@@ -430,32 +750,32 @@ const HitterFeedback = () => {
                     </div>
 
                     {/* Header */}
-                    <div className="flex justify-between items-end mb-1 border-b-4 border-red-600 pb-1" style={{ borderBottomStyle: 'dotted' }}>
-                        <div className="text-2xl font-bold border-b-2 border-black pb-1">
-                            {(() => {
-                                const typeMap = { point: 'ポイント', height: '高低', course: 'コース', hand: '打撃' };
-                                return `打球データ (${typeMap[reportType]}${subViewMode === 'detail' && reportType !== 'hand' ? '詳細' : ''}${reportType === 'hand' ? '別' : ''})`;
-                            })()}
+                    <div className="flex justify-between items-end mb-1 print:mb-1 print:mt-2">
+                        <div className="flex gap-4 items-end">
+                            <h2 className="text-xl font-bold print:text-lg border-b-2 border-black pb-0 whitespace-nowrap">打球データ (ポイント詳細)</h2>
+                            <div className="font-bold text-lg print:text-base border-b-2 border-black pb-0 px-4 flex items-end whitespace-nowrap">
+                                <span className="mr-2">氏名:</span>
+                                <input
+                                    type="text"
+                                    className="bg-transparent border-none outline-none font-bold text-lg print:text-base w-40 text-left"
+                                    value={customPlayerName}
+                                    onChange={(e) => setCustomPlayerName(e.target.value)}
+                                />
+                            </div>
                         </div>
-                        <div className="flex-grow text-center text-2xl font-bold mx-8 border-b-2 border-black pb-1">
-                            <span className="text-sm mr-4 font-normal">氏名</span>
-                            {selectedPlayer}
-                        </div>
-                        <div className="text-sm border-b-2 border-black pb-1 font-bold">
-                            計測日 {reportDate.replace(/-/g, '/')}
-                        </div>
+                        <div className="font-bold text-sm print:text-xs border-b-2 border-black pb-0 px-4 whitespace-nowrap">計測日: {reportDate}</div>
                     </div>
 
-                    {/* Decorative pattern */}
-                    <div className="w-full h-4 mb-2 text-red-600 flex overflow-hidden whitespace-nowrap text-xs font-bold items-center opacity-50">
-                        {'<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'}
+                    {/* Decorative pattern (Stitch Line) */}
+                    <div className="w-full h-6 mb-2 flex overflow-hidden items-center justify-center">
+                        <img src="/assets/baseball_stitch_line.png" alt="Stitch Line" className="w-full h-full object-cover object-left" />
                     </div>
 
                     {/* ==================== ANALYSIS VIEW (Chart 1 & 2) ==================== */}
                     {subViewMode === 'analysis' && (
                         <>
                             {/* Top Table */}
-                            <div className="mb-6">
+                            <div className="mb-0">
                                 <table className="w-full border-collapse border border-black text-sm text-center table-fixed bg-white">
                                     <thead>
                                         <tr className="bg-gray-400 h-6 text-black font-bold text-xs">
@@ -485,24 +805,33 @@ const HitterFeedback = () => {
                                                     {(() => {
                                                         const s = getStats({ tags: ['置きT', 'tee', 'hand_tee'] }, selectedPlayer);
                                                         return <>
-                                                            <td className="border border-black p-1 font-bold">{s ? s.ev : ''}</td>
-                                                            <td className="border border-black p-1 font-bold">{s ? s.angle : ''}</td>
-                                                            <td className="border border-black p-1 font-bold">{s ? s.batSpeed : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.accel : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.power : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.adjust : ''}</td>
+                                                            <td className="border border-black p-0">
+                                                                <input
+                                                                    type="text"
+                                                                    className="w-full h-full text-center bg-transparent outline-none p-1 border-none text-sm"
+                                                                    value={manualAdjustments[`${selectedPlayer}-hand_tee`] !== undefined ? manualAdjustments[`${selectedPlayer}-hand_tee`] : (s ? s.adjust : '')}
+                                                                    onChange={(e) => setManualAdjustments({ ...manualAdjustments, [`${selectedPlayer}-hand_tee`]: e.target.value })}
+                                                                />
+                                                            </td>
                                                         </>;
                                                     })()}
                                                 </tr>
                                                 {/* Previous */}
                                                 <tr className="h-8">
                                                     <td className="border border-black p-1 font-bold bg-white text-center text-[10px] leading-tight">前回<br /><small className="font-normal">(置きT)</small></td>
-                                                    <td className="border border-black p-1 font-bold">{benchmarks.prevSpeed || ''}</td>
-                                                    <td className="border border-black p-1 font-bold">{benchmarks.prevAngle || ''}</td>
-                                                    <td className="border border-black p-1 font-bold">{benchmarks.prevBatSpeed || ''}</td>
-                                                    <td className="border border-black p-1 font-bold">{benchmarks.prevAccel || ''}</td>
-                                                    <td className="border border-black p-1 font-bold">{benchmarks.prevPower || ''}</td>
-                                                    <td className="border border-black p-1 font-bold">{benchmarks.prevAdjust || ''}</td>
+                                                    <td className="border border-black p-1 font-bold text-sm">{benchmarks.prevSpeed || ''}</td>
+                                                    <td className="border border-black p-1 font-bold text-sm">{benchmarks.prevAngle || ''}</td>
+                                                    <td className="border border-black p-1 font-bold text-sm">{benchmarks.prevBatSpeed || ''}</td>
+                                                    <td className="border border-black p-1 font-bold text-sm">{benchmarks.prevAccel || ''}</td>
+                                                    <td className="border border-black p-1 font-bold text-sm">{benchmarks.prevPower || ''}</td>
+                                                    <td className="border border-black p-0">
+                                                        <input
+                                                            type="text"
+                                                            className="w-full h-full text-center bg-transparent outline-none p-1 border-none font-bold text-sm"
+                                                            value={manualAdjustments[`${selectedPlayer}-prevAdjust`] !== undefined ? manualAdjustments[`${selectedPlayer}-prevAdjust`] : (benchmarks.prevAdjust || '')}
+                                                            onChange={(e) => setManualAdjustments({ ...manualAdjustments, [`${selectedPlayer}-prevAdjust`]: e.target.value })}
+                                                        />
+                                                    </td>
                                                 </tr>
                                                 {/* Hand */}
                                                 <tr className="h-8">
@@ -510,12 +839,19 @@ const HitterFeedback = () => {
                                                     {(() => {
                                                         const s = getStats({ tags: ['手投げ', 'live', 'hand_live', 'toss', 'トス'] }, selectedPlayer);
                                                         return <>
-                                                            <td className="border border-black p-1 font-bold">{s ? s.ev : ''}</td>
-                                                            <td className="border border-black p-1 font-bold">{s ? s.angle : ''}</td>
-                                                            <td className="border border-black p-1 font-bold">{s ? s.batSpeed : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.accel : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.power : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.adjust : ''}</td>
+                                                            <td className="border border-black p-1 font-bold text-sm">{s ? s.ev : ''}</td>
+                                                            <td className="border border-black p-1 font-bold text-sm">{s ? s.angle : ''}</td>
+                                                            <td className="border border-black p-1 font-bold text-sm">{s ? s.batSpeed : ''}</td>
+                                                            <td className="border border-black p-1 text-sm">{s ? s.accel : ''}</td>
+                                                            <td className="border border-black p-1 text-sm">{s ? s.power : ''}</td>
+                                                            <td className="border border-black p-0">
+                                                                <input
+                                                                    type="text"
+                                                                    className="w-full h-full text-center bg-transparent outline-none p-1 border-none text-sm"
+                                                                    value={manualAdjustments[`${selectedPlayer}-hand_live`] !== undefined ? manualAdjustments[`${selectedPlayer}-hand_live`] : (s ? s.adjust : '')}
+                                                                    onChange={(e) => setManualAdjustments({ ...manualAdjustments, [`${selectedPlayer}-hand_live`]: e.target.value })}
+                                                                />
+                                                            </td>
                                                         </>;
                                                     })()}
                                                 </tr>
@@ -525,13 +861,20 @@ const HitterFeedback = () => {
                                                 const stats = getStats(cat, selectedPlayer);
                                                 return (
                                                     <tr key={cat.id} className="h-8">
-                                                        <td className="border border-black p-1 font-bold bg-white text-center">{cat.label.split(' ')[0]}</td>
-                                                        <td className="border border-black p-1 font-bold">{stats ? stats.ev : ''}</td>
-                                                        <td className="border border-black p-1 font-bold">{stats ? stats.angle : ''}</td>
-                                                        <td className="border border-black p-1 font-bold">{stats ? stats.batSpeed : ''}</td>
-                                                        <td className="border border-black p-1">{stats ? stats.accel : ''}</td>
-                                                        <td className="border border-black p-1">{stats ? stats.power : ''}</td>
-                                                        <td className="border border-black p-1">{stats ? stats.adjust : ''}</td>
+                                                        <td className="border border-black p-1 font-bold bg-white text-center text-sm">{cat.label.split(' ')[0]}</td>
+                                                        <td className="border border-black p-1 font-bold text-[10px]">{stats ? stats.ev : ''}</td>
+                                                        <td className="border border-black p-1 font-bold text-[10px]">{stats ? stats.angle : ''}</td>
+                                                        <td className="border border-black p-1 font-bold text-[10px]">{stats ? stats.batSpeed : ''}</td>
+                                                        <td className="border border-black p-1 text-[10px]">{stats ? stats.accel : ''}</td>
+                                                        <td className="border border-black p-1 text-[10px]">{stats ? stats.power : ''}</td>
+                                                        <td className="border border-black p-0">
+                                                            <input
+                                                                type="text"
+                                                                className="w-full h-full text-center bg-transparent outline-none p-1 border-none text-[10px]"
+                                                                value={manualAdjustments[`${selectedPlayer}-${cat.id}`] !== undefined ? manualAdjustments[`${selectedPlayer}-${cat.id}`] : (stats ? stats.adjust : '')}
+                                                                onChange={(e) => setManualAdjustments({ ...manualAdjustments, [`${selectedPlayer}-${cat.id}`]: e.target.value })}
+                                                            />
+                                                        </td>
                                                     </tr>
                                                 );
                                             })
@@ -540,13 +883,13 @@ const HitterFeedback = () => {
                                 </table>
                             </div>
 
-                            {/* Charts Container */}
-                            <div className="border border-green-500 p-1 relative flex flex-col justify-start h-[780px]">
+                            {/* Charts Container - Fixed Min Width for Print Scaling Stability */}
+                            <div className="border border-green-500 p-1 relative flex flex-col justify-start h-auto pb-4 w-[98%] mx-auto mt-8">
                                 {/* TOP SECTION */}
-                                <div className="grid grid-cols-[1.3fr_1fr] gap-2 h-[320px] mb-14">
+                                <div className="grid grid-cols-[1.2fr_1fr] gap-2 h-[300px] mb-2">
                                     {/* Left: Current Data */}
                                     <div className="border border-gray-200 flex flex-col relative w-full h-full">
-                                        <h3 className="font-bold text-lg px-2 pt-1 z-10 bg-white absolute top-0 left-0">打球角度と打球速度の関係（全打球）</h3>
+                                        <h3 className="font-bold text-lg px-2 pt-1 z-10 bg-white absolute top-1 left-0">打球角度と打球速度の関係（全打球）</h3>
 
                                         <div className="flex flex-grow pt-8 pb-2 px-1">
                                             {/* Silhouette */}
@@ -562,11 +905,12 @@ const HitterFeedback = () => {
                                                     <ScatterChart margin={{ top: 10, right: 10, bottom: 0, left: 15 }}>
                                                         <CartesianGrid strokeDasharray="3 3" vertical={false} horizontal={false} />
                                                         <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#e5e7eb" />
+                                                        <ReferenceLine y={0} stroke="#9ca3af" />
                                                         <XAxis
                                                             type="number"
                                                             dataKey="ev"
-                                                            domain={[0, 200]}
-                                                            tickCount={11}
+                                                            domain={[20, 200]}
+                                                            ticks={[20, 40, 60, 80, 100, 120, 140, 160, 180, 200]}
                                                             tick={{ fontSize: 9 }}
                                                             label={{ value: '打球速度', position: 'insideBottom', offset: 1, fontSize: 11, fontWeight: 'bold' }}
                                                         />
@@ -576,11 +920,11 @@ const HitterFeedback = () => {
                                                             domain={[-60, 60]}
                                                             tickCount={7}
                                                             tick={{ fontSize: 9 }}
-                                                            label={{ value: '打球角度', angle: -90, position: 'insideLeft', offset: 15, fontSize: 11, fontWeight: 'bold' }}
+                                                            label={{ value: '打球角度', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' }, offset: 10, fontSize: 11, fontWeight: 'bold' }}
                                                         />
                                                         <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                                                        <Scatter name="Hits" data={getScatterData(selectedPlayer)} fill="#8884d8">
-                                                            {getScatterData(selectedPlayer).map((entry, index) => (
+                                                        <Scatter name="Hits" data={scatterData}>
+                                                            {scatterData.map((entry, index) => (
                                                                 <Cell key={`cell-${index}`} fill={getTypeColor(entry.ang)} />
                                                             ))}
                                                         </Scatter>
@@ -589,23 +933,20 @@ const HitterFeedback = () => {
                                             </div>
                                         </div>
 
-                                        {/* Legend */}
-                                        <div className="w-full flex justify-end h-[45px] absolute bottom-[-49px] right-0">
-                                            <img src="/assets/launch_angle_legend.png" alt="Legend" className="h-full object-contain" />
-                                        </div>
+
                                     </div>
 
                                     {/* Right: Previous Data */}
-                                    <div className="border-l-2 border-dashed border-[#4ade80] pl-1 flex flex-col relative w-full h-full">
-                                        <h3 className="text-center font-bold text-md mb-1 absolute w-full top-1">前回</h3>
-                                        <div className="flex-grow w-full relative pt-8 pb-2">
+                                    <div className="border-l-2 border-dashed border-[#4ade80] flex flex-col w-full h-full overflow-hidden bg-white outline-none">
+                                        <div className="px-2 pt-1 font-bold text-lg">前回</div>
+                                        <div className="flex-grow w-full relative pt-2 outline-none">
                                             <ResponsiveContainer width="100%" height="100%">
-                                                <ScatterChart margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+                                                <ScatterChart margin={{ top: 0, right: 20, bottom: 0, left: -35 }}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                                     <XAxis
                                                         type="number"
                                                         dataKey="ev"
-                                                        domain={[0, 200]}
+                                                        domain={[20, 200]}
                                                         tickCount={6}
                                                         tick={{ fontSize: 9 }}
                                                         label={{ value: '打球速度', position: 'insideBottom', offset: 1, fontSize: 10 }}
@@ -616,13 +957,18 @@ const HitterFeedback = () => {
                                                         domain={[-60, 60]}
                                                         tickCount={7}
                                                         tick={{ fontSize: 9 }}
-                                                        label={{ value: '打球角度', angle: -90, position: 'insideLeft', offset: 35, fontSize: 10 }}
+                                                        label={{ value: '打球角度', angle: -90, position: 'insideLeft', offset: 20, fontSize: 10 }}
                                                     />
-                                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                                                    <Scatter name="PrevHits" data={[]} fill="#9ca3af" shape="circle" />
+                                                    <Scatter
+                                                        name="PrevHits"
+                                                        data={benchmarks.prevSpeed && benchmarks.prevAngle ? [{ ev: parseFloat(benchmarks.prevSpeed), ang: parseFloat(benchmarks.prevAngle) }] : []}
+                                                        fill="#9ca3af"
+                                                        shape="circle"
+                                                    />
                                                 </ScatterChart>
                                             </ResponsiveContainer>
                                         </div>
+                                        <div className="text-[10px] font-bold text-right pr-1 pb-1">※ラプソードでの分類になります</div>
                                     </div>
                                 </div>
 
@@ -630,52 +976,117 @@ const HitterFeedback = () => {
                                 <hr className="border-t-2 border-[#4ade80] my-0.5" />
 
                                 {/* BOTTOM SECTION */}
-                                <div className="grid grid-cols-[1.5fr_1fr] gap-5 items-center mt-24">
+                                <div className="grid grid-cols-[1.5fr_1fr] gap-5 items-center mt-6">
                                     {/* Grid / Heatmap */}
-                                    <div className="relative pl-3 pb-3 pt-2">
-                                        <h3 className="font-bold text-lg absolute top-[-25px] left-0">打球速度とバット速度 ({reportType === 'hand' ? '置きT' : '条件別'})</h3>
+                                    <div className="relative pl-0 pb-3 pt-2">
+                                        <h3 className="font-bold text-lg absolute top-[-25px] left-1">打球速度とバット速度 ({reportType === 'hand' ? '置きT' : '条件別'})</h3>
 
-                                        <div className="relative h-[240px] w-full border border-black mt-1">
+                                        <div className="relative h-[220px] w-[96%] border border-black mt-1 ml-2">
                                             {/* Top Gradient - Thicker, No Cap - Aligned to corner */}
-                                            <div className="absolute top-[-10px] left-[18%] right-[-10px] h-4 bg-gradient-to-r from-blue-300 via-white to-red-400 border border-gray-400 z-10 border-r-0"></div>
+                                            <div className="absolute top-[-10px] left-[18%] right-[-10px] h-4 bg-gradient-to-r from-blue-300 via-white to-red-400 z-10"></div>
 
                                             {/* Right Gradient - Thicker, No Cap - Aligned to corner */}
-                                            <div className="absolute top-[-10px] right-[-10px] bottom-[18%] w-4 bg-gradient-to-t from-blue-300 via-white to-red-400 border border-gray-400 z-10 border-t-0"></div>
+                                            <div className="absolute top-[-10px] right-[-10px] bottom-[18%] w-4 bg-gradient-to-t from-blue-300 via-white to-red-400 z-10"></div>
 
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <ScatterChart margin={{ top: 10, right: 10, bottom: 15, left: 15 }}>
-                                                    <Scatter name="CategoryAvg" data={
-                                                        CONFIG[reportType].map(cat => {
-                                                            const s = getStats(cat, selectedPlayer);
-                                                            if (!s || s.ev === '' || s.batSpeed === '') return null;
-                                                            return {
-                                                                ev: parseFloat(s.ev),
-                                                                bat: parseFloat(s.batSpeed),
-                                                                label: cat.label,
-                                                                fill: cat.label.includes('今回') || cat.label === '置きT' ? '#ef4444' : '#6b7280'
-                                                            };
-                                                        }).filter(Boolean)
-                                                    }>
-                                                        {CONFIG[reportType].map((cat, index) => {
-                                                            const s = getStats(cat, selectedPlayer);
-                                                            if (!s || s.ev === '' || s.batSpeed === '') return null;
-                                                            const isCurrent = cat.label.includes('今回') || cat.label === '置きT';
-                                                            return <Cell key={`cell-${index}`} fill={isCurrent ? '#ef4444' : '#6b7280'} stroke="black" strokeWidth={1.5} r={6} />;
-                                                        })}
+                                                    {/* 9-Division Background Areas */}
+                                                    {/* Low (Blue) */}
+                                                    <ReferenceArea x1={100} x2={120} y1={70} y2={90} fill="#dbeafe" fillOpacity={1} />
+                                                    <ReferenceArea x1={120} x2={140} y1={70} y2={90} fill="#eff6ff" fillOpacity={1} />
+                                                    <ReferenceArea x1={100} x2={120} y1={90} y2={110} fill="#eff6ff" fillOpacity={1} />
+
+                                                    {/* Mid (Neutral/Cream) */}
+                                                    <ReferenceArea x1={120} x2={140} y1={90} y2={110} fill="#fff7ed" fillOpacity={1} />
+                                                    <ReferenceArea x1={140} x2={160} y1={70} y2={90} fill="#fff" fillOpacity={1} />
+                                                    <ReferenceArea x1={100} x2={120} y1={110} y2={130} fill="#fff" fillOpacity={1} />
+
+                                                    {/* High (Red) */}
+                                                    <ReferenceArea x1={140} x2={160} y1={90} y2={110} fill="#fee2e2" fillOpacity={1} />
+                                                    <ReferenceArea x1={120} x2={140} y1={110} y2={130} fill="#fee2e2" fillOpacity={1} />
+                                                    <ReferenceArea x1={140} x2={160} y1={110} y2={130} fill="#fecaca" fillOpacity={1} />
+
+                                                    {/* Consolidate Scatters for Z-Index/Rendering reliability */}
+                                                    <Scatter name="Conditions" data={(() => {
+                                                        const points = [];
+
+                                                        // Today (Red)
+                                                        const d = getScatterData(selectedPlayer);
+                                                        const bats = d.map(x => x.bat).filter(b => b > 0);
+                                                        if (d.length && bats.length) {
+                                                            const maxEv = Math.max(...d.map(x => x.ev));
+                                                            const avgBat = bats.reduce((a, b) => a + b, 0) / bats.length;
+                                                            points.push({ ev: maxEv, bat: avgBat, fill: '#dc2626' });
+                                                        }
+
+                                                        // Previous (Gray)
+                                                        if (benchmarks.prevSpeed && benchmarks.prevBatSpeed) {
+                                                            points.push({ ev: parseFloat(benchmarks.prevSpeed), bat: parseFloat(benchmarks.prevBatSpeed), fill: '#d1d5db' });
+                                                        }
+
+                                                        // Team Average (Yellow)
+                                                        const team = getTeamStats();
+                                                        if (team.ev && team.bat) {
+                                                            points.push({ ev: parseFloat(team.ev), bat: parseFloat(team.bat), fill: '#eab308' });
+                                                        }
+
+                                                        // Koshien (Black)
+                                                        if (benchmarks.targetSpeed && benchmarks.targetBatSpeed) {
+                                                            points.push({ ev: parseFloat(benchmarks.targetSpeed), bat: parseFloat(benchmarks.targetBatSpeed), fill: '#000000' });
+                                                        }
+
+                                                        return points;
+                                                    })()}>
+                                                        {
+                                                            // We cannot use Cell inside the data function, we must map over the data prop result?
+                                                            // Actually, in Recharts, if data comes from the prop, we can map over it in children to create Cells.
+                                                            // But we can't easily access the "result of the IIFE" in the render method unless we store it.
+                                                            // Instead, we can rely on the `fill` property in the data object if we don't use Cell?
+                                                            // No, Scatter dots don't auto-take fill from data unless we use Cell.
+                                                            // Let's use a standard map inside the Scatter children.
+                                                            // But we need the data to be deterministic.
+                                                            // I will define the data outside or use the IIFE and map over it assuming index stability? 
+                                                            // Better approach: Use Cell's `fill` based on the entry, but we need to access `entry`?
+                                                            // Recharts Scatter `Cell` mapping is `data.map((entry, index) => <Cell fill={entry.fill} />)`
+                                                        }
+                                                        {(() => {
+                                                            // Re-calculate data to map Cells (Inefficient but robust for this context)
+                                                            // Or just use the same logic.
+                                                            const points = [];
+                                                            const d = scatterData;
+                                                            const bats = d.map(x => x.bat).filter(b => b > 0);
+                                                            if (d.length && bats.length) {
+                                                                points.push({ fill: 'red' });
+                                                            }
+                                                            if (benchmarks.prevSpeed && benchmarks.prevBatSpeed) points.push({ fill: 'gray' });
+                                                            const team = teamStats;
+                                                            if (team.ev && team.bat) points.push({ fill: '#eab308' });
+                                                            if (benchmarks.targetSpeed && benchmarks.targetBatSpeed) points.push({ fill: 'black' });
+
+                                                            return points.map((p, i) => <Cell key={i} fill={p.fill} stroke="black" strokeWidth={1} r={12} />);
+                                                        })()}
                                                     </Scatter>
+
 
                                                     {/* 9-Section Grid Lines (3x3) - Rendered after Scatter to ensure visibility */}
                                                     <ReferenceLine x={120} stroke="black" strokeWidth={2} />
                                                     <ReferenceLine x={140} stroke="black" strokeWidth={2} />
                                                     <ReferenceLine y={90} stroke="black" strokeWidth={2} />
+                                                    <ReferenceLine y={90} stroke="black" strokeWidth={2} />
                                                     <ReferenceLine y={110} stroke="black" strokeWidth={2} />
-                                                    {/* Labels in diagonal cells */}
-                                                    <ReferenceLine y={80} x={110} stroke="none" label={{ value: "低", position: 'center', fill: 'black', fontSize: 16, fontWeight: 'bold' }} />
-                                                    <ReferenceLine y={100} x={130} stroke="none" label={{ value: "中", position: 'center', fill: 'black', fontSize: 16, fontWeight: 'bold' }} />
-                                                    <ReferenceLine y={120} x={150} stroke="none" label={{ value: "高", position: 'center', fill: 'black', fontSize: 16, fontWeight: 'bold' }} />
+                                                    <ReferenceLine y={90} stroke="black" strokeWidth={2} />
+                                                    <ReferenceLine y={110} stroke="black" strokeWidth={2} />
 
-                                                    <XAxis type="number" dataKey="ev" domain={[100, 160]} ticks={[100, 120, 140, 160]} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                                                    <YAxis type="number" dataKey="bat" domain={[70, 130]} ticks={[70, 90, 110, 130]} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                                                    {/* Slash Line (Bottom Right Corner) */}
+                                                    <ReferenceLine segment={[{ x: 140, y: 70 }, { x: 160, y: 90 }]} stroke="black" strokeWidth={1} />
+
+                                                    {/* Labels in diagonal cells */}
+                                                    <ReferenceDot x={110} y={80} r={0} label={{ value: "低", position: 'center', fill: 'black', fontSize: 16, fontWeight: 'bold' }} />
+                                                    <ReferenceDot x={130} y={100} r={0} label={{ value: "中", position: 'center', fill: 'black', fontSize: 16, fontWeight: 'bold' }} />
+                                                    <ReferenceDot x={150} y={120} r={0} label={{ value: "高", position: 'center', fill: 'black', fontSize: 16, fontWeight: 'bold' }} />
+
+                                                    <XAxis type="number" dataKey="ev" domain={[100, 160]} ticks={[100, 120, 140, 160]} tick={{ fontSize: 10, fontWeight: 'bold' }} allowDataOverflow={true} />
+                                                    <YAxis type="number" dataKey="bat" domain={[70, 130]} ticks={[70, 90, 110, 130]} tick={{ fontSize: 10, fontWeight: 'bold' }} allowDataOverflow={true} />
                                                     <Tooltip cursor={{ strokeDasharray: '3 3' }} />
                                                 </ScatterChart>
                                             </ResponsiveContainer>
@@ -687,19 +1098,27 @@ const HitterFeedback = () => {
                                     </div>
 
                                     {/* Comparisons Table */}
-                                    <div className="flex flex-col justify-center items-end">
+                                    <div className="flex flex-col justify-center items-end pr-4">
                                         <table className="w-[90%] border-collapse border border-black text-center font-bold bg-white text-sm">
                                             <thead>
-                                                <tr className="bg-gray-300">
-                                                    <th className="border border-black p-1 w-[30%] bg-gray-400 text-xs">条件</th>
-                                                    <th className="border border-black p-1"><span className="text-xs">打球速度</span><br />(km/h)</th>
-                                                    <th className="border border-black p-1"><span className="text-xs">バット速度</span><br />(km/h)</th>
+                                                <tr className="bg-gray-400">
+                                                    <th className="border border-black p-1 w-[30%] text-xs">条件</th>
+                                                    <th className="border border-black p-1">
+                                                        <span className="text-xs">打球速度</span>
+                                                        <hr className="border-t border-black my-0.5" />
+                                                        (km/h)
+                                                    </th>
+                                                    <th className="border border-black p-1">
+                                                        <span className="text-xs">バット速度</span>
+                                                        <hr className="border-t border-black my-0.5" />
+                                                        (km/h)
+                                                    </th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr className="h-12"><td className="border border-black bg-red-600 text-white text-lg">今回</td><td className="border border-black text-xl">{(() => { const d = getScatterData(selectedPlayer); return d.length ? Math.max(...d.map(x => x.ev)).toFixed(1) : '' })()}</td><td className="border border-black text-xl">{(() => { const s = getStats({ tags: ['今回', '置きT', 'tee', 'hand_tee'] }, selectedPlayer); return s ? s.batSpeed : '' })()}</td></tr>
+                                                <tr className="h-12"><td className="border border-black bg-red-600 text-white text-lg">今回</td><td className="border border-black text-xl">{(() => { const d = scatterData; return d.length ? Math.max(...d.map(x => x.ev)).toFixed(1) : '' })()}</td><td className="border border-black text-xl">{(() => { const d = scatterData; const bats = d.map(x => x.bat).filter(b => b > 0); return bats.length ? (bats.reduce((a, b) => a + b, 0) / bats.length).toFixed(1) : '' })()}</td></tr>
                                                 <tr className="h-12"><td className="border border-black bg-gray-300 text-lg">前回</td><td className="border border-black text-xl">{benchmarks.prevSpeed}</td><td className="border border-black text-xl">{benchmarks.prevBatSpeed}</td></tr>
-                                                <tr className="h-12"><td className="border border-black bg-[#eab308] text-base">チーム平均</td><td className="border border-black text-xl">{getTeamStats().ev}</td><td className="border border-black text-xl">{getTeamStats().bat}</td></tr>
+                                                <tr className="h-12"><td className="border border-black bg-[#eab308] text-sm whitespace-nowrap">チーム平均</td><td className="border border-black text-xl">{teamStats.ev}</td><td className="border border-black text-xl">{teamStats.bat}</td></tr>
                                                 <tr className="h-12"><td className="border border-black bg-black text-white text-lg">甲子園</td><td className="border border-black text-xl">{benchmarks.targetSpeed}</td><td className="border border-black text-xl">{benchmarks.targetBatSpeed}</td></tr>
                                             </tbody>
                                         </table>
@@ -710,262 +1129,317 @@ const HitterFeedback = () => {
                     )}
 
                     {/* ==================== DETAIL VIEW (4-BLOCK GRID) ==================== */}
-                    {subViewMode === 'detail' && (
-                        <>
-                            {/* Top Table (Compact) */}
-                            <div className="mb-8">
-                                <table className="w-full border-collapse border border-black text-sm text-center table-fixed bg-white">
-                                    <thead>
-                                        <tr className="bg-gray-400 h-8 text-black font-bold">
-                                            <th className="border border-black p-1 w-[20%]"></th>
-                                            <th className="border border-black p-1">打球速度<span className="text-xs">(km/h)</span></th>
-                                            <th className="border border-black p-1">打球角度<span className="text-xs">(deg.)</span></th>
-                                            <th className="border border-black p-1">バット速度<span className="text-xs">(km/h)</span></th>
-                                            <th className="border border-black p-1">加速度<span className="text-xs">(G)</span></th>
-                                            <th className="border border-black p-1">パワー<span className="text-xs">(kW)</span></th>
-                                            <th className="border border-black p-1">アジャスト率<span className="text-xs">(%)</span></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {reportType === 'hand' ? (
-                                            <>
-                                                {/* Tee */}
-                                                <tr className="h-8 font-bold">
-                                                    <td className="border border-black p-1 bg-white text-left pl-2">置きT</td>
-                                                    {(() => {
-                                                        const s = getStats({ tags: ['置きT', 'tee', 'hand_tee'] }, selectedPlayer);
-                                                        return <>
-                                                            <td className="border border-black p-1">{s ? s.ev : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.angle : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.batSpeed : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.accel : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.power : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.adjust : ''}</td>
-                                                        </>;
-                                                    })()}
-                                                </tr>
-                                                {/* Previous */}
-                                                <tr className="h-8 font-bold">
-                                                    <td className="border border-black p-1 bg-white text-left pl-2">前回<span className="text-xs font-normal ml-1">(置きT)</span></td>
-                                                    <td className="border border-black p-1">{benchmarks.prevSpeed || ''}</td>
-                                                    <td className="border border-black p-1"></td>
-                                                    <td className="border border-black p-1">{benchmarks.prevBatSpeed || ''}</td>
-                                                    <td className="border border-black p-1"></td>
-                                                    <td className="border border-black p-1"></td>
-                                                    <td className="border border-black p-1"></td>
-                                                </tr>
-                                                {/* Hand */}
-                                                <tr className="h-8 font-bold">
-                                                    <td className="border border-black p-1 bg-white text-left pl-2">手投げ</td>
-                                                    {(() => {
-                                                        const s = getStats({ tags: ['手投げ', 'live', 'hand_live', 'toss', 'トス'] }, selectedPlayer);
-                                                        return <>
-                                                            <td className="border border-black p-1">{s ? s.ev : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.angle : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.batSpeed : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.accel : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.power : ''}</td>
-                                                            <td className="border border-black p-1">{s ? s.adjust : ''}</td>
-                                                        </>;
-                                                    })()}
-                                                </tr>
-                                            </>
-                                        ) : (
-                                            CONFIG[reportType].map(cat => {
-                                                const s = getStats(cat, selectedPlayer);
-                                                return (
-                                                    <tr key={cat.id} className="h-10 font-bold">
-                                                        <td className="border border-black p-1 bg-white text-left pl-2">{cat.label.split(' ')[0]}</td>
-                                                        <td className="border border-black p-1">{s ? s.ev : ''}</td>
-                                                        <td className="border border-black p-1">{s ? s.angle : ''}</td>
-                                                        <td className="border border-black p-1">{s ? s.batSpeed : ''}</td>
-                                                        <td className="border border-black p-1">{s ? s.accel : ''}</td>
-                                                        <td className="border border-black p-1">{s ? s.power : ''}</td>
-                                                        <td className="border border-black p-1">{s ? s.adjust : ''}</td>
+                    {
+                        subViewMode === 'detail' && (
+                            <>
+                                {/* Top Table (Compact) */}
+                                <div className="mb-8">
+                                    <table className="w-full border-collapse border border-black text-sm text-center table-fixed bg-white">
+                                        <thead>
+                                            <tr className="bg-gray-400 h-10 print:h-8">
+                                                <th className="border border-black p-1 w-[20%] bg-gray-400" rowSpan="2"></th>
+                                                <th className="border border-black p-1">打球速度</th>
+                                                <th className="border border-black p-1">打球角度</th>
+                                                <th className="border border-black p-1">バット速度</th>
+                                                <th className="border border-black p-1">加速度</th>
+                                                <th className="border border-black p-1">パワー</th>
+                                                <th className="border border-black p-1">アジャスト率</th>
+                                            </tr>
+                                            <tr className="bg-gray-400 h-6">
+                                                <th className="border border-black p-0 text-xs">(km/h)</th>
+                                                <th className="border border-black p-0 text-xs">(deg.)</th>
+                                                <th className="border border-black p-0 text-xs">(km/h)</th>
+                                                <th className="border border-black p-0 text-xs">(G)</th>
+                                                <th className="border border-black p-0 text-xs">(kW)</th>
+                                                <th className="border border-black p-0 text-xs">(%)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {reportType === 'hand' ? (
+                                                <>
+                                                    {/* Tee */}
+                                                    <tr className="h-12 font-bold">
+                                                        <td className="border border-black p-1 bg-white text-center">置きT</td>
+                                                        {(() => {
+                                                            const s = getStats({ tags: ['置きT', 'tee', 'hand_tee'] }, selectedPlayer);
+                                                            return <>
+                                                                <td className="border border-black p-1 text-center text-sm">{s ? s.ev : ''}</td>
+                                                                <td className="border border-black p-1 text-center text-sm">{s ? s.angle : ''}</td>
+                                                                <td className="border border-black p-1 text-center text-sm">{s ? s.batSpeed : ''}</td>
+                                                                <td className="border border-black p-1 text-center text-sm">{s ? s.accel : ''}</td>
+                                                                <td className="border border-black p-1 text-center text-sm">{s ? s.power : ''}</td>
+                                                                <td className="border border-black p-0">
+                                                                    <input
+                                                                        type="text"
+                                                                        className="w-full h-full text-center bg-transparent outline-none p-1 border-none font-bold text-sm"
+                                                                        value={manualAdjustments[`${selectedPlayer}-hand_tee`] !== undefined ? manualAdjustments[`${selectedPlayer}-hand_tee`] : (s ? s.adjust : '')}
+                                                                        onChange={(e) => setManualAdjustments({ ...manualAdjustments, [`${selectedPlayer}-hand_tee`]: e.target.value })}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    />
+                                                                </td>
+                                                            </>;
+                                                        })()}
                                                     </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* 4-Block Grid Detail Section */}
-                            <div className="border border-green-600 p-2 relative h-[780px]">
-                                <h3 className="font-bold text-4xl mb-4 mt-2 ml-4">
-                                    {reportType === 'point' ? 'ポイント別打球速度データ' :
-                                        reportType === 'height' ? '高低別打球速度データ' :
-                                            reportType === 'course' ? 'コース別打球データ' :
-                                                '打球データ一覧'}
-                                </h3>
-                                <div className="text-center text-sm font-bold mb-4">
-                                    右打ち、左打ち、共通の表記になります
+                                                    {/* Previous */}
+                                                    <tr className="h-12 font-bold">
+                                                        <td className="border border-black p-1 bg-white text-center">前回<span className="text-xs font-normal ml-1">(置きT)</span></td>
+                                                        <td className="border border-black p-1 text-center text-sm">{benchmarks.prevSpeed || ''}</td>
+                                                        <td className="border border-black p-1 text-center text-sm"></td>
+                                                        <td className="border border-black p-1 text-center text-sm">{benchmarks.prevBatSpeed || ''}</td>
+                                                        <td className="border border-black p-1 text-center text-sm"></td>
+                                                        <td className="border border-black p-1 text-center text-sm"></td>
+                                                        <td className="border border-black p-1 text-center text-sm"></td>
+                                                    </tr>
+                                                    {/* Hand */}
+                                                    <tr className="h-12 font-bold">
+                                                        <td className="border border-black p-1 bg-white text-center">手投げ</td>
+                                                        {(() => {
+                                                            const s = getStats({ tags: ['手投げ', 'live', 'hand_live', 'toss', 'トス'] }, selectedPlayer);
+                                                            return <>
+                                                                <td className="border border-black p-1 text-center text-sm">{s ? s.ev : ''}</td>
+                                                                <td className="border border-black p-1 text-center text-sm">{s ? s.angle : ''}</td>
+                                                                <td className="border border-black p-1 text-center text-sm">{s ? s.batSpeed : ''}</td>
+                                                                <td className="border border-black p-1 text-center text-sm">{s ? s.accel : ''}</td>
+                                                                <td className="border border-black p-1 text-center text-sm">{s ? s.power : ''}</td>
+                                                                <td className="border border-black p-0">
+                                                                    <input
+                                                                        type="text"
+                                                                        className="w-full h-full text-center bg-transparent outline-none p-1 border-none font-bold text-sm"
+                                                                        value={manualAdjustments[`${selectedPlayer}-hand_live`] !== undefined ? manualAdjustments[`${selectedPlayer}-hand_live`] : (s ? s.adjust : '')}
+                                                                        onChange={(e) => setManualAdjustments({ ...manualAdjustments, [`${selectedPlayer}-hand_live`]: e.target.value })}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    />
+                                                                </td>
+                                                            </>;
+                                                        })()}
+                                                    </tr>
+                                                </>
+                                            ) : (
+                                                CONFIG[reportType].map(cat => {
+                                                    const s = getStats(cat, selectedPlayer);
+                                                    return (
+                                                        <tr key={cat.id} className="h-8 font-bold">
+                                                            <td className="border border-black p-1 bg-white text-center">{cat.label.split(' ')[0]}</td>
+                                                            <td className="border border-black p-1 text-center text-sm">{s ? s.ev : ''}</td>
+                                                            <td className="border border-black p-1 text-center text-sm">{s ? s.angle : ''}</td>
+                                                            <td className="border border-black p-1 text-center text-sm">{s ? s.batSpeed : ''}</td>
+                                                            <td className="border border-black p-1 text-center text-sm">{s ? s.accel : ''}</td>
+                                                            <td className="border border-black p-1 text-center text-sm font-bold">{s ? s.power : ''}</td>
+                                                            <td className="border border-black p-0">
+                                                                <input
+                                                                    type="text"
+                                                                    className="w-full h-full text-center bg-transparent outline-none p-1 border-none font-bold text-sm"
+                                                                    value={manualAdjustments[`${selectedPlayer}-${cat.id}`] !== undefined ? manualAdjustments[`${selectedPlayer}-${cat.id}`] : (s ? s.adjust : '')}
+                                                                    onChange={(e) => setManualAdjustments({ ...manualAdjustments, [`${selectedPlayer}-${cat.id}`]: e.target.value })}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
 
-                                <div className="flex">
-                                    {/* Left Side: 4 Blocks Grid OR 3x3 Zone Grid (for Course) */}
-                                    {reportType === 'course' ? (
-                                        <div className="w-full flex gap-4">
-                                            {/* 3x3 Grids x 4 */}
-                                            <div className="w-[75%] grid grid-cols-2 gap-x-4 gap-y-8">
-                                                {(() => {
-                                                    // Helper to get stats for combined tags
-                                                    const getMultiTagStats = (tags1, tags2) => {
-                                                        const rows = allData.filter(row => {
-                                                            const pName = row['Player Name'] || row.PlayerName;
-                                                            if (pName !== selectedPlayer) return false;
-                                                            const rowTag = (row['Tag'] || row['Note'] || row['Notes'] || row['Category'] || '').toString().toLowerCase().trim();
-                                                            const match1 = tags1.some(t => rowTag.includes(t.toLowerCase()));
-                                                            const match2 = tags2.some(t => rowTag.includes(t.toLowerCase()));
-                                                            return match1 && match2;
-                                                        });
-                                                        if (rows.length === 0) return null;
-                                                        const avg = (key) => {
-                                                            const vals = rows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
-                                                            if (vals.length === 0) return '';
-                                                            return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+                                {/* 4-Block Grid Detail Section */}
+                                <div className="border border-green-600 p-2 relative h-[690px] -mt-4">
+                                    <h3 className="font-bold text-4xl mb-4 mt-2 ml-4">
+                                        {reportType === 'point' ? 'ポイント別打球速度データ' :
+                                            reportType === 'height' ? '高低別打球速度データ' :
+                                                reportType === 'course' ? 'コース別打球データ' :
+                                                    '打球データ一覧'}
+                                    </h3>
+                                    <div className="text-center text-sm font-bold mb-4">
+                                        右打ち、左打ち、共通の表記になります
+                                    </div>
+
+                                    <div className="flex">
+                                        {/* Left Side: 4 Blocks Grid OR 3x3 Zone Grid (for Course) */}
+                                        {reportType === 'course' ? (
+                                            <div className="w-full flex gap-4">
+                                                {/* 3x3 Grids x 4 */}
+                                                <div className="w-[75%] grid grid-cols-2 gap-x-4 gap-y-8">
+                                                    {(() => {
+                                                        // Helper to get stats for combined tags
+                                                        const getMultiTagStats = (tags1, tags2) => {
+                                                            const rows = allData.filter(row => {
+                                                                const pName = row['Player Name'] || row.PlayerName;
+                                                                if (pName !== selectedPlayer) return false;
+                                                                const rowTag = (row['Tag'] || row['Note'] || row['Notes'] || row['Category'] || '').toString().toLowerCase().trim();
+                                                                const match1 = tags1.some(t => rowTag.includes(t.toLowerCase()));
+                                                                const match2 = tags2.some(t => rowTag.includes(t.toLowerCase()));
+                                                                return match1 && match2;
+                                                            });
+                                                            if (rows.length === 0) return null;
+                                                            const avg = (key) => {
+                                                                const vals = rows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
+                                                                if (vals.length === 0) return '';
+                                                                return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+                                                            };
+                                                            // Attempt to find Adjust/Efficiency
+                                                            const adjustVal = rows.map(r => r['Adjust'] || r['Efficiency'] || r['AdjustRate']).filter(v => typeof v === 'number');
+                                                            const adjustAvg = adjustVal.length ? (adjustVal.reduce((a, b) => a + b, 0) / adjustVal.length).toFixed(1) : '';
+
+                                                            return {
+                                                                ev: avg('ExitVelocity'),
+                                                                batSpeed: avg('BatSpeed'),
+                                                                angle: avg('LaunchAngle'),
+                                                                adjust: adjustAvg
+                                                            };
                                                         };
-                                                        // Attempt to find Adjust/Efficiency
-                                                        const adjustVal = rows.map(r => r['Adjust'] || r['Efficiency'] || r['AdjustRate']).filter(v => typeof v === 'number');
-                                                        const adjustAvg = adjustVal.length ? (adjustVal.reduce((a, b) => a + b, 0) / adjustVal.length).toFixed(1) : '';
 
-                                                        return {
-                                                            ev: avg('ExitVelocity'),
-                                                            batSpeed: avg('BatSpeed'),
-                                                            angle: avg('LaunchAngle'),
-                                                            adjust: adjustAvg
-                                                        };
-                                                    };
+                                                        const courseOrder = [
+                                                            CONFIG.course.find(c => c.id === 'course_out'),
+                                                            CONFIG.course.find(c => c.id === 'course_mid'),
+                                                            CONFIG.course.find(c => c.id === 'course_in')
+                                                        ];
+                                                        const heightOrder = CONFIG.height; // High, Mid, Low
 
-                                                    const courseOrder = [
-                                                        CONFIG.course.find(c => c.id === 'course_out'),
-                                                        CONFIG.course.find(c => c.id === 'course_mid'),
-                                                        CONFIG.course.find(c => c.id === 'course_in')
-                                                    ];
-                                                    const heightOrder = CONFIG.height; // High, Mid, Low
+                                                        const renderGrid = (title, dataKey) => (
+                                                            <div className="w-full">
+                                                                <h4 className="text-center font-bold text-2xl text-red-600 mb-2">{title}</h4>
+                                                                <div className="grid grid-cols-3 border border-black">
+                                                                    {heightOrder.map((hCat) => (
+                                                                        courseOrder.map((cCat) => {
+                                                                            const stats = getMultiTagStats(cCat.tags, hCat.tags);
+                                                                            const val = stats ? stats[dataKey] : '';
+                                                                            // Show label only for Top (High) and Bottom (Low) rows, hide for Mid row
+                                                                            const showLabel = hCat.id !== 'height_mid';
 
-                                                    const renderGrid = (title, dataKey) => (
-                                                        <div className="w-full">
-                                                            <h4 className="text-center font-bold text-2xl text-red-600 mb-2">{title}</h4>
-                                                            <div className="grid grid-cols-3 border border-black">
-                                                                {heightOrder.map((hCat) => (
-                                                                    courseOrder.map((cCat) => {
-                                                                        const stats = getMultiTagStats(cCat.tags, hCat.tags);
-                                                                        const val = stats ? stats[dataKey] : '';
-                                                                        // Show label only for Top (High) and Bottom (Low) rows, hide for Mid row
-                                                                        const showLabel = hCat.id !== 'height_mid';
+                                                                            return (
+                                                                                <div key={`${hCat.id}-${cCat.id}`} className="aspect-square border border-black relative flex items-center justify-center bg-white">
+                                                                                    {/* Watermark Label */}
+                                                                                    {showLabel && (
+                                                                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                                            <span className="text-gray-400 font-bold text-xl">{cCat.shortLabel}</span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    {/* Value */}
+                                                                                    {dataKey === 'adjust' ? (
+                                                                                        (() => {
+                                                                                            const cellKey = `${selectedPlayer}-adjust-grid-${hCat.id}-${cCat.id}`;
+                                                                                            const displayVal = manualAdjustments[cellKey] !== undefined ? manualAdjustments[cellKey] : val;
+                                                                                            return (
+                                                                                                <input
+                                                                                                    type="text"
+                                                                                                    value={displayVal}
+                                                                                                    onChange={(e) => setManualAdjustments({ ...manualAdjustments, [cellKey]: e.target.value })}
+                                                                                                    className="w-full h-full text-center bg-transparent border-none outline-none text-2xl font-bold relative z-10 p-0"
+                                                                                                />
+                                                                                            );
+                                                                                        })()
+                                                                                    ) : (
+                                                                                        <span className="text-2xl font-bold relative z-10">{val}</span>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        );
 
+                                                        return (
+                                                            <>
+                                                                {renderGrid('打球速度(km/h)', 'ev')}
+                                                                {renderGrid('バット速度(km/h)', 'batSpeed')}
+                                                                {renderGrid('打球角度(deg.)', 'angle')}
+                                                                {renderGrid('アジャスト率(%)', 'adjust')}
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </div>
+
+                                                {/* Right Side: Silhouette */}
+                                                <div className="w-[25%] flex items-center justify-center relative overflow-hidden">
+                                                    <img src="/assets/hitter_silhouette_blue.png" alt="Silhouette" className="object-contain max-h-[600px] opacity-50 scale-[1.5] origin-center translate-y-10" />
+                                                </div>
+                                            </div>
+                                        ) : (<>
+                                            <div className="w-[63%] grid grid-cols-2 gap-x-2 gap-y-10 scale-[1.05] origin-top-left">
+                                                {[
+                                                    { label: '打球速度(km/h)', color: 'text-red-600', key: 'ev', target: benchmarks.prevSpeed },
+                                                    { label: 'バット速度(km/h)', color: 'text-red-600', key: 'batSpeed', target: benchmarks.prevBatSpeed },
+                                                    { label: '打球角度(°)', color: 'text-red-600', key: 'angle', target: null },
+                                                    { label: 'アジャスト率(%)', color: 'text-red-600', key: 'adjust', target: null }
+                                                ].map((block) => (
+                                                    <div key={block.label} className="flex flex-col">
+                                                        <h4 className={`text-center font-bold h-14 flex items-center justify-center p-1 ${block.color} ${block.longLabel ? 'text-xs leading-tight' : 'text-lg'}`}>{block.longLabel || block.label}</h4>
+                                                        <table className="w-full border-collapse border border-black text-center bg-white table-fixed h-full">
+                                                            <tbody>
+                                                                {reportType === 'hand' ? (
+                                                                    <>
+                                                                        <tr className="h-14">
+                                                                            <td className="border border-black bg-white font-bold text-gray-400 text-xl w-1/3 align-middle text-center">置きT</td>
+                                                                            <td className="border border-black text-2xl font-bold w-1/3 align-middle">
+                                                                                {(() => {
+                                                                                    const s = getStats({ tags: ['置きT', 'tee', 'hand_tee'] }, selectedPlayer);
+                                                                                    return s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-3xl leading-none block">&nbsp;</span>;
+                                                                                })()}
+                                                                            </td>
+                                                                            <td className="border border-black bg-white w-1/3 text-gray-400 font-bold text-xl align-middle select-none text-center">置きT</td>
+                                                                        </tr>
+                                                                        <tr className="h-14">
+                                                                            <td className="border border-black bg-white font-bold text-gray-400 text-xl w-1/3 align-middle text-center">前回<span className="text-xs font-normal block">(置きT)</span></td>
+                                                                            <td className="border border-black text-2xl font-bold text-gray-400 w-1/3 align-middle">{block.target || <span className="text-gray-300 text-3xl leading-none block">&nbsp;</span>}</td>
+                                                                            <td className="border border-black bg-white text-gray-400 font-bold text-xl w-1/3 align-middle select-none text-center">前回<span className="text-xs font-normal block">(置きT)</span></td>
+                                                                        </tr>
+                                                                        <tr className="h-14">
+                                                                            <td className="border border-black bg-white font-bold text-gray-400 text-xl w-1/3 align-middle text-center">手投げ</td>
+                                                                            <td className="border border-black text-2xl font-bold w-1/3 align-middle">
+                                                                                {(() => {
+                                                                                    const s = getStats({ tags: ['手投げ', 'live', 'hand_live', 'toss', 'トス'] }, selectedPlayer);
+                                                                                    return s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-3xl leading-none block">&nbsp;</span>;
+                                                                                })()}
+                                                                            </td>
+                                                                            <td className="border border-black bg-white text-gray-400 font-bold text-xl w-1/3 align-middle select-none text-center">手投げ</td>
+                                                                        </tr>
+                                                                    </>
+                                                                ) : (
+                                                                    CONFIG[reportType].map((cat, i) => {
+                                                                        const s = getStats(cat, selectedPlayer);
                                                                         return (
-                                                                            <div key={`${hCat.id}-${cCat.id}`} className="aspect-square border border-black relative flex items-center justify-center bg-white">
-                                                                                {/* Watermark Label */}
-                                                                                {showLabel && (
-                                                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                                                        <span className="text-gray-400 font-bold text-xl">{cCat.shortLabel}</span>
-                                                                                    </div>
-                                                                                )}
-                                                                                {/* Value */}
-                                                                                <span className="text-4xl font-bold relative z-10">{val}</span>
-                                                                            </div>
+                                                                            <tr key={cat.id} className="h-14">
+                                                                                <td className="border border-black bg-white font-bold text-gray-400 text-xl w-1/3 p-0 whitespace-nowrap align-middle text-center">
+                                                                                    {cat.shortLabel}
+                                                                                </td>
+                                                                                <td className="border border-black text-xl font-bold w-1/3 p-1 align-middle text-center">
+                                                                                    {block.key === 'adjust' ? (
+                                                                                        manualAdjustments[`${selectedPlayer}-${cat.id}`] !== undefined && manualAdjustments[`${selectedPlayer}-${cat.id}`] !== ''
+                                                                                            ? manualAdjustments[`${selectedPlayer}-${cat.id}`]
+                                                                                            : (s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-xl leading-none block">&nbsp;</span>)
+                                                                                    ) : (
+                                                                                        s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-xl leading-none block">&nbsp;</span>
+                                                                                    )}
+                                                                                </td>
+                                                                                <td className="border border-black bg-white text-gray-400 font-bold text-xl w-1/3 p-0 select-none whitespace-nowrap align-middle text-center">
+                                                                                    {cat.shortLabel}
+                                                                                </td>
+                                                                            </tr>
                                                                         );
                                                                     })
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    );
-
-                                                    return (
-                                                        <>
-                                                            {renderGrid('打球速度(km/h)', 'ev')}
-                                                            {renderGrid('バット速度(km/h)', 'batSpeed')}
-                                                            {renderGrid('打球角度(deg.)', 'angle')}
-                                                            {renderGrid('アジャスト率(%)', 'adjust')}
-                                                        </>
-                                                    );
-                                                })()}
+                                                                )}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                ))}
                                             </div>
 
-                                            {/* Right Side: Silhouette */}
-                                            <div className="w-[25%] flex items-center justify-center relative overflow-hidden">
-                                                <img src="/assets/hitter_silhouette_blue.png" alt="Silhouette" className="object-contain max-h-[600px] opacity-50 scale-[1.5] origin-center translate-y-10" />
-                                            </div>
-                                        </div>
-                                    ) : (<>
-                                        <div className="w-2/3 grid grid-cols-2 gap-x-6 gap-y-6">
-                                            {[
-                                                { label: '打球速度(km/h)', color: 'text-red-600', key: 'ev', target: benchmarks.prevSpeed },
-                                                { label: 'バット速度(km/h)', color: 'text-red-600', key: 'batSpeed', target: benchmarks.prevBatSpeed },
-                                                { label: '打球角度(°)', color: 'text-red-600', key: 'angle', target: null },
-                                                { label: 'アジャスト率(%)', color: 'text-red-600', key: 'adjust', target: null }
-                                            ].map((block) => (
-                                                <div key={block.label} className="flex flex-col">
-                                                    <h4 className={`text-center font-bold text-2xl h-14 flex items-center justify-center p-1 ${block.color}`}>{block.label}</h4>
-                                                    <table className="w-full border-collapse border border-black text-center h-[240px] bg-white table-fixed">
-                                                        <tbody>
-                                                            {reportType === 'hand' ? (
-                                                                <>
-                                                                    <tr>
-                                                                        <td className="border border-black bg-white font-bold text-gray-400 text-xl align-middle">置きT</td>
-                                                                        <td className="border border-black text-4xl font-bold align-middle">
-                                                                            {(() => {
-                                                                                const s = getStats({ tags: ['置きT', 'tee', 'hand_tee'] }, selectedPlayer);
-                                                                                return s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-5xl leading-none block">&nbsp;</span>;
-                                                                            })()}
-                                                                        </td>
-                                                                        <td className="border border-black bg-white w-[30%] text-gray-400 font-bold text-xl align-middle select-none">置きT</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td className="border border-black bg-white font-bold text-gray-400 text-xl align-middle">前回<span className="text-xs font-normal block">(置きT)</span></td>
-                                                                        <td className="border border-black text-4xl font-bold text-gray-400 align-middle">{block.target || <span className="text-gray-300 text-5xl leading-none block">&nbsp;</span>}</td>
-                                                                        <td className="border border-black bg-white text-gray-400 font-bold text-xl align-middle select-none">前回<span className="text-xs font-normal block">(置きT)</span></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td className="border border-black bg-white font-bold text-gray-400 text-xl align-middle">手投げ</td>
-                                                                        <td className="border border-black text-4xl font-bold align-middle">
-                                                                            {(() => {
-                                                                                const s = getStats({ tags: ['手投げ', 'live', 'hand_live', 'toss', 'トス'] }, selectedPlayer);
-                                                                                return s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-5xl leading-none block">&nbsp;</span>;
-                                                                            })()}
-                                                                        </td>
-                                                                        <td className="border border-black bg-white text-gray-400 font-bold text-xl align-middle select-none">手投げ</td>
-                                                                    </tr>
-                                                                </>
-                                                            ) : (
-                                                                CONFIG[reportType].map((cat, i) => {
-                                                                    const s = getStats(cat, selectedPlayer);
-                                                                    return (
-                                                                        <tr key={cat.id}>
-                                                                            <td className="border border-black bg-white font-bold text-gray-400 text-xl w-[30%] p-0 whitespace-nowrap align-middle">
-                                                                                {cat.shortLabel}
-                                                                            </td>
-                                                                            <td className="border border-black text-4xl font-bold p-0 align-middle">
-                                                                                {s && s[block.key] !== '' ? s[block.key] : <span className="text-black text-5xl leading-none block">&nbsp;</span>}
-                                                                            </td>
-                                                                            <td className="border border-black bg-white text-gray-400 font-bold text-xl w-[30%] p-0 select-none whitespace-nowrap align-middle">
-                                                                                {cat.shortLabel}
-                                                                            </td>
-                                                                        </tr>
-                                                                    );
-                                                                })
-                                                            )}
-                                                        </tbody>
-                                                    </table>
+                                            {/* Right Side: Silhouette Scled 2x - Removed Clip Path */}
+                                            <div className="w-[37%] flex items-center justify-end relative pl-4 pr-12 overflow-hidden">
+                                                <div>
+                                                    <img src="/assets/hitter_silhouette_blue.png" alt="Silhouette" className="object-contain max-h-[600px] opacity-50 scale-[1.6] origin-center" />
                                                 </div>
-                                            ))}
-                                        </div>
-
-                                        {/* Right Side: Silhouette Scled 2x - Removed Clip Path */}
-                                        <div className="w-1/3 flex items-center justify-center relative pl-4 overflow-hidden">
-                                            <div>
-                                                <img src="/assets/hitter_silhouette_blue.png" alt="Silhouette" className="object-contain max-h-[600px] opacity-50 scale-[2.0] origin-center" />
                                             </div>
-                                        </div>
-                                    </>)}
+                                        </>)}
+                                    </div>
                                 </div>
-                            </div>
-                        </>
-                    )}
+                            </>
+                        )
+                    }
 
-                </div>
+                </div >
             )
             }
 
@@ -974,6 +1448,7 @@ const HitterFeedback = () => {
                 viewMode === 'team' && (() => {
                     const renderTeamReportPage = (pageCategories, pageIndex, totalPages) => {
                         const colPlayerWidth = 140;
+                        const showExtraCols = true; // User requested to return to 6 columns
                         const colDataWidth = 75;
                         const renderCell = (val) => {
                             if (val === '/') {
@@ -988,7 +1463,7 @@ const HitterFeedback = () => {
                             return <td className="border border-black p-1 text-[1.3em]">{val}</td>;
                         };
 
-                        const totalTableWidth = colPlayerWidth + (pageCategories.length * 6 * colDataWidth);
+                        const totalTableWidth = colPlayerWidth + (pageCategories.length * (showExtraCols ? 6 : 4) * colDataWidth);
 
                         return (
                             <div key={pageIndex} id="report-container" className={`bg-white mx-auto text-black leading-tight border border-gray-200 shadow relative p-8 print:px-[2mm] print:pt-[75px] print:pb-[20px] flex flex-col items-center ${pageIndex > 0 ? 'print:break-before-page' : ''}`} style={{ width: '297mm', minHeight: '210mm', writingMode: 'horizontal-tb', marginBottom: '20px' }}>
@@ -996,8 +1471,8 @@ const HitterFeedback = () => {
                                 <div className="mb-2 w-full text-left">
                                     <h2 className="text-3xl font-bold border-b border-black inline-block pb-1">チーム：打球データ一覧 {totalPages > 1 ? `(${pageIndex + 1}/${totalPages})` : ''}</h2>
                                 </div>
-                                <div className="text-red-600 text-xl font-bold leading-none select-none w-full text-left">
-                                    {"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"}
+                                <div className="w-full h-6 mb-2 flex overflow-hidden items-center justify-center">
+                                    <img src="/assets/baseball_stitch_line.png" alt="Stitch Line" className="w-full h-full object-cover object-left" />
                                 </div>
                                 <div className="text-2xl font-bold mt-1 mb-16 w-full text-left">
                                     {reportDate.split('-')[0]}年{reportDate.split('-')[1].replace(/^0/, '')}月{reportDate.split('-')[2].replace(/^0/, '')}日
@@ -1007,7 +1482,7 @@ const HitterFeedback = () => {
                                     <table className="border-collapse border border-black text-[10px] text-center table-fixed bg-white mx-auto" style={{ width: `${totalTableWidth}px` }}> {/* Removed margin:0 auto in favor of flex parent centering */}
                                         <colgroup>
                                             <col style={{ width: `${colPlayerWidth}px` }} />
-                                            {Array.from({ length: pageCategories.length * 6 }).map((_, i) => (
+                                            {Array.from({ length: pageCategories.length * (showExtraCols ? 6 : 4) }).map((_, i) => (
                                                 <col key={i} style={{ width: `${colDataWidth}px` }} />
                                             ))}
                                         </colgroup>
@@ -1016,7 +1491,7 @@ const HitterFeedback = () => {
                                             <tr className="bg-white">
                                                 <th className="border border-black p-2 align-middle text-base font-bold text-center" rowSpan="3">選手名</th>
                                                 {pageCategories.map(cat => (
-                                                    <th key={cat.id} className="border border-black p-1 text-sm font-bold bg-white h-8" colSpan="6">{cat.label.split(' ')[0]}</th>
+                                                    <th key={cat.id} className="border border-black p-1 text-sm font-bold bg-white h-8" colSpan={showExtraCols ? 6 : 4}>{cat.label.split(' ')[0]}</th>
                                                 ))}
                                             </tr>
                                             {/* 2nd Row: Metric Names */}
@@ -1027,8 +1502,12 @@ const HitterFeedback = () => {
                                                         <th className="border border-black p-1 bg-[#ff0000] text-[10px] whitespace-nowrap">打球角度</th>
                                                         <th className="border border-black p-1 bg-[#ff0000] text-[10px] whitespace-nowrap">飛距離</th>
                                                         <th className="border border-black p-1 bg-[#00ccff] text-[10px] whitespace-nowrap">バット速度</th>
-                                                        <th className="border border-black p-1 bg-[#00ccff] text-[10px] whitespace-nowrap">パワー</th>
-                                                        <th className="border border-black p-1 bg-[#00ccff] text-[10px] whitespace-nowrap">アジャスト率</th>
+                                                        {showExtraCols && (
+                                                            <>
+                                                                <th className="border border-black p-1 bg-[#00ccff] text-[10px] whitespace-nowrap">パワー</th>
+                                                                <th className="border border-black p-1 bg-[#00ccff] text-[10px] whitespace-nowrap">アジャスト率</th>
+                                                            </>
+                                                        )}
                                                     </React.Fragment>
                                                 ))}
                                             </tr>
@@ -1040,8 +1519,12 @@ const HitterFeedback = () => {
                                                         <th className="border border-black p-0 text-[9px] whitespace-nowrap">(deg)</th>
                                                         <th className="border border-black p-0 text-[9px] whitespace-nowrap">(m)</th>
                                                         <th className="border border-black p-0 text-[9px] whitespace-nowrap">(km/h)</th>
-                                                        <th className="border border-black p-0 text-[9px] whitespace-nowrap">(kW)</th>
-                                                        <th className="border border-black p-0 text-[9px] whitespace-nowrap">(%)</th>
+                                                        {showExtraCols && (
+                                                            <>
+                                                                <th className="border border-black p-0 text-[9px] whitespace-nowrap">(kW)</th>
+                                                                <th className="border border-black p-0 text-[9px] whitespace-nowrap">(%)</th>
+                                                            </>
+                                                        )}
                                                     </React.Fragment>
                                                 ))}
                                             </tr>
@@ -1051,18 +1534,30 @@ const HitterFeedback = () => {
                                             {players.map((row) => {
                                                 const pName = row; // row is the player name string in players array
                                                 return (
-                                                    <tr key={pName} className="bg-white border text-xs h-6 font-bold text-black border-b-[1.5px] border-b-black">
+                                                    <tr key={pName} className={`bg-white border text-xs h-6 font-bold border-b-[1.5px] border-b-black ${getPlayerGradeInfo(pName).color}`}>
                                                         <td className="border border-black p-1 font-bold bg-white align-middle text-[1.4em] overflow-hidden whitespace-nowrap text-ellipsis px-1">{pName}</td>
                                                         {pageCategories.map(cat => {
                                                             const stats = getStats(cat, pName);
                                                             return (
                                                                 <React.Fragment key={cat.id}>
-                                                                    <td className="border border-black p-1 text-[1.3em]">{stats ? stats.ev : '-'}</td>
-                                                                    <td className="border border-black p-1 text-[1.3em]">{stats ? stats.angle : '-'}</td>
-                                                                    <td className="border border-black p-1 text-[1.3em]">{stats ? stats.dist : '-'}</td>
-                                                                    <td className="border border-black p-1 text-[1.3em]">{stats ? stats.batSpeed : '-'}</td>
-                                                                    <td className="border border-black p-1 text-[1.3em]">{stats ? stats.power : '-'}</td>
-                                                                    <td className="border border-black p-1 text-[1.3em]">{stats ? stats.adjust : '-'}</td>
+                                                                    <td className="border border-black p-1 text-[1.3em] text-black">{stats ? stats.ev : '-'}</td>
+                                                                    <td className="border border-black p-1 text-[1.3em] text-black">{stats ? stats.angle : '-'}</td>
+                                                                    <td className="border border-black p-1 text-[1.3em] text-black">{stats ? stats.dist : '-'}</td>
+                                                                    <td className="border border-black p-1 text-[1.3em] text-black">{stats ? stats.batSpeed : '-'}</td>
+                                                                    {showExtraCols && (
+                                                                        <>
+                                                                            <td className="border border-black p-1 text-[1.3em] text-black">{stats ? stats.power : '-'}</td>
+                                                                            <td className="border border-black p-0 text-[1.3em] text-black">
+                                                                                <input
+                                                                                    type="text"
+                                                                                    className="w-full h-full text-center bg-transparent outline-none p-0 appearance-none border-none"
+                                                                                    value={manualAdjustments[`${pName}-${cat.id}`] !== undefined ? manualAdjustments[`${pName}-${cat.id}`] : (stats ? stats.adjust : '')}
+                                                                                    onChange={(e) => setManualAdjustments({ ...manualAdjustments, [`${pName}-${cat.id}`]: e.target.value })}
+                                                                                    onClick={(e) => e.stopPropagation()}
+                                                                                />
+                                                                            </td>
+                                                                        </>
+                                                                    )}
                                                                 </React.Fragment>
                                                             );
                                                         })}
@@ -1080,28 +1575,37 @@ const HitterFeedback = () => {
                                                 <td className="border border-black p-1 text-center font-bold bg-white align-middle text-[1.3em]">2年生平均</td>
                                                 {pageCategories.map(cat => (
                                                     <React.Fragment key={cat.id}>
-                                                        {renderCell(getGradeAverage(cat, 'ExitVelocity', '2'))}
-                                                        {renderCell(getGradeAverage(cat, 'LaunchAngle', '2'))}
-                                                        {renderCell(getGradeAverage(cat, 'Distance', '2'))}
-                                                        {renderCell(getGradeAverage(cat, 'BatSpeed', '2'))}
-                                                        <td className="border border-black p-1 text-[1.3em] text-black text-center">-</td>
-                                                        <td className="border border-black p-1 text-[1.3em] text-black text-center">-</td>
+                                                        {renderCell(staticTableStats?.grade2[cat.id]?.ev != null ? staticTableStats.grade2[cat.id].ev.toFixed(1) : '-')}
+                                                        {renderCell(staticTableStats?.grade2[cat.id]?.ang != null ? staticTableStats.grade2[cat.id].ang.toFixed(1) : '-')}
+                                                        {renderCell(staticTableStats?.grade2[cat.id]?.dist != null ? staticTableStats.grade2[cat.id].dist.toFixed(1) : '-')}
+                                                        {renderCell(staticTableStats?.grade2[cat.id]?.bat != null ? staticTableStats.grade2[cat.id].bat.toFixed(1) : '-')}
+                                                        {showExtraCols && (
+                                                            <>
+                                                                {renderCell(staticTableStats?.grade2[cat.id]?.power != null ? staticTableStats.grade2[cat.id].power.toFixed(1) : '-')}
+                                                                {renderCell(getGradeAverage(cat, 'Adjust', '2'))}
+                                                            </>
+                                                        )}
                                                     </React.Fragment>
                                                 ))}
                                             </tr>
                                             {/* 1st Year (Black) */}
-                                            <tr className="bg-white border text-xs h-6 font-bold text-black">
+                                            < tr className="bg-white border text-xs h-6 font-bold text-black" >
                                                 <td className="border border-black p-1 text-center font-bold bg-white align-middle text-[1.3em]">1年生平均</td>
-                                                {pageCategories.map(cat => (
-                                                    <React.Fragment key={cat.id}>
-                                                        {renderCell(getGradeAverage(cat, 'ExitVelocity', '1'))}
-                                                        {renderCell(getGradeAverage(cat, 'LaunchAngle', '1'))}
-                                                        {renderCell(getGradeAverage(cat, 'Distance', '1'))}
-                                                        {renderCell(getGradeAverage(cat, 'BatSpeed', '1'))}
-                                                        {renderCell('-')}
-                                                        {renderCell('-')}
-                                                    </React.Fragment>
-                                                ))}
+                                                {
+                                                    pageCategories.map(cat => (
+                                                        <React.Fragment key={cat.id}>
+                                                            {renderCell(staticTableStats?.grade1[cat.id]?.ev != null ? staticTableStats.grade1[cat.id].ev.toFixed(1) : '-')}
+                                                            {renderCell(staticTableStats?.grade1[cat.id]?.ang != null ? staticTableStats.grade1[cat.id].ang.toFixed(1) : '-')}
+                                                            {renderCell(staticTableStats?.grade1[cat.id]?.dist != null ? staticTableStats.grade1[cat.id].dist.toFixed(1) : '-')}
+                                                            {renderCell(staticTableStats?.grade1[cat.id]?.bat != null ? staticTableStats.grade1[cat.id].bat.toFixed(1) : '-')}
+                                                            {showExtraCols && (
+                                                                <>
+                                                                    {renderCell(staticTableStats?.grade1[cat.id]?.power != null ? staticTableStats.grade1[cat.id].power.toFixed(1) : '-')}
+                                                                    {renderCell(getGradeAverage(cat, 'Adjust', '1'))}
+                                                                </>
+                                                            )}
+                                                        </React.Fragment>
+                                                    ))}
                                             </tr>
                                             {/* MS3 (Blue) - Conditional Render */}
                                             {hasMS3 && (
@@ -1109,33 +1613,60 @@ const HitterFeedback = () => {
                                                     <td className="border border-black p-1 text-center font-bold bg-white align-middle text-[1.3em]">MS3平均</td>
                                                     {pageCategories.map(cat => (
                                                         <React.Fragment key={cat.id}>
-                                                            {renderCell(getGradeAverage(cat, 'ExitVelocity', 'MS3'))}
-                                                            {renderCell(getGradeAverage(cat, 'LaunchAngle', 'MS3'))}
-                                                            {renderCell(getGradeAverage(cat, 'Distance', 'MS3'))}
-                                                            {renderCell(getGradeAverage(cat, 'BatSpeed', 'MS3'))}
+                                                            {renderCell(staticTableStats?.ms3[cat.id]?.ev != null ? staticTableStats.ms3[cat.id].ev.toFixed(1) : '-')}
+                                                            {renderCell(staticTableStats?.ms3[cat.id]?.ang != null ? staticTableStats.ms3[cat.id].ang.toFixed(1) : '-')}
+                                                            {renderCell(staticTableStats?.ms3[cat.id]?.dist != null ? staticTableStats.ms3[cat.id].dist.toFixed(1) : '-')}
+                                                            {renderCell(staticTableStats?.ms3[cat.id]?.bat != null ? staticTableStats.ms3[cat.id].bat.toFixed(1) : '-')}
                                                             {renderCell('-')}
                                                             {renderCell('-')}
                                                         </React.Fragment>
                                                     ))}
                                                 </tr>
                                             )}
+                                            {/* 3rd Year (Blue) - Always Show if exists */}
+                                            {
+                                                players.some(p => getPlayerGradeInfo(p).group === '3') && (
+                                                    <tr className="bg-white border text-xs h-6 font-bold text-[#3b82f6]">
+                                                        <td className="border border-black p-1 text-center font-bold bg-white align-middle text-[1.3em]">3年生平均</td>
+                                                        {pageCategories.map(cat => (
+                                                            <React.Fragment key={cat.id}>
+                                                                {renderCell(staticTableStats?.grade3[cat.id]?.ev != null ? staticTableStats.grade3[cat.id].ev.toFixed(1) : '-')}
+                                                                {renderCell(staticTableStats?.grade3[cat.id]?.ang != null ? staticTableStats.grade3[cat.id].ang.toFixed(1) : '-')}
+                                                                {renderCell(staticTableStats?.grade3[cat.id]?.dist != null ? staticTableStats.grade3[cat.id].dist.toFixed(1) : '-')}
+                                                                {renderCell(staticTableStats?.grade3[cat.id]?.bat != null ? staticTableStats.grade3[cat.id].bat.toFixed(1) : '-')}
+                                                                {showExtraCols && (
+                                                                    <>
+                                                                        {renderCell(staticTableStats?.grade3[cat.id]?.power != null ? staticTableStats.grade3[cat.id].power.toFixed(1) : '-')}
+                                                                        {renderCell(getGradeAverage(cat, 'Adjust', '3'))}
+                                                                    </>
+                                                                )}
+                                                            </React.Fragment>
+                                                        ))}
+                                                    </tr>
+                                                )}
                                             {/* Team Average Row (Black) */}
                                             <tr className="bg-white border text-xs h-6 font-bold text-black">
-                                                <td className="border border-black p-1 text-center font-bold bg-white align-middle text-[1.3em]">チーム平均</td>
+                                                <td className="border border-black p-1 text-center font-bold bg-white align-middle text-[1.3em] whitespace-nowrap">チーム平均</td>
                                                 {pageCategories.map(cat => {
-                                                    const avgEV = getAverage(cat, 'ExitVelocity');
-                                                    const avgAng = getAverage(cat, 'LaunchAngle');
-                                                    const avgDist = getAverage(cat, 'Distance');
-                                                    const avgBat = getAverage(cat, 'BatSpeed');
+                                                    const avgEV = staticTableStats?.team[cat.id]?.ev;
+                                                    const avgAng = staticTableStats?.team[cat.id]?.ang;
+                                                    const avgDist = staticTableStats?.team[cat.id]?.dist;
+                                                    const avgBat = staticTableStats?.team[cat.id]?.bat;
+                                                    const avgAdj = getAdjustAverage(cat.id, cat); // Keep dynamic
+                                                    const avgPower = staticTableStats?.team[cat.id]?.power;
 
                                                     return (
                                                         <React.Fragment key={cat.id}>
-                                                            <td className="border border-black p-1 text-[1.3em]">{avgEV !== null ? avgEV.toFixed(1) : '-'}</td>
-                                                            <td className="border border-black p-1 text-[1.3em]">{avgAng !== null ? avgAng.toFixed(1) : '-'}</td>
-                                                            <td className="border border-black p-1 text-[1.3em]">{avgDist !== null ? avgDist.toFixed(1) : '-'}</td>
-                                                            <td className="border border-black p-1 text-[1.3em]">{avgBat !== null ? avgBat.toFixed(1) : '-'}</td>
-                                                            <td className="border border-black p-1 text-[1.3em]">-</td>
-                                                            <td className="border border-black p-1 text-[1.3em]">-</td>
+                                                            <td className="border border-black p-1 text-[1.3em]">{avgEV != null ? avgEV.toFixed(1) : '-'}</td>
+                                                            <td className="border border-black p-1 text-[1.3em]">{avgAng != null ? avgAng.toFixed(1) : '-'}</td>
+                                                            <td className="border border-black p-1 text-[1.3em]">{avgDist != null ? avgDist.toFixed(1) : '-'}</td>
+                                                            <td className="border border-black p-1 text-[1.3em]">{avgBat != null ? avgBat.toFixed(1) : '-'}</td>
+                                                            {showExtraCols && (
+                                                                <>
+                                                                    <td className="border border-black p-1 text-[1.3em]">{avgPower != null ? avgPower.toFixed(1) : '-'}</td>
+                                                                    <td className="border border-black p-1 text-[1.3em]">{avgAdj !== null ? avgAdj.toFixed(1) : '-'}</td>
+                                                                </>
+                                                            )}
                                                         </React.Fragment>
                                                     );
                                                 })}

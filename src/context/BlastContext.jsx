@@ -69,7 +69,26 @@ export const BlastProvider = ({ children }) => {
                     // Keep original snake_case too if needed, or just rely on spread
                 }));
 
-                setBlastData(processedData);
+                // Group by Team -> Player
+                const groupedData = {};
+
+                processedData.forEach(swing => {
+                    // TODO: meaningful team assignment. For now, everything is "Ungrouped"
+                    // In the future, we can cross-reference with a player-team map
+                    const teamName = swing.Team || 'Ungrouped';
+                    const playerName = swing.PlayerName || 'Unknown Player';
+
+                    if (!groupedData[teamName]) {
+                        groupedData[teamName] = {};
+                    }
+                    if (!groupedData[teamName][playerName]) {
+                        groupedData[teamName][playerName] = [];
+                    }
+
+                    groupedData[teamName][playerName].push(swing);
+                });
+
+                setBlastData(groupedData);
 
                 // Add initial load to history (Mock)
                 // Reconstruct File History
@@ -302,8 +321,24 @@ export const BlastProvider = ({ children }) => {
                 BatAngle: row.bat_angle
             }));
 
-            // Append to existing data instead of replacing
-            setBlastData(prev => [...prev, ...finalData]);
+            // Merge into existing hierarchical structure
+            setBlastData(prev => {
+                const newData = { ...prev };
+
+                finalData.forEach(swing => {
+                    const teamName = swing.Team || 'Ungrouped';
+                    const playerName = swing.PlayerName || 'Unknown Player';
+
+                    if (!newData[teamName]) {
+                        newData[teamName] = {};
+                    }
+                    if (!newData[teamName][playerName]) {
+                        newData[teamName][playerName] = [];
+                    }
+                    newData[teamName][playerName].push(swing);
+                });
+                return newData;
+            });
 
             // Add to file history
             setFileHistory(prev => [...prev, {

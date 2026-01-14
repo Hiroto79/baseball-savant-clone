@@ -18,10 +18,30 @@ const BlastAnalysis = ({ data }) => {
         return units === 'metric' ? val * MPH_TO_KMH : val;
     };
 
-    // Extract unique players
-    const players = useMemo(() => {
-        const names = new Set(data.map(d => d.PlayerName).filter(Boolean).map(String));
-        return Array.from(names).sort();
+    // Extract unique players and map swings for efficient access
+    const { players, playerSwings } = useMemo(() => {
+        const names = new Set();
+        const swingsMap = {};
+
+        // Iterate through Teams
+        Object.values(data).forEach(teamPlayers => {
+            // Iterate through Players in each Team
+            Object.entries(teamPlayers).forEach(([player, swings]) => {
+                names.add(player);
+
+                // Consolidate swings (in case player exists in multiple teams/groups)
+                if (swingsMap[player]) {
+                    swingsMap[player] = [...swingsMap[player], ...swings];
+                } else {
+                    swingsMap[player] = swings;
+                }
+            });
+        });
+
+        return {
+            players: Array.from(names).sort(),
+            playerSwings: swingsMap
+        };
     }, [data]);
 
     // Toggle player selection
@@ -37,44 +57,43 @@ const BlastAnalysis = ({ data }) => {
     const { chartData, summaryData } = useMemo(() => {
         if (selectedPlayers.length === 0) return { chartData: [], summaryData: {} };
 
-        // Group by Date
+        // Group by Date for Chart
         const dateMap = {};
         // Accumulate totals for Summary
         const playerTotals = {};
 
         selectedPlayers.forEach(p => {
             playerTotals[p] = { count: 0, bat_speed: 0, power: 0, efficiency: 0 };
-        });
 
-        data.forEach(d => {
-            if (!selectedPlayers.includes(d.PlayerName)) return;
+            const swings = playerSwings[p] || [];
 
-            const p = d.PlayerName;
-            // Use Date if available, otherwise fallback to file name or "Unknown"
-            const dateKey = d.Date || d.file_name || 'Unknown Date';
+            swings.forEach(d => {
+                // Use Date if available, otherwise fallback to file name or "Unknown"
+                const dateKey = d.Date || d.file_name || 'Unknown Date';
 
-            if (!dateMap[dateKey]) {
-                dateMap[dateKey] = { date: dateKey };
-            }
+                if (!dateMap[dateKey]) {
+                    dateMap[dateKey] = { date: dateKey };
+                }
 
-            if (!dateMap[dateKey][`${p}_count`]) {
-                dateMap[dateKey][`${p}_count`] = 0;
-                dateMap[dateKey][`${p}_bat_speed`] = 0;
-                dateMap[dateKey][`${p}_power`] = 0;
-                dateMap[dateKey][`${p}_efficiency`] = 0;
-            }
+                if (!dateMap[dateKey][`${p}_count`]) {
+                    dateMap[dateKey][`${p}_count`] = 0;
+                    dateMap[dateKey][`${p}_bat_speed`] = 0;
+                    dateMap[dateKey][`${p}_power`] = 0;
+                    dateMap[dateKey][`${p}_efficiency`] = 0;
+                }
 
-            const batSpeed = convertVel(d.BatSpeed);
+                const batSpeed = convertVel(d.BatSpeed);
 
-            dateMap[dateKey][`${p}_count`]++;
-            dateMap[dateKey][`${p}_bat_speed`] += (batSpeed || 0);
-            dateMap[dateKey][`${p}_power`] += (d.Power || 0);
-            dateMap[dateKey][`${p}_efficiency`] += (d.OnPlaneEfficiency || 0);
+                dateMap[dateKey][`${p}_count`]++;
+                dateMap[dateKey][`${p}_bat_speed`] += (batSpeed || 0);
+                dateMap[dateKey][`${p}_power`] += (d.Power || 0);
+                dateMap[dateKey][`${p}_efficiency`] += (d.OnPlaneEfficiency || 0);
 
-            playerTotals[p].count++;
-            playerTotals[p].bat_speed += (batSpeed || 0);
-            playerTotals[p].power += (d.Power || 0);
-            playerTotals[p].efficiency += (d.OnPlaneEfficiency || 0);
+                playerTotals[p].count++;
+                playerTotals[p].bat_speed += (batSpeed || 0);
+                playerTotals[p].power += (d.Power || 0);
+                playerTotals[p].efficiency += (d.OnPlaneEfficiency || 0);
+            });
         });
 
         // Calculate averages for Chart
@@ -114,7 +133,7 @@ const BlastAnalysis = ({ data }) => {
 
         return { chartData: finalChartData, summaryData: finalSummaryData };
 
-    }, [data, selectedPlayers, units]);
+    }, [playerSwings, selectedPlayers, units]);
 
     const metrics = [
         { key: 'bat_speed', label: language === 'ja' ? '平均バットスピード' : 'Avg Bat Speed', unit: units === 'metric' ? 'km/h' : 'mph' },

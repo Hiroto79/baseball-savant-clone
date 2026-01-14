@@ -26,17 +26,29 @@ const Blast = () => {
         return null;
     };
 
-    // Extract unique players
-    const players = useMemo(() => {
-        const names = new Set(blastData.map(d => d.PlayerName).filter(Boolean));
-        return Array.from(names).sort();
+    // Extract unique players and flatten data for charts
+    const { players, flatData } = useMemo(() => {
+        const names = new Set();
+        const allSwings = [];
+
+        Object.values(blastData).forEach(teamPlayers => {
+            Object.entries(teamPlayers).forEach(([player, swings]) => {
+                names.add(player);
+                allSwings.push(...swings);
+            });
+        });
+
+        return {
+            players: Array.from(names).sort(),
+            flatData: allSwings
+        };
     }, [blastData]);
 
     // Filter data by selected players
     const filteredData = useMemo(() => {
-        if (selectedPlayers.length === 0) return blastData;
-        return blastData.filter(d => selectedPlayers.includes(d.PlayerName));
-    }, [blastData, selectedPlayers]);
+        if (selectedPlayers.length === 0) return flatData;
+        return flatData.filter(d => selectedPlayers.includes(d.PlayerName));
+    }, [flatData, selectedPlayers]);
 
     // Calculate statistics
     const stats = useMemo(() => {
