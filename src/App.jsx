@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Login from './components/Login';
-import Teams from './pages/Teams';
-import TeamDetails from './pages/TeamDetails';
+
 import PlayerDetails from './pages/PlayerDetails';
 import { DataProvider } from './context/DataContext';
 import { RapsodoProvider } from './context/RapsodoContext';
@@ -15,6 +14,7 @@ import Analysis from './pages/Analysis';
 import Leaderboard from './pages/Leaderboard';
 import Feedback from './pages/Feedback';
 import HitterFeedback from './pages/HitterFeedback';
+import PitchingSimulator from './pages/PitchingSimulator';
 
 import { SettingsProvider } from './context/SettingsContext';
 import { BlastProvider } from './context/BlastContext';
@@ -62,8 +62,7 @@ function App() {
               <BrowserRouter>
                 <Layout>
                   <Routes>
-                    <Route path="/" element={<Teams />} />
-                    <Route path="/teams/:teamId" element={<TeamDetails />} />
+
                     <Route path="/player/:playerId" element={<PlayerDetails />} />
                     <Route path="/rapsodo" element={<Rapsodo />} />
                     <Route path="/blast" element={<Blast />} />
@@ -71,11 +70,11 @@ function App() {
                     <Route path="/leaderboard" element={<Leaderboard />} />
                     <Route path="/feedback" element={<Feedback />} /> {/* Added Feedback route */}
                     <Route path="/hitter-feedback" element={<HitterFeedback />} /> {/* Added HitterFeedback route */}
+                    <Route path="/simulator" element={<PitchingSimulator />} />
                     <Route path="/upload" element={<Upload />} />
                     <Route path="/settings" element={<Settings />} />
 
-                    {/* Fallback route */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
+                    <Route path="/" element={<Navigate to="/analysis" replace />} />
                   </Routes>
                 </Layout>
               </BrowserRouter>

@@ -1,13 +1,14 @@
 import React, { useMemo } from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Legend, ReferenceDot } from 'recharts';
 import { useSettings } from '../../context/SettingsContext';
-import { convertVelocity, convertDistance } from '../../utils/units';
+import { convertVelocity } from '../../utils/units';
+import Trajectory3D from '../Analysis/Trajectory3D';
 
 const COLORS = {
     'Fastball': '#ef4444',
     'Curveball': '#3b82f6',
     'Slider': '#eab308',
-    'ChangeUp': '#22c55e',
+    'ChangeUp': '#22c56e',
     'Cutter': '#b91c1c',
     'Sinker': '#f97316',
     'Splitter': '#15803d',
@@ -105,6 +106,29 @@ const PitchingDashboard = ({ data = [] }) => {
                     <h3 className="text-sm font-medium text-muted-foreground">{language === 'ja' ? '平均回転効率' : 'Avg Spin Efficiency'}</h3>
                     <div className="mt-2 text-3xl font-bold">{stats.avgEff}%</div>
                 </div>
+            </div>
+
+            {/* 3D Trajectory */}
+            <div className="grid gap-6 md:grid-cols-1 mb-6">
+                <Trajectory3D
+                    data={data.map(d => ({
+                        ...d,
+                        // Map Rapsodo fields to Trajectory3D expected fields
+                        velocity: d.Velocity,
+                        release_angle: d['Release Angle'],
+                        horizontal_angle: d['Horizontal Angle'],
+                        HB: d['Horizontal Break'], // Assuming cm?
+                        VB: d['Vertical Break'],   // Assuming cm?
+                        release_pos_x: d['Release Side'],
+                        release_pos_z: d['Release Height'],
+                        // Plate Location for robust trajectory (if available) - Rapsodo likely uses 'Location Horizontal'/'Location Height' (cm)
+                        plate_x: d['Location Horizontal'] || d['Plate Loc Side'],
+                        plate_z: d['Location Height'] || d['Plate Loc Height'],
+                        source: 'rapsodo'
+                    }))}
+                    language={language}
+                    units={units}
+                />
             </div>
 
             {/* Charts Grid */}

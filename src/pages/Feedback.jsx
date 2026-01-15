@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Papa from 'papaparse';
 import { Upload, FileText, Printer, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, BarChart, Bar, ReferenceArea, ReferenceDot, Polygon, Customized, Label } from 'recharts';
 
 const Feedback = () => {
-    const { language, units } = useSettings();
+    const { language } = useSettings();
     const [uploadData, setUploadData] = useState([]);
     const [players, setPlayers] = useState([]);
     const [selectedPlayer, setSelectedPlayer] = useState('');
@@ -164,23 +164,6 @@ const Feedback = () => {
         return dist;
     };
 
-    // Helper: Format Time (Ensure 12:xx instead of 0:xx)
-    const formatTimeDisplay = (timeStr) => {
-        if (!timeStr || timeStr === '-') return '-';
-        const parts = timeStr.split(':');
-        if (parts.length !== 2) return timeStr;
-        let h = parseInt(parts[0], 10);
-        const m = parts[1];
-        if (h === 0) h = 12;
-        return `${h}:${m}`;
-    };
-
-    // Helper: Check if pitch type should show max velocity (Straight/Fastball ONLY)
-    const shouldShowMax = (type) => {
-        const t = type.toLowerCase();
-        return t.includes('ストレート') || t.includes('fastball') || t.includes('straight');
-    };
-
     // Calculate Team Averages
     const teamStats = useMemo(() => {
         if (uploadData.length === 0) return null;
@@ -243,40 +226,6 @@ const Feedback = () => {
                 if (h > 12) h -= 12; // Keep 12h format roughly
                 // Simple formatting
                 return `${h}:${m.toString().padStart(2, '0')}`;
-            };
-
-            // Helper for Magnitude Max
-            const getAvgMagnitudeMax = (arr, key, isGyro = false) => {
-                let valid = [];
-                if (isGyro) {
-                    const keys = ['Gyro Angle', 'GyroAngle', 'Gyro Degree', 'GyroDegree', 'Gyro', 'ジャイロ角度', 'Gyro Degree (deg)'];
-                    arr.forEach(d => {
-                        for (const k of keys) {
-                            const val = Number(d[k]);
-                            if (!isNaN(val) && (val !== 0)) {
-                                valid.push(val);
-                                break;
-                            }
-                        }
-                    });
-                } else {
-                    const getVal = (d, k) => {
-                        if (k === 'Vertical Break') return d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)'];
-                        if (k === 'Horizontal Break') return d['Horizontal Break'] || d.HorizontalBreak || d['HB (trajectory)'];
-                        return d[k] || d[k.replace(' ', '')];
-                    };
-
-                    valid = arr.map(d => {
-                        const raw = getVal(d, key);
-                        if (raw === undefined || raw === null || raw === '') return NaN;
-                        return Number(raw);
-                    }).filter(v => !isNaN(v));
-                }
-
-                if (valid.length === 0) return '-';
-                // Sort by absolute value descending
-                valid.sort((a, b) => Math.abs(b) - Math.abs(a));
-                return valid[0];
             };
 
 
@@ -779,14 +728,13 @@ const Feedback = () => {
     }, [playerStats]);
 
     // Debug state
-    const [debugMsg, setDebugMsg] = useState('');
+    // const [debugMsg, setDebugMsg] = useState('');
 
     if (loading) return <div className="p-8 text-center">Loading...</div>;
 
     return (
         <div className="p-6 max-w-[210mm] print:max-w-[206mm] mx-auto bg-white min-h-screen text-black print:p-2 print:min-h-0 print:h-auto print:pb-0 print:overflow-hidden">
-            {/* Debug Info Overlay */}
-            {debugMsg && <div className="fixed top-0 left-0 bg-yellow-100 p-2 text-xs border border-yellow-500 z-50 opacity-80">{debugMsg}</div>}
+            {/* Debug Info Overlay Removed */}
 
             <div className="print:hidden mb-8 space-y-6 bg-gray-50 p-6 rounded-xl border border-gray-200">
                 <div className="flex justify-between items-start">

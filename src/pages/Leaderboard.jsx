@@ -61,7 +61,7 @@ const Leaderboard = () => {
 
     // Process Data for Leaderboard
     const leaderboardData = useMemo(() => {
-        const rankings = [];
+        // const rankings = [];
         const playerMap = {}; // To store max value per player
 
         if (activeTab === 'savant') {

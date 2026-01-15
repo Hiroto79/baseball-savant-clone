@@ -7,3 +7,11 @@ dist
 .vscode
 .idea
 .vercel
+.agent/
+lint_output*.txt
+lint_report.txt
+scripts/*.cjs
+.DS_Store
+feedback_reports/.DS_Store
+public/.DS_Store
+src/.DS_Store

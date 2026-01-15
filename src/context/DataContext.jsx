@@ -59,7 +59,7 @@ export const DataProvider = ({ children }) => {
                 setData(processedData);
 
                 // Extract Teams
-                const uniqueTeams = new Set();
+                // Extract Teams
                 const teamsData = {};
 
                 processedData.forEach(row => {
@@ -131,33 +131,77 @@ export const DataProvider = ({ children }) => {
             const fileId = Date.now() + Math.random();
 
             // Helper to parse numbers safely
+            // Helper to parse numbers safely (handles '90.5 mph', ' 80.2 ', full-width, etc.)
             const parseNum = (val) => {
                 if (val === '-' || val === '' || val === null || val === undefined) return null;
-                const num = Number(val);
+
+                let strVal = String(val).trim();
+
+                // Handle Full-Width Numbers (０-９．)
+                strVal = strVal.replace(/[０-９．]/g, (s) => {
+                    if (s === '．') return '.';
+                    return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+                });
+
+                // Try standard parseFloat which handles "75.5 mph"
+                const num = parseFloat(strVal);
+
                 return isNaN(num) ? null : num;
+            };
+
+            // Create a normalized key map for the first row to handle variations
+            const firstRow = rawData[0] || {};
+            const keyMap = {};
+            // console.log('Original CSV Headers:', Object.keys(firstRow));
+
+            Object.keys(firstRow).forEach(key => {
+                // Normalize: trim, lowercase, remove quotes, remove BOM, convert full-width to half-width
+                const normalized = key.trim().toLowerCase()
+                    .replace(/['"]/g, '')
+                    .replace(/^\ufeff/, '')
+                    .replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+
+                keyMap[normalized] = key;
+                keyMap[key] = key;
+            });
+
+            // Helper to get value from multiple potential key names
+            const getValue = (row, targets) => {
+                for (const t of targets) {
+                    const k = keyMap[t.toLowerCase()];
+                    if (k && row[k] !== undefined) return row[k];
+                }
+                return undefined;
             };
 
             // Map CSV columns to Database columns
             const dbRows = rawData.map(row => {
                 const mapped = {
-                    game_date: row.game_date,
-                    pitcher_name: row.player_name, // In Savant CSV, player_name is pitcher
-                    batter_name: row.batter_name || String(row.batter),
-                    pitcher: parseNum(row.pitcher), // Add pitcher ID
-                    batter: parseNum(row.batter),   // Add batter ID
-                    pitch_name: row.pitch_name,
-                    release_speed: row.release_speed,
-                    release_spin_rate: row.release_spin_rate,
-                    launch_speed: row.launch_speed,
-                    launch_angle: row.launch_angle,
-                    hit_distance_sc: row.hit_distance_sc,
-                    events: row.events,
-                    description: row.description,
-                    zone: row.zone,
-                    stand: row.stand,
-                    p_throws: row.p_throws,
-                    home_team: row.home_team,
-                    away_team: row.away_team,
+                    game_date: getValue(row, ['game_date', 'game_date_null']),
+                    pitcher_name: getValue(row, ['player_name', 'pitcher_name']),
+                    batter_name: getValue(row, ['batter_name']) || String(row.batter),
+                    pitcher: parseNum(row.pitcher),
+                    batter: parseNum(row.batter),
+                    pitch_name: getValue(row, ['pitch_name', 'pitch_type_name']),
+                    release_speed: parseNum(getValue(row, ['release_speed', 'velocity'])),
+                    release_spin_rate: parseNum(getValue(row, ['release_spin_rate', 'spin_rate'])),
+                    release_pos_x: parseNum(getValue(row, ['release_pos_x'])),
+                    release_pos_z: parseNum(getValue(row, ['release_pos_z'])),
+
+                    // Robust bat_speed check (Wrapped in parseNum)
+                    bat_speed: parseNum(getValue(row, ['bat_speed', 'bat speed', 'bat_speed_mph', 'bat_speed (mph)', 'bat speed (mph)', 'batspeed', 'swing_speed', 'swing speed'])),
+                    swing_length: parseNum(getValue(row, ['swing_length', 'swing length'])),
+                    launch_speed: parseNum(getValue(row, ['launch_speed', 'exit_velocity', 'launch_speed_mph', 'exit_speed'])),
+
+                    launch_angle: parseNum(getValue(row, ['launch_angle'])),
+                    hit_distance_sc: parseNum(getValue(row, ['hit_distance_sc', 'hit_distance'])),
+                    events: getValue(row, ['events', 'event']),
+                    description: getValue(row, ['description', 'des']),
+                    zone: getValue(row, ['zone']),
+                    stand: getValue(row, ['stand']),
+                    p_throws: getValue(row, ['p_throws']),
+                    home_team: getValue(row, ['home_team']),
+                    away_team: getValue(row, ['away_team']),
                     type: row.type,
                     hit_location: row.hit_location,
                     bb_type: row.bb_type,
@@ -211,7 +255,7 @@ export const DataProvider = ({ children }) => {
 
             for (let i = 0; i < dbRows.length; i += BATCH_SIZE) {
                 const batch = dbRows.slice(i, i + BATCH_SIZE);
-                const { data: insertedData, error } = await supabase.from('savant_data').insert(batch).select();
+                const { error } = await supabase.from('savant_data').insert(batch).select();
 
                 if (error) {
                     console.error("Supabase Insert Error:", error);

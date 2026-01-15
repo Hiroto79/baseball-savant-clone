@@ -1,11 +1,17 @@
 import React, { useState, useMemo } from 'react';
+import { ChevronsUpDown } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 import ComparisonChart from './ComparisonChart';
 import ComparisonTable from './ComparisonTable';
 import ScatterPlot from './ScatterPlot';
+import PitchStatsTable from './PitchStatsTable';
+import BattingStatsTable from './BattingStatsTable';
+import BattedBallProfile from './BattedBallProfile';
+import KPICards from './KPICards';
+import Trajectory3D from './Trajectory3D';
+import StrikeZoneHeatmap from './StrikeZoneHeatmap';
 import PlayerSearch from './PlayerSearch';
 import PitchTypeSelector from './PitchTypeSelector';
-import { ChevronsUpDown } from 'lucide-react';
 
 const SavantAnalysis = ({ data }) => {
     const { language, units } = useSettings();
@@ -26,10 +32,18 @@ const SavantAnalysis = ({ data }) => {
         return units === 'metric' ? val * MPH_TO_KMH : val;
     };
 
-    // Helper to convert distance
+    // Helper to convert distance (m/ft)
     const convertDist = (val) => {
         if (val === null || val === undefined) return null;
         return units === 'metric' ? val * FT_TO_M : val;
+    };
+
+    // Helper to convert break (in -> cm)
+    // Savant PFX is usually in inches (imperial)
+    const convertBreak = (val) => {
+        if (val === null || val === undefined) return null;
+        const num = Number(val);
+        return units === 'metric' ? num * 2.54 : num; // 1 in = 2.54 cm
     };
 
     // Filter data by date range (for batting mode) - MUST be before players
@@ -101,7 +115,7 @@ const SavantAnalysis = ({ data }) => {
         // Helper to check if a pitch is a whiff (swing and miss)
         const isWhiff = (desc) => ['swinging_strike', 'swinging_strike_blocked'].includes(desc);
         // Helper to check if a pitch is a strike (including fouls and balls in play)
-        const isStrike = (desc, zone) => ['called_strike', 'swinging_strike', 'swinging_strike_blocked', 'foul', 'foul_tip', 'hit_into_play', 'foul_bunt', 'missed_bunt'].includes(desc);
+        const isStrike = (desc) => ['called_strike', 'swinging_strike', 'swinging_strike_blocked', 'foul', 'foul_tip', 'hit_into_play', 'foul_bunt', 'missed_bunt'].includes(desc);
 
         filteredData.forEach(d => {
             const date = d.game_date;
@@ -144,7 +158,7 @@ const SavantAnalysis = ({ data }) => {
                             dateMap[date][`${keyBase}_whiffs`]++;
                         }
                     }
-                    if (isStrike(d.description, d.zone)) {
+                    if (isStrike(d.description)) {
                         dateMap[date][`${keyBase}_strikes`]++;
                     }
                 }
@@ -165,7 +179,7 @@ const SavantAnalysis = ({ data }) => {
                             playerTotals[keyBase].whiffs++;
                         }
                     }
-                    if (isStrike(d.description, d.zone)) {
+                    if (isStrike(d.description)) {
                         playerTotals[keyBase].strikes++;
                     }
                 }
@@ -206,13 +220,22 @@ const SavantAnalysis = ({ data }) => {
                 }
 
                 if (!playerTotals[p]) {
-                    playerTotals[p] = { exit: 0, dist: 0, angle: 0, exitCount: 0, distCount: 0, angleCount: 0 };
+                    playerTotals[p] = { exit: 0, dist: 0, angle: 0, batSpeed: 0, exitCount: 0, distCount: 0, angleCount: 0, batSpeedCount: 0 };
                 }
 
                 if (launchSpeed != null && !isNaN(launchSpeed) && Number(launchSpeed) > 0) {
                     const convertedExit = convertVel(Number(launchSpeed));
                     playerTotals[p].exit += convertedExit;
                     playerTotals[p].exitCount++;
+                }
+
+                if (d.bat_speed != null && (typeof d.bat_speed === 'number' || typeof d.bat_speed === 'string')) {
+                    const val = typeof d.bat_speed === 'string' ? parseFloat(d.bat_speed) : d.bat_speed;
+                    if (!isNaN(val) && val > 0) {
+                        const convertedBat = convertVel(val);
+                        playerTotals[p].batSpeed += convertedBat;
+                        playerTotals[p].batSpeedCount++;
+                    }
                 }
 
                 if (hitDist != null && !isNaN(hitDist) && Number(hitDist) > 0) {
@@ -267,7 +290,8 @@ const SavantAnalysis = ({ data }) => {
                     exit: totals.exitCount > 0 ? totals.exit / totals.exitCount : 0,
                     dist: totals.distCount > 0 ? totals.dist / totals.distCount : 0,
                     angle: totals.angleCount > 0 ? totals.angle / totals.angleCount : 0,
-                    count: totals.exitCount + totals.distCount
+                    batSpeed: totals.batSpeedCount > 0 ? totals.batSpeed / totals.batSpeedCount : 0,
+                    count: totals.exitCount // Use exit count as proxy for Batted Balls
                 };
             }
         });
@@ -278,6 +302,11 @@ const SavantAnalysis = ({ data }) => {
         return { chartData: finalChartData, summaryData: finalSummaryData };
 
     }, [filteredData, mode, selectedPlayers, selectedPitchTypes, units]);
+
+    const trajectoryData = useMemo(() => {
+        if (selectedPlayers.length === 0) return [];
+        return data.filter(p => selectedPlayers.includes(p.player_name) && (selectedPitchTypes.length === 0 || selectedPitchTypes.includes(p.pitch_type || p.pitch_name)));
+    }, [data, selectedPlayers, selectedPitchTypes]);
 
     // Prepare scatter plot data for batting mode
     const scatterData = useMemo(() => {
@@ -302,7 +331,227 @@ const SavantAnalysis = ({ data }) => {
         });
 
         return data;
+
     }, [filteredData, mode, selectedPlayers, units]);
+
+    // Prepare Pitch Stats Table Data (Aggregation)
+    const pitchStatsTableData = useMemo(() => {
+        if (mode !== 'pitching' || selectedPlayers.length === 0) return [];
+
+        // Aggregate by Pitch Type
+        const stats = {};
+        let totalPitches = 0;
+
+        // swing/whiff/strike helpers duplicate (or hoist them up outside useMemo if needed, but safe here)
+        const isSwing = (desc) => ['swinging_strike', 'swinging_strike_blocked', 'foul', 'foul_tip', 'hit_into_play', 'missed_bunt', 'foul_bunt'].includes(desc);
+        const isWhiff = (desc) => ['swinging_strike', 'swinging_strike_blocked'].includes(desc);
+        const isStrike = (desc) => ['called_strike', 'swinging_strike', 'swinging_strike_blocked', 'foul', 'foul_tip', 'hit_into_play', 'foul_bunt', 'missed_bunt'].includes(desc);
+
+        filteredData.forEach(d => {
+            const p = d.player_name;
+            if (!selectedPlayers.includes(p)) return;
+
+            const pType = d.pitch_name || 'Unknown';
+            // If filter active
+            if (selectedPitchTypes.length > 0 && !selectedPitchTypes.includes(pType)) return;
+
+            if (!stats[pType]) {
+                stats[pType] = { count: 0, velSum: 0, spinSum: 0, pfxXSum: 0, pfxZSum: 0, swings: 0, whiffs: 0, strikes: 0 };
+            }
+
+            if (d.release_speed) { // weak check for valid pitch
+                totalPitches++;
+                stats[pType].count++;
+                stats[pType].velSum += convertVel(Number(d.release_speed));
+                stats[pType].spinSum += Number(d.release_spin_rate || 0);
+
+                // PFX is horizontal/vertical break
+                // Savant pfx_x is Horizontal (inches), pfx_z is Vertical (inches)
+                stats[pType].pfxXSum += convertBreak(d.pfx_x || 0);
+                stats[pType].pfxZSum += convertBreak(d.pfx_z || 0);
+
+                if (isSwing(d.description)) {
+                    stats[pType].swings++;
+                    if (isWhiff(d.description)) stats[pType].whiffs++;
+                }
+                if (isStrike(d.description)) stats[pType].strikes++;
+            }
+        });
+
+        // Compute averages
+        return Object.keys(stats).map(type => {
+            const s = stats[type];
+            return {
+                pitchType: type,
+                count: s.count,
+                usage: totalPitches > 0 ? ((s.count / totalPitches) * 100).toFixed(1) : 0,
+                vel: (s.velSum / s.count).toFixed(1),
+                spin: Math.round(s.spinSum / s.count),
+                hbreak: (s.pfxXSum / s.count).toFixed(1), // Horizontal
+                vbreak: (s.pfxZSum / s.count).toFixed(1), // Vertical
+                whiff: s.swings > 0 ? ((s.whiffs / s.swings) * 100).toFixed(1) : '0.0',
+                strike: ((s.strikes / s.count) * 100).toFixed(1)
+            };
+        }).sort((a, b) => b.count - a.count); // Sort by usage count
+
+    }, [filteredData, mode, selectedPlayers, selectedPitchTypes, units]);
+
+    // Prepare Batting Stats Table Data (Aggregation by Pitch Type seen by batter)
+    const battingStatsTableData = useMemo(() => {
+        if (mode !== 'batting' || selectedPlayers.length === 0) return [];
+
+        const stats = {};
+
+
+        const isSwing = (desc) => ['swinging_strike', 'swinging_strike_blocked', 'foul', 'foul_tip', 'hit_into_play', 'missed_bunt', 'foul_bunt'].includes(desc);
+        const isWhiff = (desc) => ['swinging_strike', 'swinging_strike_blocked'].includes(desc);
+
+        filteredData.forEach(d => {
+            const p = String(d.batter_name);
+            if (!selectedPlayers.includes(p)) return;
+
+            const pType = d.pitch_name || 'Unknown';
+            if (!stats[pType]) {
+                stats[pType] = { count: 0, exitSum: 0, exitCount: 0, batSpeedSum: 0, batSpeedCount: 0, distSum: 0, distCount: 0, angleSum: 0, angleCount: 0, swings: 0, whiffs: 0 };
+            }
+
+
+            stats[pType].count++;
+
+            const launchSpeed = d.launch_speed;
+            const batSpeed = d.bat_speed;
+            const hitDist = d.hit_distance_sc;
+            const launchAngle = d.launch_angle;
+
+            if (launchSpeed != null && !isNaN(launchSpeed) && Number(launchSpeed) > 0) {
+                stats[pType].exitSum += convertVel(Number(launchSpeed));
+                stats[pType].exitCount++;
+            }
+            if (batSpeed != null) {
+                const val = typeof batSpeed === 'string' ? parseFloat(batSpeed) : Number(batSpeed);
+                if (!isNaN(val) && val > 0) {
+                    stats[pType].batSpeedSum += convertVel(val);
+                    stats[pType].batSpeedCount++;
+                }
+            }
+            if (hitDist != null && !isNaN(hitDist) && Number(hitDist) > 0) {
+                stats[pType].distSum += convertDist(Number(hitDist));
+                stats[pType].distCount++;
+            }
+            if (launchAngle != null && !isNaN(launchAngle)) {
+                stats[pType].angleSum += Number(launchAngle);
+                stats[pType].angleCount++;
+            }
+
+            if (isSwing(d.description)) {
+                stats[pType].swings++;
+                if (isWhiff(d.description)) stats[pType].whiffs++;
+            }
+        });
+
+        return Object.keys(stats).map(type => {
+            const s = stats[type];
+            return {
+                pitchType: type,
+                count: s.count,
+                exit: s.exitCount > 0 ? (s.exitSum / s.exitCount).toFixed(1) : '-',
+                batSpeed: s.batSpeedCount > 0 ? (s.batSpeedSum / s.batSpeedCount).toFixed(1) : '-',
+                dist: s.distCount > 0 ? (s.distSum / s.distCount).toFixed(1) : '-',
+                angle: s.angleCount > 0 ? (s.angleSum / s.angleCount).toFixed(1) : '-',
+                whiff: s.swings > 0 ? ((s.whiffs / s.swings) * 100).toFixed(1) : '0.0'
+            };
+        }).sort((a, b) => b.count - a.count);
+    }, [filteredData, mode, selectedPlayers, units]);
+
+    // Prepare Pitch Movement Scatter Data & Domain
+    const { movementData, movementDomain } = useMemo(() => {
+        if (mode !== 'pitching' || selectedPlayers.length === 0) return { movementData: [], movementDomain: null };
+
+        const data = [];
+        let maxAbsVal = 0;
+
+        filteredData.forEach(d => {
+            const p = d.player_name;
+            if (!selectedPlayers.includes(p)) return;
+            const pType = d.pitch_name;
+            if (selectedPitchTypes.length > 0 && !selectedPitchTypes.includes(pType)) return;
+
+            if (d.pfx_x !== undefined && d.pfx_z !== undefined) {
+                const x = convertBreak(d.pfx_x);
+                const y = convertBreak(d.pfx_z);
+
+                // Update max for domain
+                maxAbsVal = Math.max(maxAbsVal, Math.abs(x), Math.abs(y));
+
+                data.push({
+                    player: pType || 'Unknown',
+                    x: x,
+                    y: y,
+                    fullPlayerName: p
+                });
+            }
+        });
+
+        // Create a symmetric domain with some padding
+        const limit = Math.ceil(maxAbsVal * 1.2);
+        const domain = [-limit, limit];
+
+        return { movementData: data, movementDomain: domain };
+    }, [filteredData, mode, selectedPlayers, selectedPitchTypes, units]);
+
+    // Prepare Release Point Data
+    const releasePointData = useMemo(() => {
+        if (mode !== 'pitching' || selectedPlayers.length === 0) return [];
+
+        const data = [];
+        filteredData.forEach(d => {
+            const p = d.player_name;
+            if (!selectedPlayers.includes(p)) return;
+            const pType = d.pitch_name;
+            if (selectedPitchTypes.length > 0 && !selectedPitchTypes.includes(pType)) return;
+
+            if (d.release_pos_x !== undefined && d.release_pos_z !== undefined) {
+                // Savant Release Point: X is catcher's perspective? 
+                // Normally release_pos_x is from catcher's view (negative is LHP arm side, positive is RHP arm side)
+                // We use it as is.
+
+                // Helper to convert ft to m if needed (usually feet)
+                const FT_TO_M = 0.3048; // 1 foot = 0.3048 meters
+                const convertPos = (val) => units === 'metric' ? Number(val) * FT_TO_M : Number(val);
+
+                data.push({
+                    player: pType || 'Unknown',
+                    x: convertPos(d.release_pos_x),
+                    y: convertPos(d.release_pos_z),
+                    fullPlayerName: p
+                });
+            }
+        });
+        return data;
+    }, [filteredData, mode, selectedPlayers, selectedPitchTypes, units]);
+
+    // Prepare Batted Ball Profile
+    const battedBallProfile = useMemo(() => {
+        if (selectedPlayers.length === 0) return {};
+
+        const counts = { fly_ball: 0, ground_ball: 0, line_drive: 0, popup: 0, total: 0 };
+
+        filteredData.forEach(d => {
+            // For pitching, check pitcher_name; for batting, check batter_name
+            if (mode === 'pitching') {
+                if (!selectedPlayers.includes(d.player_name)) return;
+            } else {
+                if (!selectedPlayers.includes(String(d.batter_name))) return; // batter_name is string already
+            }
+
+            if (d.bb_type && counts[d.bb_type] !== undefined) {
+                counts[d.bb_type]++;
+                counts.total++;
+            }
+        });
+
+        return counts;
+    }, [filteredData, mode, selectedPlayers]);
 
     // Prepare bat speed scatter plot data for batting mode
     const batSpeedScatterData = useMemo(() => {
@@ -316,12 +565,15 @@ const SavantAnalysis = ({ data }) => {
             const launchSpeed = d.launch_speed;
             const batSpeed = d.bat_speed;
 
-            if (launchSpeed != null && !isNaN(launchSpeed) && Number(launchSpeed) > 0 &&
-                batSpeed != null && !isNaN(batSpeed) && Number(batSpeed) > 0) {
+            const launchVal = typeof launchSpeed === 'string' ? parseFloat(launchSpeed) : Number(launchSpeed);
+            const batVal = typeof batSpeed === 'string' ? parseFloat(batSpeed) : Number(batSpeed);
+
+            if (launchSpeed != null && !isNaN(launchVal) && launchVal > 0 &&
+                batSpeed != null && !isNaN(batVal) && batVal > 0) {
                 data.push({
                     player: p,
-                    exitVelocity: convertVel(Number(launchSpeed)),
-                    batSpeed: convertVel(Number(batSpeed))
+                    exitVelocity: convertVel(launchVal),
+                    batSpeed: convertVel(batVal)
                 });
             }
         });
@@ -340,6 +592,7 @@ const SavantAnalysis = ({ data }) => {
         ]
         : [
             { key: 'exit', label: language === 'ja' ? '平均打球速度' : 'Avg Exit Vel', unit: units === 'metric' ? 'km/h' : 'mph' },
+            { key: 'batSpeed', label: language === 'ja' ? '平均バット速度' : 'Avg Bat Speed', unit: units === 'metric' ? 'km/h' : 'mph' },
             { key: 'dist', label: language === 'ja' ? '平均飛距離' : 'Avg Distance', unit: units === 'metric' ? 'm' : 'ft' },
             { key: 'angle', label: language === 'ja' ? '平均打球角度' : 'Avg Launch Angle', unit: '°' },
             { key: 'count', label: language === 'ja' ? '打球数' : 'Hit Count', unit: '' }
@@ -356,6 +609,16 @@ const SavantAnalysis = ({ data }) => {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
+            {/* Page Header */}
+            <div>
+                <h2 className="text-3xl font-bold tracking-tight">{language === 'ja' ? '分析ダッシュボード' : 'Analysis Dashboard'}</h2>
+                <p className="text-muted-foreground mt-1">
+                    {language === 'ja'
+                        ? '選手を選択して詳細データ（バットスピード、球種別成績など）を分析します。'
+                        : 'Select players to analyze detailed metrics including Bat Speed and Pitch Stats.'}
+                </p>
+            </div>
+
             {/* Controls */}
             <div className="flex flex-col gap-4 bg-card p-4 rounded-xl border border-border">
                 {/* Mode Toggle */}
@@ -450,43 +713,113 @@ const SavantAnalysis = ({ data }) => {
                 </div>
             </div>
 
-            {/* Content */}
+            {/* Content Dashboard */}
             {selectedPlayers.length > 0 ? (
-                <div className="space-y-6">
-                    {/* Comparison Table */}
-                    <ComparisonTable data={summaryData} metrics={metrics} />
+                <div className="space-y-8">
+                    {/* KPI Cards */}
+                    <KPICards data={summaryData} mode={mode} />
 
-                    {/* Charts */}
-                    <div className="grid gap-6 md:grid-cols-2">
+                    {/* Main Analysis Sections */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Comparison Table (Left or Top) */}
+                        <div className="md:col-span-2">
+                            <ComparisonTable data={summaryData} metrics={metrics} />
+                        </div>
+
                         {mode === 'pitching' ? (
                             <>
-                                <ComparisonChart
-                                    data={chartData}
-                                    lines={chartLines.map(l => ({ dataKey: `${l.id}_vel`, name: l.name }))}
-                                    yLabel={language === 'ja' ? `平均球速 (${units === 'metric' ? 'km/h' : 'mph'})` : `Avg Velocity (${units === 'metric' ? 'km/h' : 'mph'})`}
-                                />
-                                <ComparisonChart
-                                    data={chartData}
-                                    lines={chartLines.map(l => ({ dataKey: `${l.id}_spin`, name: l.name }))}
-                                    yLabel={language === 'ja' ? '平均回転数 (rpm)' : 'Avg Spin Rate (rpm)'}
-                                />
+                                <div className="md:col-span-2 grid md:grid-cols-2 gap-6">
+                                    <ComparisonChart
+                                        data={chartData}
+                                        lines={chartLines.map(l => ({ dataKey: `${l.id}_vel`, name: l.name }))}
+                                        yLabel={language === 'ja' ? `平均球速 (${units === 'metric' ? 'km/h' : 'mph'})` : `Avg Velocity (${units === 'metric' ? 'km/h' : 'mph'})`}
+                                    />
+                                    <div className="bg-card border border-border rounded-xl p-4 shadow-sm h-[400px] overflow-hidden flex flex-col">
+                                        <h3 className="text-lg font-bold mb-2">{language === 'ja' ? '球種別データ (投手)' : 'Pitch Type Statistics'}</h3>
+                                        <div className="overflow-auto flex-1">
+                                            <PitchStatsTable data={pitchStatsTableData} units={units} />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                { /* 3D Trajectory & Heatmap */}
+                                <div className="md:col-span-2 grid md:grid-cols-3 gap-6">
+                                    <div className="md:col-span-2">
+                                        <Trajectory3D
+                                            key="traj-3d-view" // Ensure persistence
+                                            data={trajectoryData}
+                                            language={language}
+                                            units={units}
+                                        />
+                                    </div>
+                                    <div className="md:col-span-1">
+                                        <StrikeZoneHeatmap
+                                            data={trajectoryData}
+                                            language={language}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Movement & Release Point */}
+                                <div className="md:col-span-2 grid md:grid-cols-2 gap-6">
+                                    <div>
+                                        <h3 className="text-lg font-bold mb-2 ml-1">{language === 'ja' ? '変化量 (Pitch Movement)' : 'Pitch Movement'}</h3>
+                                        <ScatterPlot
+                                            data={movementData}
+                                            xKey="x"
+                                            yKey="y"
+                                            xLabel={language === 'ja' ? `横変化 (${units === 'metric' ? 'cm' : 'in'})` : `Horizontal Break (${units === 'metric' ? 'cm' : 'in'})`}
+                                            yLabel={language === 'ja' ? `縦変化 (${units === 'metric' ? 'cm' : 'in'})` : `Vertical Break (${units === 'metric' ? 'cm' : 'in'})`}
+                                            domainX={movementDomain}
+                                            domainY={movementDomain}
+                                            aspect="square"
+                                        />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold mb-2 ml-1">{language === 'ja' ? 'リリースポイント' : 'Release Point'}</h3>
+                                        <ScatterPlot
+                                            data={releasePointData}
+                                            xKey="x"
+                                            yKey="y"
+                                            xLabel={language === 'ja' ? `横位置 (${units === 'metric' ? 'm' : 'ft'})` : `Horizontal Pos (${units === 'metric' ? 'm' : 'ft'})`}
+                                            yLabel={language === 'ja' ? `高さ (${units === 'metric' ? 'm' : 'ft'})` : `Height (${units === 'metric' ? 'm' : 'ft'})`}
+                                            aspect="square"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <BattedBallProfile data={battedBallProfile} />
+                                </div>
                             </>
                         ) : (
                             <>
-                                <ScatterPlot
-                                    data={scatterData}
-                                    xKey="launchAngle"
-                                    yKey="exitVelocity"
-                                    xLabel={language === 'ja' ? '打球角度 (°)' : 'Launch Angle (°)'}
-                                    yLabel={language === 'ja' ? `打球速度 (${units === 'metric' ? 'km/h' : 'mph'})` : `Exit Velocity (${units === 'metric' ? 'km/h' : 'mph'})`}
-                                />
-                                <ScatterPlot
-                                    data={batSpeedScatterData}
-                                    xKey="batSpeed"
-                                    yKey="exitVelocity"
-                                    xLabel={language === 'ja' ? `バットスピード (${units === 'metric' ? 'km/h' : 'mph'})` : `Bat Speed (${units === 'metric' ? 'km/h' : 'mph'})`}
-                                    yLabel={language === 'ja' ? `打球速度 (${units === 'metric' ? 'km/h' : 'mph'})` : `Exit Velocity (${units === 'metric' ? 'km/h' : 'mph'})`}
-                                />
+                                <div className="md:col-span-2 grid md:grid-cols-3 gap-6">
+                                    <div className="space-y-4 md:col-span-2">
+                                        <h3 className="text-lg font-bold ml-1">{language === 'ja' ? '球種別打撃成績' : 'Batting Stats by Pitch Type'}</h3>
+                                        <BattingStatsTable data={battingStatsTableData} units={units} />
+                                    </div>
+                                    <div className="md:col-span-1">
+                                        <BattedBallProfile data={battedBallProfile} />
+                                    </div>
+                                </div>
+
+                                <div className="md:col-span-2 grid md:grid-cols-2 gap-6">
+                                    <ScatterPlot
+                                        data={scatterData}
+                                        xKey="launchAngle"
+                                        yKey="exitVelocity"
+                                        xLabel={language === 'ja' ? '打球角度 (°)' : 'Launch Angle (°)'}
+                                        yLabel={language === 'ja' ? `打球速度 (${units === 'metric' ? 'km/h' : 'mph'})` : `Exit Velocity (${units === 'metric' ? 'km/h' : 'mph'})`}
+                                    />
+                                    <ScatterPlot
+                                        data={batSpeedScatterData}
+                                        xKey="batSpeed"
+                                        yKey="exitVelocity"
+                                        xLabel={language === 'ja' ? `バットスピード (${units === 'metric' ? 'km/h' : 'mph'})` : `Bat Speed (${units === 'metric' ? 'km/h' : 'mph'})`}
+                                        yLabel={language === 'ja' ? `打球速度 (${units === 'metric' ? 'km/h' : 'mph'})` : `Exit Velocity (${units === 'metric' ? 'km/h' : 'mph'})`}
+                                    />
+                                </div>
                             </>
                         )}
                     </div>

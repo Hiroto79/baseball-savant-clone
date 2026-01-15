@@ -35,13 +35,14 @@ const Layout = ({ children }) => {
                         <FileText size={20} />
                         <span className="font-medium">Hitter Feedback</span>
                     </Link>
-                    <Link to="/teams" className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                        <Users size={20} />
-                        <span className="font-medium">Teams</span>
-                    </Link>
+
                     <Link to="/rapsodo" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
                         <Activity size={20} />
                         <span>Rapsodo Analysis</span>
+                    </Link>
+                    <Link to="/simulator" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
+                        <Activity size={20} />
+                        <span>Simulator</span>
                     </Link>
                     <Link to="/blast" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
                         <Activity size={20} />
@@ -120,6 +121,14 @@ const Layout = ({ children }) => {
                             >
                                 <Activity size={20} />
                                 <span>Rapsodo Analysis</span>
+                            </Link>
+                            <Link
+                                to="/simulator"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                            >
+                                <Activity size={20} />
+                                <span>Simulator</span>
                             </Link>
                             <Link
                                 to="/blast"

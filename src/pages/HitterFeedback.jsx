@@ -5,10 +5,10 @@ import { useSettings } from '../context/SettingsContext';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, ReferenceArea, ReferenceDot } from 'recharts';
 
 const HitterFeedback = () => {
-    const { language } = useSettings();
+    const { } = useSettings();
     const [allData, setAllData] = useState([]); // Master dataset from one file
     const [fileName, setFileName] = useState('');
-    const [loading, setLoading] = useState(false);
+    // const [loading, setLoading] = useState(false);
     const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedPlayer, setSelectedPlayer] = useState('');
     const [reportType, setReportType] = useState('point'); // point, height, course, hand
@@ -34,6 +34,7 @@ const HitterFeedback = () => {
         targetBatSpeed: '120.0'
     });
     const [manualAdjustments, setManualAdjustments] = useState({});
+    const [teamCustomNames, setTeamCustomNames] = useState({});
 
     // Configuration for Categories
     const CONFIG = {
@@ -99,7 +100,7 @@ const HitterFeedback = () => {
         const file = event.target.files[0];
         if (!file) return;
 
-        setLoading(true);
+        // setLoading(true);
         setFileName(file.name);
         Papa.parse(file, {
             header: true,
@@ -109,7 +110,7 @@ const HitterFeedback = () => {
                 const rawData = results.data;
                 if (!rawData[0]) {
                     alert('Invalid CSV. No data found.');
-                    setLoading(false);
+                    // setLoading(false);
                     return;
                 }
 
@@ -374,14 +375,6 @@ const HitterFeedback = () => {
         };
     };
 
-    const getAverage = (tagConfig, key) => {
-        const rows = getFilteredRows(tagConfig, null);
-        if (rows.length === 0) return null;
-        const vals = rows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
-        if (vals.length === 0) return null;
-        return parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1));
-    };
-
     // Optimized: Calculate average including manual adjustments (Single Pass)
     const getAdjustAverage = (categoryId, tagConfig) => {
         // 1. Get all rows for this category (One scan)
@@ -636,7 +629,7 @@ const HitterFeedback = () => {
                     </div>
                 </div>
 
-                {/* Instructions */}
+                {/* Debug Info Overlay Removed */}
                 <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 text-sm text-blue-800">
                     <div className="font-bold flex items-center"><Info className="h-4 w-4 mr-1" /> 使い方ガイド</div>
                     <div className="mt-1">
@@ -1535,7 +1528,15 @@ const HitterFeedback = () => {
                                                 const pName = row; // row is the player name string in players array
                                                 return (
                                                     <tr key={pName} className={`bg-white border text-xs h-6 font-bold border-b-[1.5px] border-b-black ${getPlayerGradeInfo(pName).color}`}>
-                                                        <td className="border border-black p-1 font-bold bg-white align-middle text-[1.4em] overflow-hidden whitespace-nowrap text-ellipsis px-1">{pName}</td>
+                                                        <td className="border border-black p-0 font-bold bg-white align-middle text-[1.4em] overflow-hidden whitespace-nowrap text-ellipsis px-1">
+                                                            <input
+                                                                type="text"
+                                                                className="w-full h-full bg-transparent border-none outline-none text-center font-bold"
+                                                                style={{ fontSize: 'inherit' }}
+                                                                value={teamCustomNames[pName] !== undefined ? teamCustomNames[pName] : pName}
+                                                                onChange={(e) => setTeamCustomNames({ ...teamCustomNames, [pName]: e.target.value })}
+                                                            />
+                                                        </td>
                                                         {pageCategories.map(cat => {
                                                             const stats = getStats(cat, pName);
                                                             return (

@@ -83,9 +83,7 @@ const RapsodoAnalysis = ({ pitchingData, battingData }) => {
         const dateMap = {};
         const playerTotals = {};
 
-        selectedPlayers.forEach(p => {
-            // Initializing totals is tricky with dynamic keys, so we'll do it on demand or just use a map
-        });
+
 
         sourceData.forEach(d => {
             if (!selectedPlayers.includes(d['Player Name']) || !d.Date) return;
