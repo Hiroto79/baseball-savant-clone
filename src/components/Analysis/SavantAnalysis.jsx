@@ -725,15 +725,17 @@ const SavantAnalysis = ({ data }) => {
 
                     {/* Main Analysis Sections */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* HEALTH CHECK (Temporary) */}
+                        {/* DIAGNOSTICS (Temporary) - Find Cause */}
                         {filteredData && filteredData.length > 0 && (
-                            <div className="md:col-span-2 bg-gray-900 border border-gray-700 p-2 text-xs font-mono text-gray-300">
-                                <strong>Data Health (Valid Rows / Total {filteredData.length}):</strong><br />
-                                VAA: {filteredData.filter(d => d.vaa !== null).length} |
-                                HAA: {filteredData.filter(d => d.haa !== null).length} |
-                                AttackAngle: {filteredData.filter(d => d.attack_angle !== null).length} |
-                                RelPosY: {filteredData.filter(d => d.release_pos_y !== null).length} |
-                                PitchType: {filteredData.filter(d => d.pitch_type !== null).length}
+                            <div className="md:col-span-2 bg-gray-900 border border-gray-700 p-4 text-xs font-mono text-gray-300 overflow-x-auto">
+                                <strong className="text-yellow-400">DATA INSPECTOR (First Row Keys):</strong><br />
+                                <div className="mb-2 text-gray-400">{Object.keys(filteredData[0]).join(', ')}</div>
+                                <strong className="text-yellow-400">Sample Values for Calculations:</strong><br />
+                                release_pos_y: {String(filteredData[0].release_pos_y)}<br />
+                                vy0: {String(filteredData[0].vy0)}<br />
+                                ay: {String(filteredData[0].ay)}<br />
+                                attack_angle: {String(filteredData[0].attack_angle)}<br />
+                                pitch_type: {String(filteredData[0].pitch_type)}
                             </div>
                         )}
 

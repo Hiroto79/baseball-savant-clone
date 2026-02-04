@@ -32,7 +32,6 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
                     ivbSum: 0, ivbCount: 0,
                     vaaSum: 0, vaaCount: 0,
                     haaSum: 0, haaCount: 0,
-                    attackAngleSum: 0, attackAngleCount: 0,
                     swings: 0,
                     whiffs: 0,
                     zoneP: 0,
@@ -109,10 +108,6 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
             if (vaa !== null) { g.vaaSum += vaa; g.vaaCount++; }
             if (haa !== null) { g.haaSum += haa; g.haaCount++; }
 
-            // Attack Angle
-            const aa = getVal(d.attack_angle);
-            if (aa !== null) { g.attackAngleSum += aa; g.attackAngleCount++; }
-
             // Swing / Whiff / Zone / Chase
             const desc = d.description;
             const zone = getVal(d.zone);
@@ -157,7 +152,6 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
                 ivb: g.ivbCount ? (g.ivbSum / g.ivbCount).toFixed(2) : '-',
                 vaa: g.vaaCount ? (g.vaaSum / g.vaaCount).toFixed(2) : '-',
                 haa: g.haaCount ? (g.haaSum / g.haaCount).toFixed(2) : '-',
-                attackAngle: g.attackAngleCount ? (g.attackAngleSum / g.attackAngleCount).toFixed(2) : '-',
                 whiffPct: whiffPct.toFixed(1),
                 zonePct: zonePct.toFixed(1),
                 chasePct: chasePct.toFixed(1)
@@ -184,7 +178,6 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
                             <th className="px-3 py-2">iVB</th>
                             <th className="px-3 py-2">VAA</th>
                             <th className="px-3 py-2">HAA</th>
-                            <th className="px-3 py-2">AA</th>
                             <th className="px-3 py-2">Whiff%</th>
                             <th className="px-3 py-2">Zone%</th>
                             <th className="px-3 py-2">Chase%</th>
@@ -202,7 +195,6 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
                                 <td className="px-3 py-2">{row.ivb}</td>
                                 <td className="px-3 py-2 text-blue-400">{row.vaa}</td>
                                 <td className="px-3 py-2 text-green-400">{row.haa}</td>
-                                <td className="px-3 py-2">{row.attackAngle}</td>
                                 <td className="px-3 py-2">{row.whiffPct}%</td>
                                 <td className="px-3 py-2">{row.zonePct}%</td>
                                 <td className="px-3 py-2">{row.chasePct}%</td>
