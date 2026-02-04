@@ -1057,7 +1057,7 @@ const Feedback = () => {
                                         <tr className="bg-[#FFE5D9] h-7">
                                             <th className="border border-black p-0.5">最短タイム (秒)</th>
                                             <th className="border border-black p-0.5">平均タイム (秒)</th>
-                                            <th className="border border-black p-0.5">平均のチーム平均</th>
+                                            <th className="border border-black p-0.5">全開タイム</th>
                                         </tr>
                                     </thead>
                                     <tbody>

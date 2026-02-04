@@ -10,6 +10,7 @@ import BattedBallProfile from './BattedBallProfile';
 import KPICards from './KPICards';
 import Trajectory3D from './Trajectory3D';
 import StrikeZoneHeatmap from './StrikeZoneHeatmap';
+import ContactAnalysis3D from './ContactAnalysis3D';
 import PlayerSearch from './PlayerSearch';
 import PitchTypeSelector from './PitchTypeSelector';
 
@@ -802,6 +803,10 @@ const SavantAnalysis = ({ data }) => {
                                     <div className="md:col-span-1">
                                         <BattedBallProfile data={battedBallProfile} />
                                     </div>
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <ContactAnalysis3D data={filteredData} selectedPlayers={selectedPlayers} />
                                 </div>
 
                                 <div className="md:col-span-2 grid md:grid-cols-2 gap-6">
