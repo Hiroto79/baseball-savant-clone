@@ -62,8 +62,8 @@ const ScatterPlot = ({ data, xKey, yKey, xLabel, yLabel, domainX, domainY, aspec
                                                     <div key={i} className="flex flex-col gap-0.5 border-b border-border/50 pb-1 last:border-0 last:pb-0">
                                                         <span className="font-semibold" style={{ color: p.color }}>{p.name}</span>
                                                         <div className="text-muted-foreground text-xs flex gap-2">
-                                                            <span>{xLabel}: {pt[xKey]}</span>
-                                                            <span>{yLabel}: {pt[yKey]}</span>
+                                                            <span>{xLabel}: {typeof pt[xKey] === 'number' ? pt[xKey].toFixed(2) : pt[xKey]}</span>
+                                                            <span>{yLabel}: {typeof pt[yKey] === 'number' ? pt[yKey].toFixed(2) : pt[yKey]}</span>
                                                         </div>
                                                         {pt.fullPlayerName && (
                                                             <span className="text-xs text-muted-foreground italic">{pt.fullPlayerName}</span>

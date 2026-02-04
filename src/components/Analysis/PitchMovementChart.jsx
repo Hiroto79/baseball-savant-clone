@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine } from 'recharts';
+import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts';
 import { useSettings } from '../../context/SettingsContext';
 
 // User defined colors
@@ -34,7 +34,7 @@ const TYPE_TO_COLOR_KEY = {
     'Knuckleball': 'FA',
     'Pitch Out': 'FA',
     'Screwball': 'FA',
-    'Forkball': 'Splitter', // Maybe?
+    'Forkball': 'Splitter',
     'Slow Curve': 'Curveball',
     'Slurve': 'Slider'
 };
@@ -59,7 +59,6 @@ const JP_TO_EN_MAP = {
     'スローカーブ': 'Slow Curve'
 };
 
-// Japanese Raw Map (needed if raw type is Japanese logic dependent)
 const PITCH_MAP = {
     'FF': 'ストレート', '4-Seam Fastball': 'ストレート',
     'FC': 'カッター', 'Cutter': 'カッター',
@@ -94,36 +93,31 @@ const PitchMovementChart = ({ data, selectedPlayers }) => {
         const processed = [];
 
         filtered.forEach(d => {
-            // 1. Calculate iVB / HB in Inches (Savant standard calc)
-            // pfx_x/z are usually in feet in raw Savant CSVs (sometimes inches depending on source, but code assumed feet * 12)
-            // If pfx is null, skip
             if (d.pfx_x === null || d.pfx_x === undefined || d.pfx_z === null || d.pfx_z === undefined) return;
 
             const pfx_x = Number(d.pfx_x);
             const pfx_z = Number(d.pfx_z);
             if (isNaN(pfx_x) || isNaN(pfx_z)) return;
 
-            // In inches
+            // In inches (Savant standard calc from feet: -x*12, z*12)
             let hb = -pfx_x * 12;
             let ivb = pfx_z * 12;
 
-            // 2. Convert to Metric if needed
             if (units === 'metric') {
                 hb = hb * 2.54;
                 ivb = ivb * 2.54;
             }
 
-            // 3. Determine Color Key
             const rawType = d.pitch_type || d.pitch_name || d.type || 'Unknown';
-            const jpType = PITCH_MAP[rawType] || PITCH_MAP[d.pitch_name] || rawType; // Normalize to Japanese first
-            const enType = JP_TO_EN_MAP[jpType] || jpType; // Convert to English Standard
+            const jpType = PITCH_MAP[rawType] || PITCH_MAP[d.pitch_name] || rawType;
+            const enType = JP_TO_EN_MAP[jpType] || jpType;
             const colorKey = TYPE_TO_COLOR_KEY[enType] || 'Other';
             const color = COLOR_MAP[colorKey] || 'gray';
 
             processed.push({
                 x: Number(hb.toFixed(1)),
                 y: Number(ivb.toFixed(1)),
-                pitchType: language === 'en' ? enType : jpType, // Display name
+                pitchType: language === 'en' ? enType : jpType,
                 color: color
             });
         });
@@ -131,19 +125,11 @@ const PitchMovementChart = ({ data, selectedPlayers }) => {
         return processed;
     }, [data, selectedPlayers, units, language]);
 
-    // Domain settings
     const domain = units === 'metric' ? [-60, 60] : [-30, 30];
     const ticks = units === 'metric'
         ? [-60, -45, -30, -15, 0, 15, 30, 45, 60]
         : [-30, -20, -10, 0, 10, 20, 30];
 
-    // Group by color for Recharts Series
-    // Recharts Scatter needs separate Scatter components for different colors if we want legend?
-    // Or we can pass cell color.
-    // User wants "Plot available data".
-    // If we want a Legend, we should group by Pitch Type.
-
-    // Let's group by Pitch Type (Display Name) so we can assign specific color and show legend.
     const series = useMemo(() => {
         const groups = {};
         chartData.forEach(p => {
@@ -159,17 +145,28 @@ const PitchMovementChart = ({ data, selectedPlayers }) => {
     if (chartData.length === 0) return null;
 
     return (
-        <div className="bg-card rounded-xl border border-border p-4 shadow-sm w-full overflow-hidden h-96 flex flex-col">
-            <h3 className="text-lg font-bold mb-4">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm w-full h-auto flex flex-col">
+            <h3 className="text-lg font-bold mb-2">
                 {language === 'ja' ? '変化量 (Pitch Movement)' : 'Pitch Movement'}
-                <span className="text-sm font-normal text-muted-foreground ml-2">
+                <span className="text-xs font-normal text-muted-foreground ml-2">
                     {language === 'ja'
                         ? `(縦: iVB, 横: HB) [${units === 'metric' ? 'cm' : 'inch'}]`
                         : `(Y: iVB, X: HB) [${units === 'metric' ? 'cm' : 'inch'}]`
                     }
                 </span>
             </h3>
-            <div className="flex-1 min-h-0">
+
+            {/* Custom Legend */}
+            <div className="flex flex-wrap gap-2 mb-2 text-xs">
+                {series.map(s => (
+                    <div key={s.name} className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }}></span>
+                        <span className="text-foreground font-medium">{s.name}</span>
+                    </div>
+                ))}
+            </div>
+
+            <div className="w-full aspect-square overflow-hidden relative">
                 <ResponsiveContainer width="100%" height="100%">
                     <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
@@ -179,7 +176,8 @@ const PitchMovementChart = ({ data, selectedPlayers }) => {
                             name="HB"
                             domain={domain}
                             ticks={ticks}
-                            label={{ value: 'Horizontal Break', position: 'bottom', offset: 0 }}
+                            label={{ value: 'Horizontal Break', position: 'bottom', offset: 0, fontSize: 10, fill: '#888' }}
+                            tick={{ fontSize: 10 }}
                         />
                         <YAxis
                             type="number"
@@ -187,7 +185,8 @@ const PitchMovementChart = ({ data, selectedPlayers }) => {
                             name="iVB"
                             domain={domain}
                             ticks={ticks}
-                            label={{ value: 'Induced Vertical Break', angle: -90, position: 'insideLeft' }}
+                            label={{ value: 'Induced Vertical Break', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#888' }}
+                            tick={{ fontSize: 10 }}
                         />
                         <ReferenceLine x={0} stroke="#666" strokeOpacity={0.5} />
                         <ReferenceLine y={0} stroke="#666" strokeOpacity={0.5} />
@@ -195,19 +194,27 @@ const PitchMovementChart = ({ data, selectedPlayers }) => {
                             cursor={{ strokeDasharray: '3 3' }}
                             content={({ active, payload }) => {
                                 if (active && payload && payload.length) {
+                                    // Iterate to find the actual point being hovered if mostly overlapping?
+                                    // Recharts returns array of points near cursor.
+                                    // Usually payload[0] is enough, but robust logic: show the one closest to cursor?
+                                    // Or simply list them? 
+                                    // Let's assume the first payload item is the correct one, as series are rendered in order.
+
                                     const d = payload[0].payload;
                                     return (
-                                        <div className="bg-popover border border-border p-2 rounded shadow text-xs">
-                                            <p className="font-bold">{d.pitchType}</p>
-                                            <p>HB: {d.x}</p>
-                                            <p>iVB: {d.y}</p>
+                                        <div className="bg-popover border border-border p-2 rounded shadow text-xs z-50">
+                                            <p className="font-bold mb-1" style={{ color: d.color }}>{d.pitchType}</p>
+                                            <div className="text-muted-foreground">
+                                                <p>HB: {d.x}</p>
+                                                <p>iVB: {d.y}</p>
+                                            </div>
                                         </div>
                                     );
                                 }
                                 return null;
                             }}
                         />
-                        <Legend wrapperStyle={{ fontSize: '10px' }} />
+                        {/* No Recharts Legend */}
                         {series.map(s => (
                             <Scatter
                                 key={s.name}
@@ -215,6 +222,7 @@ const PitchMovementChart = ({ data, selectedPlayers }) => {
                                 data={s.data}
                                 fill={s.color}
                                 shape="circle"
+                                isAnimationActive={false} // Disable animation to prevent ghosting
                             />
                         ))}
                     </ScatterChart>

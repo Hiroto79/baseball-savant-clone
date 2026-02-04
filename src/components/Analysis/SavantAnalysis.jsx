@@ -16,6 +16,7 @@ import PolarSprayChart from './PolarSprayChart';
 import BatterMetricsTable from './BatterMetricsTable';
 import PlayerSearch from './PlayerSearch';
 import PitchMovementChart from './PitchMovementChart';
+import PitchTypeSelector from './PitchTypeSelector';
 
 const SavantAnalysis = ({ data }) => {
     const { language, units } = useSettings();
