@@ -1,5 +1,31 @@
 import React, { useMemo } from 'react';
 
+const PITCH_MAP = {
+    'FF': 'ストレート', '4-Seam Fastball': 'ストレート',
+    'FC': 'カッター', 'Cutter': 'カッター',
+    'CH': 'チェンジアップ', 'Changeup': 'チェンジアップ',
+    'CU': 'カーブ', 'Curveball': 'カーブ',
+    'SL': 'スライダー', 'Slider': 'スライダー',
+    'SI': 'シンカー', 'Sinker': 'シンカー',
+    'FS': 'スプリット', 'Split-Finger': 'スプリット',
+    'EP': 'イーファスピッチ', 'Eephus': 'イーファスピッチ',
+    'FA': 'その他',
+    'ST': 'スイーパー', 'Sweeper': 'スイーパー',
+    'SV': 'スラーブ', 'Slurve': 'スラーブ',
+    'KC': 'ナックルカーブ', 'Knuckle Curve': 'ナックルカーブ',
+    'PO': 'ウェスト', 'Pitch Out': 'ウェスト',
+    'KN': 'ナックル', 'Knuckleball': 'ナックル',
+    'SC': 'スクリュー', 'Screwball': 'スクリュー',
+    'FO': 'フォーク', 'Forkball': 'フォーク',
+    'CS': 'スローカーブ'
+};
+
+const ORDER_LIST = [
+    'ストレート', 'カッター', 'チェンジアップ', 'カーブ', 'スライダー', 'シンカー',
+    'スプリット', 'イーファスピッチ', 'その他', 'スイーパー', 'スラーブ',
+    'ナックルカーブ', 'ウェスト', 'ナックル', 'スクリュー', 'フォーク', 'スローカーブ'
+];
+
 const BatterMetricsTable = ({ data, selectedPlayers }) => {
     const tableData = useMemo(() => {
         if (!data || data.length === 0 || selectedPlayers.length === 0) return [];
@@ -35,7 +61,8 @@ const BatterMetricsTable = ({ data, selectedPlayers }) => {
         const grouped = {};
 
         filtered.forEach(d => {
-            const type = d.pitch_name || d.pitch_type || 'Unknown';
+            const rawType = d.pitch_type || d.pitch_name || d.type || 'Unknown';
+            const type = PITCH_MAP[rawType] || PITCH_MAP[d.pitch_name] || rawType;
             if (!grouped[type]) {
                 grouped[type] = {
                     type,
@@ -131,7 +158,16 @@ const BatterMetricsTable = ({ data, selectedPlayers }) => {
             };
         };
 
-        const rows = Object.values(grouped).map(calcMulti);
+        const rows = Object.values(grouped).map(calcMulti).sort((a, b) => {
+            const idxA = ORDER_LIST.indexOf(a.type);
+            const idxB = ORDER_LIST.indexOf(b.type);
+
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+
+            return b.count - a.count;
+        });
 
         // Total Row
         const total = {
