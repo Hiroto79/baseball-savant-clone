@@ -5,7 +5,7 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
         if (!data || data.length === 0 || selectedPlayers.length === 0) return [];
 
         const filtered = data.filter(d =>
-            d.player_name && selectedPlayers.includes(d.player_name) && d.pitch_type
+            d.player_name && selectedPlayers.includes(d.player_name) && (d.pitch_type || d.pitch_name)
         );
 
         if (filtered.length === 0) return [];

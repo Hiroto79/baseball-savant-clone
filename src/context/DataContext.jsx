@@ -202,7 +202,8 @@ export const DataProvider = ({ children }) => {
                     p_throws: getValue(row, ['p_throws']),
                     home_team: getValue(row, ['home_team']),
                     away_team: getValue(row, ['away_team']),
-                    type: row.type,
+                    pitch_type: getValue(row, ['pitch_type', 'pitch type', 'type']),
+                    type: row.type, // Keep specifically for compatibility if needed, but pitch_type is preferred
                     hit_location: row.hit_location,
                     bb_type: row.bb_type,
                     balls: row.balls,
