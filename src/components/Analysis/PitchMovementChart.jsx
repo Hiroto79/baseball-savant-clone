@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts';
+import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, Cell } from 'recharts';
 import { useSettings } from '../../context/SettingsContext';
 
 // User defined colors
@@ -130,15 +130,15 @@ const PitchMovementChart = ({ data, selectedPlayers }) => {
         ? [-60, -45, -30, -15, 0, 15, 30, 45, 60]
         : [-30, -20, -10, 0, 10, 20, 30];
 
-    const series = useMemo(() => {
-        const groups = {};
+    // LEGEND DATA (Unique Pitch Types)
+    const legendData = useMemo(() => {
+        const unique = {};
         chartData.forEach(p => {
-            if (!groups[p.pitchType]) {
-                groups[p.pitchType] = { name: p.pitchType, color: p.color, data: [] };
+            if (!unique[p.pitchType]) {
+                unique[p.pitchType] = p.color;
             }
-            groups[p.pitchType].data.push(p);
         });
-        return Object.values(groups);
+        return Object.entries(unique).map(([name, color]) => ({ name, color }));
     }, [chartData]);
 
 
@@ -158,7 +158,7 @@ const PitchMovementChart = ({ data, selectedPlayers }) => {
 
             {/* Custom Legend */}
             <div className="flex flex-wrap gap-2 mb-2 text-xs">
-                {series.map(s => (
+                {legendData.map(s => (
                     <div key={s.name} className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }}></span>
                         <span className="text-foreground font-medium">{s.name}</span>
@@ -194,12 +194,6 @@ const PitchMovementChart = ({ data, selectedPlayers }) => {
                             cursor={{ strokeDasharray: '3 3' }}
                             content={({ active, payload }) => {
                                 if (active && payload && payload.length) {
-                                    // Iterate to find the actual point being hovered if mostly overlapping?
-                                    // Recharts returns array of points near cursor.
-                                    // Usually payload[0] is enough, but robust logic: show the one closest to cursor?
-                                    // Or simply list them? 
-                                    // Let's assume the first payload item is the correct one, as series are rendered in order.
-
                                     const d = payload[0].payload;
                                     return (
                                         <div className="bg-popover border border-border p-2 rounded shadow text-xs z-50">
@@ -214,17 +208,17 @@ const PitchMovementChart = ({ data, selectedPlayers }) => {
                                 return null;
                             }}
                         />
-                        {/* No Recharts Legend */}
-                        {series.map(s => (
-                            <Scatter
-                                key={s.name}
-                                name={s.name}
-                                data={s.data}
-                                fill={s.color}
-                                shape="circle"
-                                isAnimationActive={false} // Disable animation to prevent ghosting
-                            />
-                        ))}
+                        {/* Single Scatter with Cells for robust hit detection */}
+                        <Scatter
+                            name="Pitches"
+                            data={chartData}
+                            fill="#8884d8"
+                            isAnimationActive={false}
+                        >
+                            {chartData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                        </Scatter>
                     </ScatterChart>
                 </ResponsiveContainer>
             </div>
