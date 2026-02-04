@@ -725,20 +725,6 @@ const SavantAnalysis = ({ data }) => {
 
                     {/* Main Analysis Sections */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* DIAGNOSTICS (Temporary) - Find Cause */}
-                        {filteredData && filteredData.length > 0 && (
-                            <div className="md:col-span-2 bg-gray-900 border border-gray-700 p-4 text-xs font-mono text-gray-300 overflow-x-auto">
-                                <strong className="text-yellow-400">DATA INSPECTOR (First Row Keys):</strong><br />
-                                <div className="mb-2 text-gray-400">{Object.keys(filteredData[0]).join(', ')}</div>
-                                <strong className="text-yellow-400">Sample Values for Calculations:</strong><br />
-                                release_pos_y: {String(filteredData[0].release_pos_y)}<br />
-                                vy0: {String(filteredData[0].vy0)}<br />
-                                ay: {String(filteredData[0].ay)}<br />
-                                attack_angle: {String(filteredData[0].attack_angle)}<br />
-                                pitch_type: {String(filteredData[0].pitch_type)}
-                            </div>
-                        )}
-
                         {/* Comparison Table (Left or Top) */}
                         <div className="md:col-span-2">
                             <ComparisonTable data={summaryData} metrics={metrics} />

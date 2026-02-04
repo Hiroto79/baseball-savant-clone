@@ -71,8 +71,11 @@ const BatterMetricsTable = ({ data, selectedPlayers }) => {
 
             // Attack Angle: 'attack_angle' or 'swing_angle'? User script: `attack_angle`.
             // Check DataContext.jsx: we don't map `attack_angle` explicitly but `...row` copies everything.
-            if (d.attack_angle !== null && d.attack_angle !== undefined) {
-                const aa = getVal(d.attack_angle);
+            // Attack Angle (Check normalized and known raw keys)
+            const aaVal = d.attack_angle !== undefined ? d.attack_angle : (d['Attack Angle (deg)'] || d['Attack Angle'] || d['swing_vertical_angle']);
+
+            if (aaVal !== null && aaVal !== undefined) {
+                const aa = getVal(aaVal);
                 if (aa !== null) { g.attackAngleSum += aa; g.attackAngleCount++; }
             }
 
