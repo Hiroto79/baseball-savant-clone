@@ -81,6 +81,7 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
                     ivbSum: 0, ivbCount: 0,
                     vaaSum: 0, vaaCount: 0,
                     haaSum: 0, haaCount: 0,
+                    relAngleSum: 0, relAngleCount: 0,
                     swings: 0,
                     whiffs: 0,
                     zoneP: 0,
@@ -125,6 +126,14 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
                 if (ext !== null) ry = 60.5 - ext;
             }
 
+            // Calc Release Angle (Vertical)
+            if (vx0 !== null && vy0 !== null && vz0 !== null) {
+                const toDeg = 180 / Math.PI;
+                const relAngle = Math.atan2(vz0, Math.sqrt(vx0 * vx0 + vy0 * vy0)) * toDeg;
+                g.relAngleSum += relAngle;
+                g.relAngleCount++;
+            }
+
             let vaa = getVal(d.vaa); // Try CSV first
             let haa = getVal(d.haa);
 
@@ -132,12 +141,12 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
             if ((vaa === null || haa === null) && vy0 !== null && vz0 !== null && vx0 !== null && ay !== null && az !== null && ax !== null) {
                 const HOME_PLATE_Y = 17 / 12; // 1.417 ft
 
-                // Fallback for RY if missing
-                const calcRy = ry !== null ? ry : 54.5; // Default average release height Y
+                // Savant vectors (vx0, vy0, vz0) are defined at y=50ft, not at release point.
+                const startY = 50;
 
                 const a = 0.5 * ay;
                 const b = vy0;
-                const c = calcRy - HOME_PLATE_Y;
+                const c = startY - HOME_PLATE_Y;
 
                 let t_plate = null;
 
@@ -223,6 +232,7 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
                 ivb: g.ivbCount ? (g.ivbSum / g.ivbCount).toFixed(2) : '-',
                 vaa: g.vaaCount ? (g.vaaSum / g.vaaCount).toFixed(2) : '-',
                 haa: g.haaCount ? (g.haaSum / g.haaCount).toFixed(2) : '-',
+                relAngle: g.relAngleCount ? (g.relAngleSum / g.relAngleCount).toFixed(1) : '-',
                 whiffPct: whiffPct.toFixed(1),
                 zonePct: zonePct.toFixed(1),
                 chasePct: chasePct.toFixed(1)
@@ -258,6 +268,7 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
                             <th className="px-3 py-2">iVB</th>
                             <th className="px-3 py-2">VAA</th>
                             <th className="px-3 py-2">HAA</th>
+                            <th className="px-3 py-2" title="Vertical Release Angle">Rel Ang</th>
                             <th className="px-3 py-2">Whiff%</th>
                             <th className="px-3 py-2">Zone%</th>
                             <th className="px-3 py-2">Chase%</th>
@@ -275,6 +286,7 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
                                 <td className="px-3 py-2">{row.ivb}</td>
                                 <td className="px-3 py-2 text-blue-400">{row.vaa}</td>
                                 <td className="px-3 py-2 text-green-400">{row.haa}</td>
+                                <td className="px-3 py-2 text-purple-400">{row.relAngle}</td>
                                 <td className="px-3 py-2">{row.whiffPct}%</td>
                                 <td className="px-3 py-2">{row.zonePct}%</td>
                                 <td className="px-3 py-2">{row.chasePct}%</td>
