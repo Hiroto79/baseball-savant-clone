@@ -15,7 +15,7 @@ import PitchMetricsSummary from './PitchMetricsSummary';
 import PolarSprayChart from './PolarSprayChart';
 import BatterMetricsTable from './BatterMetricsTable';
 import PlayerSearch from './PlayerSearch';
-import PitchTypeSelector from './PitchTypeSelector';
+import PitchMovementChart from './PitchMovementChart';
 
 const SavantAnalysis = ({ data }) => {
     const { language, units } = useSettings();
@@ -766,17 +766,7 @@ const SavantAnalysis = ({ data }) => {
                                 {/* Movement & Release Point */}
                                 <div className="md:col-span-2 grid md:grid-cols-2 gap-6">
                                     <div>
-                                        <h3 className="text-lg font-bold mb-2 ml-1">{language === 'ja' ? '変化量 (Pitch Movement)' : 'Pitch Movement'}</h3>
-                                        <ScatterPlot
-                                            data={movementData}
-                                            xKey="x"
-                                            yKey="y"
-                                            xLabel={language === 'ja' ? `横変化 (${units === 'metric' ? 'cm' : 'in'})` : `Horizontal Break (${units === 'metric' ? 'cm' : 'in'})`}
-                                            yLabel={language === 'ja' ? `縦変化 (${units === 'metric' ? 'cm' : 'in'})` : `Vertical Break (${units === 'metric' ? 'cm' : 'in'})`}
-                                            domainX={movementDomain}
-                                            domainY={movementDomain}
-                                            aspect="square"
-                                        />
+                                        <PitchMovementChart data={filteredData} selectedPlayers={selectedPlayers} />
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-bold mb-2 ml-1">{language === 'ja' ? 'リリースポイント' : 'Release Point'}</h3>
