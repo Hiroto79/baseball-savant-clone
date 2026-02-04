@@ -134,6 +134,9 @@ export const DataProvider = ({ children }) => {
             // Helper to parse numbers safely (handles '90.5 mph', ' 80.2 ', full-width, etc.)
             const parseNum = (val) => {
                 if (val === '-' || val === '' || val === null || val === undefined) return null;
+                if (typeof val === 'number') return val;
+                if (val === null || val === undefined || val === '') return null;
+                // '0' is falsy but valid
 
                 let strVal = String(val).trim();
 
@@ -233,15 +236,15 @@ export const DataProvider = ({ children }) => {
                     az: parseNum(getValue(row, ['az'])),
                     sz_top: parseNum(getValue(row, ['sz_top'])),
                     sz_bot: parseNum(getValue(row, ['sz_bot'])),
-                    effective_speed: row.effective_speed,
-                    release_extension: row.release_extension,
-                    vaa: parseNum(getValue(row, ['vaa', 'vertical_approach_angle', 'plate_loc_height_visual'])), // Some datasets use visual height? No, keep standard.
-                    haa: parseNum(getValue(row, ['haa', 'horizontal_approach_angle'])),
+                    effective_speed: parseNum(getValue(row, ['effective_speed', 'effective speed'])),
+                    release_extension: parseNum(getValue(row, ['release_extension', 'release extension', 'extension'])),
+                    vaa: parseNum(getValue(row, ['vaa', 'vertical_approach_angle', 'plate_loc_height_visual', 'v_angle'])),
+                    haa: parseNum(getValue(row, ['haa', 'horizontal_approach_angle', 'h_angle'])),
                     attack_angle: parseNum(getValue(row, ['attack_angle', 'attack angle', 'swing_angle', 'swing_vertical_angle', 'Attack Angle (deg)', 'AttackAngle', 'Attack Angle'])),
                     attack_direction: parseNum(getValue(row, ['attack_direction', 'attack direction'])),
-                    estimated_woba_using_speedangle: parseNum(getValue(row, ['estimated_woba_using_speedangle', 'estimated_woba'])),
+                    estimated_woba_using_speedangle: parseNum(getValue(row, ['estimated_woba_using_speedangle', 'estimated_woba', 'woba_value', 'woba'])),
                     game_pk: row.game_pk,
-                    spin_axis: row.spin_axis,
+                    spin_axis: parseNum(getValue(row, ['spin_axis', 'spin axis'])),
                     delta_home_win_exp: row.delta_home_win_exp,
                     delta_run_exp: row.delta_run_exp,
                     file_name: fileName,
