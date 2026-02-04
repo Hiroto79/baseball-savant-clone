@@ -12,6 +12,7 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
 
         // Helper for calc
         const getVal = (v) => {
+            if (v === null || v === undefined || v === '') return null;
             const num = Number(v);
             return isNaN(num) ? null : num;
         };
@@ -139,10 +140,10 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
                 usage: usage.toFixed(1),
                 velo: g.veloCount ? (g.veloSum / g.veloCount).toFixed(1) : '-',
                 spin: g.spinCount ? (g.spinSum / g.spinCount).toFixed(0) : '-',
-                hb: g.hbCount ? (g.hbSum / g.hbCount).toFixed(1) : '-',
-                ivb: g.ivbCount ? (g.ivbSum / g.ivbCount).toFixed(1) : '-',
-                vaa: g.vaaCount ? (g.vaaSum / g.vaaCount).toFixed(1) : '-',
-                haa: g.haaCount ? (g.haaSum / g.haaCount).toFixed(1) : '-',
+                hb: g.hbCount ? (g.hbSum / g.hbCount).toFixed(2) : '-',
+                ivb: g.ivbCount ? (g.ivbSum / g.ivbCount).toFixed(2) : '-',
+                vaa: g.vaaCount ? (g.vaaSum / g.vaaCount).toFixed(2) : '-',
+                haa: g.haaCount ? (g.haaSum / g.haaCount).toFixed(2) : '-',
                 whiffPct: whiffPct.toFixed(1),
                 zonePct: zonePct.toFixed(1),
                 chasePct: chasePct.toFixed(1)

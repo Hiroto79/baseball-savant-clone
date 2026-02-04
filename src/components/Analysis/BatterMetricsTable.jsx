@@ -11,7 +11,11 @@ const BatterMetricsTable = ({ data, selectedPlayers }) => {
         if (filtered.length === 0) return [];
 
         // Helper
-        const getVal = v => { const n = Number(v); return isNaN(n) ? null : n; };
+        const getVal = v => {
+            if (v === '' || v === null || v === undefined) return null;
+            const n = Number(v);
+            return isNaN(n) ? null : n;
+        };
 
         // Constants for bases
         const bases = { single: 1, double: 2, triple: 3, home_run: 4 };
@@ -116,7 +120,7 @@ const BatterMetricsTable = ({ data, selectedPlayers }) => {
                 avgBatSpeed: g.batSpeedCount ? (g.batSpeedSum / g.batSpeedCount).toFixed(1) : '-',
                 avgExitVel: g.launchSpeedCount ? (g.launchSpeedSum / g.launchSpeedCount).toFixed(1) : '-',
                 avgLaunchAngle: g.launchAngleCount ? (g.launchAngleSum / g.launchAngleCount).toFixed(1) : '-',
-                avgAttackAngle: g.attackAngleCount ? (g.attackAngleSum / g.attackAngleCount).toFixed(1) : '-',
+                avgAttackAngle: g.attackAngleCount ? (g.attackAngleSum / g.attackAngleCount).toFixed(2) : '-',
                 avgSpray: g.sprayCount ? (g.spraySum / g.sprayCount).toFixed(1) : '-',
 
                 swingPct: g.count > 0 ? ((g.swings / g.count) * 100).toFixed(1) : '-',
