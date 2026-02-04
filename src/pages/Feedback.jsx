@@ -889,7 +889,7 @@ const Feedback = () => {
                             <div className="mt-2 grid grid-cols-3 gap-1">
                                 <input name="quickTimeBest" placeholder="Ｑ最短 (秒)" value={manualData.quickTimeBest} onChange={handleManualChange} className="border p-1 w-full" />
                                 <input name="quickTimeAvg" placeholder="Ｑ平均 (秒)" value={manualData.quickTimeAvg} onChange={handleManualChange} className="border p-1 w-full" />
-                                <input name="quickTimeTeam" placeholder="Ｑチーム平均" value={manualData.quickTimeTeam} onChange={handleManualChange} className="border p-1 w-full" />
+                                <input name="quickTimeTeam" placeholder="前回タイム" value={manualData.quickTimeTeam} onChange={handleManualChange} className="border p-1 w-full" />
                             </div>
                         </div>
 
@@ -1057,7 +1057,7 @@ const Feedback = () => {
                                         <tr className="bg-[#FFE5D9] h-7">
                                             <th className="border border-black p-0.5">最短タイム (秒)</th>
                                             <th className="border border-black p-0.5">平均タイム (秒)</th>
-                                            <th className="border border-black p-0.5">全開タイム</th>
+                                            <th className="border border-black p-0.5">前回タイム</th>
                                         </tr>
                                     </thead>
                                     <tbody>
