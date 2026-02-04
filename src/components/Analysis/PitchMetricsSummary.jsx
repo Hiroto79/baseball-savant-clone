@@ -21,7 +21,7 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
         let totalPitches = 0;
 
         filtered.forEach(d => {
-            const type = d.pitch_name || d.pitch_type; // Use pitch_name if available for better display
+            const type = d.pitch_name || d.pitch_type || d.type || 'Unknown'; // Use pitch_name if available for better display
             if (!grouped[type]) {
                 grouped[type] = {
                     type,
@@ -69,7 +69,12 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
             const ay = getVal(d.ay);
             const az = getVal(d.az);
             const ax = getVal(d.ax);
-            const ry = getVal(d.release_pos_y);
+
+            let ry = getVal(d.release_pos_y);
+            if (ry === null) {
+                const ext = getVal(d.release_extension);
+                if (ext !== null) ry = 60.5 - ext;
+            }
 
             let vaa = getVal(d.vaa); // Try CSV first
             let haa = getVal(d.haa);
