@@ -152,7 +152,9 @@ const PolarSprayChart = ({ data, selectedPlayers }) => {
                     opacity: 0.7,
                     line: { width: 1, color: 'white' }
                 },
-                name: `${b.evt} (${b.spd})`,
+                name: `${b.evt}`,
+                legendgroup: b.evt, // Group by event
+                showlegend: false, // Hide individual bucket traces
                 hovertemplate:
                     `<b>${b.evt}</b><br>` +
                     `Velocity: %{customdata.speed:.1f} mph<br>` +
@@ -162,9 +164,46 @@ const PolarSprayChart = ({ data, selectedPlayers }) => {
             });
         });
 
-        // Add "Rings" for reference (20, 40, ... 130 mph) happens strictly in layout? 
-        // Or we can add dummy traces for the grid if Plotly doesn't support custom radial text easily in this layout?
-        // Layout uses simple radialaxis range. I'll stick to that relative scale.
+        // Add Legend Traces (Events) - Control Toggling
+        const evtLabels = {
+            'single': 'Single', 'double': 'Double', 'triple': 'Triple',
+            'home_run': 'Home Run', 'out': 'Out'
+        };
+        const evtOrder = ['out', 'single', 'double', 'triple', 'home_run']; // Order as requested or logical? "OUT, Hit..."
+        // User said: "OUT, Hitの後に" (Out, Hits...). 
+        // I will do Out first, then Hits.
+
+        evtOrder.forEach(evt => {
+            if (!eventColors[evt]) return;
+            traces.push({
+                type: 'scatterpolar',
+                mode: 'markers',
+                r: [null], theta: [null], // Dummy
+                marker: { color: eventColors[evt], symbol: 'circle', size: 10 },
+                name: evtLabels[evt] || evt,
+                legendgroup: evt,
+                showlegend: true
+            });
+        });
+
+        // Add Legend Traces (Speed Shapes) - Informational
+        const speedLegend = [
+            { key: 'slow', label: 'Slow (<84 mph)', symbol: markers['slow'] },
+            { key: 'medium', label: 'Medium (84-94 mph)', symbol: markers['medium'] },
+            { key: 'fast', label: 'Fast (>94 mph)', symbol: markers['fast'] }
+        ];
+
+        speedLegend.forEach(s => {
+            traces.push({
+                type: 'scatterpolar',
+                mode: 'markers',
+                r: [null], theta: [null],
+                marker: { color: '#888', symbol: s.symbol, size: 10, line: { color: 'white', width: 1 } },
+                name: s.label,
+                showlegend: true,
+                hoverinfo: 'none'
+            });
+        });
 
         return traces;
 
