@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useSettings } from '../../context/SettingsContext';
 
 const PITCH_MAP = {
     'FF': 'ストレート', '4-Seam Fastball': 'ストレート',
@@ -26,7 +27,28 @@ const ORDER_LIST = [
     'ナックルカーブ', 'ウェスト', 'ナックル', 'スクリュー', 'フォーク', 'スローカーブ'
 ];
 
+const JP_TO_EN_MAP = {
+    'ストレート': '4-Seam Fastball',
+    'カッター': 'Cutter',
+    'チェンジアップ': 'Changeup',
+    'カーブ': 'Curveball',
+    'スライダー': 'Slider',
+    'シンカー': 'Sinker',
+    'スプリット': 'Split-Finger',
+    'イーファスピッチ': 'Eephus',
+    'その他': 'Other',
+    'スイーパー': 'Sweeper',
+    'スラーブ': 'Slurve',
+    'ナックルカーブ': 'Knuckle Curve',
+    'ウェスト': 'Pitch Out',
+    'ナックル': 'Knuckleball',
+    'スクリュー': 'Screwball',
+    'フォーク': 'Forkball',
+    'スローカーブ': 'Slow Curve'
+};
+
 const BatterMetricsTable = ({ data, selectedPlayers }) => {
+    const { language } = useSettings();
     const tableData = useMemo(() => {
         if (!data || data.length === 0 || selectedPlayers.length === 0) return [];
 
@@ -70,10 +92,8 @@ const BatterMetricsTable = ({ data, selectedPlayers }) => {
                     batSpeedSum: 0, batSpeedCount: 0,
                     launchSpeedSum: 0, launchSpeedCount: 0,
                     launchAngleSum: 0, launchAngleCount: 0,
-                    attackAngleSum: 0, attackAngleCount: 0, // Python key: attack_angle. Savant CSV: swing_angle? or attack_angle? User script says `attack_angle` but `bat_speed` cols.
-                    // Need to check CSV columns available. 'bat_speed', 'swing_length' exists. 'attack_angle'?
-                    // Assuming columns exist if user script uses them. If not, will be 0.
-                    spraySum: 0, sprayCount: 0, // attack_direction?
+                    attackAngleSum: 0, attackAngleCount: 0,
+                    spraySum: 0, sprayCount: 0,
 
                     xwobaSum: 0, xwobaCount: 0,
 
@@ -96,22 +116,18 @@ const BatterMetricsTable = ({ data, selectedPlayers }) => {
             const la = getVal(d.launch_angle);
             if (la !== null) { g.launchAngleSum += la; g.launchAngleCount++; }
 
-            // Attack Angle: 'attack_angle' or 'swing_angle'? User script: `attack_angle`.
-            // Check DataContext.jsx: we don't map `attack_angle` explicitly but `...row` copies everything.
-            // Attack Angle (Check normalized and known raw keys)
             const aaVal = d.attack_angle !== undefined ? d.attack_angle : (d['Attack Angle (deg)'] || d['Attack Angle'] || d['swing_vertical_angle']);
-
             if (aaVal !== null && aaVal !== undefined) {
                 const aa = getVal(aaVal);
                 if (aa !== null) { g.attackAngleSum += aa; g.attackAngleCount++; }
             }
 
-            if (d.attack_direction) { // User script: `attack_direction`
+            if (d.attack_direction) {
                 const ad = getVal(d.attack_direction);
                 if (ad !== null) { g.spraySum += ad; g.sprayCount++; }
             }
 
-            // xwOBA: `estimated_woba_using_speedangle`
+            // xwOBA
             const xwoba = getVal(d.estimated_woba_using_speedangle);
             if (xwoba !== null) { g.xwobaSum += xwoba; g.xwobaCount++; }
 
@@ -142,7 +158,7 @@ const BatterMetricsTable = ({ data, selectedPlayers }) => {
                 ...g,
                 avg: avg.toFixed(3).replace(/^0+/, ''),
                 obp: obp.toFixed(3).replace(/^0+/, ''),
-                slg: slg.toFixed(3), // User script keeps 0? `f"{x:.3f}".lstrip("0")` for all.
+                slg: slg.toFixed(3),
                 ops: ops.toFixed(3),
                 iso: iso.toFixed(3),
                 xwoba: xwoba.toFixed(3).replace(/^0+/, ''),
@@ -158,9 +174,17 @@ const BatterMetricsTable = ({ data, selectedPlayers }) => {
             };
         };
 
-        const rows = Object.values(grouped).map(calcMulti).sort((a, b) => {
-            const idxA = ORDER_LIST.indexOf(a.type);
-            const idxB = ORDER_LIST.indexOf(b.type);
+        const rows = Object.values(grouped).map(g => {
+            const row = calcMulti(g);
+            const displayType = language === 'en' ? (JP_TO_EN_MAP[g.type] || g.type) : g.type;
+            return {
+                ...row,
+                type: displayType,
+                sortKey: g.type
+            };
+        }).sort((a, b) => {
+            const idxA = ORDER_LIST.indexOf(a.sortKey);
+            const idxB = ORDER_LIST.indexOf(b.sortKey);
 
             if (idxA !== -1 && idxB !== -1) return idxA - idxB;
             if (idxA !== -1) return -1;
@@ -197,14 +221,11 @@ const BatterMetricsTable = ({ data, selectedPlayers }) => {
         });
 
         const totalRow = calcMulti(total);
-        totalRow.type = '全体'; // Japanese "Total"
-
-        // Sort rows by pitch count
-        rows.sort((a, b) => b.count - a.count);
+        totalRow.type = language === 'en' ? 'Total' : '全体';
 
         return [...rows, totalRow];
 
-    }, [data, selectedPlayers]);
+    }, [data, selectedPlayers, language]);
 
     if (!tableData.length) return null;
 
@@ -232,7 +253,7 @@ const BatterMetricsTable = ({ data, selectedPlayers }) => {
                     </thead>
                     <tbody className="divide-y divide-border">
                         {tableData.map((row, i) => (
-                            <tr key={i} className={`hover:bg-accent/50 ${row.type === '全体' ? 'font-bold bg-muted/20' : ''}`}>
+                            <tr key={i} className={`hover:bg-accent/50 ${row.type === '全体' || row.type === 'Total' ? 'font-bold bg-muted/20' : ''}`}>
                                 <td className="px-2 py-2">{row.type}</td>
                                 <td className="px-2 py-2">{row.avg}</td>
                                 <td className="px-2 py-2">{row.obp}</td>

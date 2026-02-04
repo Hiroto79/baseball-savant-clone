@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useSettings } from '../../context/SettingsContext'; // Import context
 
 const PITCH_MAP = {
     'FF': 'ストレート', '4-Seam Fastball': 'ストレート',
@@ -26,7 +27,28 @@ const ORDER_LIST = [
     'ナックルカーブ', 'ウェスト', 'ナックル', 'スクリュー', 'フォーク', 'スローカーブ'
 ];
 
+const JP_TO_EN_MAP = {
+    'ストレート': '4-Seam Fastball',
+    'カッター': 'Cutter',
+    'チェンジアップ': 'Changeup',
+    'カーブ': 'Curveball',
+    'スライダー': 'Slider',
+    'シンカー': 'Sinker',
+    'スプリット': 'Split-Finger',
+    'イーファスピッチ': 'Eephus',
+    'その他': 'Other',
+    'スイーパー': 'Sweeper',
+    'スラーブ': 'Slurve',
+    'ナックルカーブ': 'Knuckle Curve',
+    'ウェスト': 'Pitch Out',
+    'ナックル': 'Knuckleball',
+    'スクリュー': 'Screwball',
+    'フォーク': 'Forkball',
+    'スローカーブ': 'Slow Curve'
+};
+
 const PitchMetricsSummary = ({ data, selectedPlayers }) => {
+    const { language } = useSettings(); // Hook
     const stats = useMemo(() => {
         if (!data || data.length === 0 || selectedPlayers.length === 0) return [];
 
@@ -169,13 +191,16 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
 
         // Final Aggregate
         return Object.values(grouped).map(g => {
+            const displayType = language === 'en' ? (JP_TO_EN_MAP[g.type] || g.type) : g.type;
+
             const usage = (g.count / totalPitches) * 100;
             const whiffPct = g.swings > 0 ? (g.whiffs / g.swings) * 100 : 0;
             const zonePct = g.count > 0 ? (g.zoneP / g.count) * 100 : 0;
             const chasePct = g.oZoneP > 0 ? (g.chase / g.oZoneP) * 100 : 0;
 
             return {
-                type: g.type,
+                type: displayType,
+                sortKey: g.type,
                 pitches: g.count,
                 usage: usage.toFixed(1),
                 velo: g.veloCount ? (g.veloSum / g.veloCount).toFixed(1) : '-',
@@ -189,8 +214,8 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
                 chasePct: chasePct.toFixed(1)
             };
         }).sort((a, b) => {
-            const idxA = ORDER_LIST.indexOf(a.type);
-            const idxB = ORDER_LIST.indexOf(b.type);
+            const idxA = ORDER_LIST.indexOf(a.sortKey);
+            const idxB = ORDER_LIST.indexOf(b.sortKey);
 
             if (idxA !== -1 && idxB !== -1) return idxA - idxB;
             if (idxA !== -1) return -1;
@@ -199,7 +224,7 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
             return b.usage - a.usage;
         });
 
-    }, [data, selectedPlayers]);
+    }, [data, selectedPlayers, language]);
 
     if (!stats.length) return null;
 
