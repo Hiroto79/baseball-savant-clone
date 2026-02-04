@@ -141,25 +141,20 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
             if ((vaa === null || haa === null) && vy0 !== null && vz0 !== null && vx0 !== null && ay !== null && az !== null && ax !== null) {
                 const HOME_PLATE_Y = 17 / 12; // 1.417 ft
 
-                // Savant vectors (vx0, vy0, vz0) are defined at y=50ft, not at release point.
-                const startY = 50;
+                // User requested logic using release_pos_y
+                const calcRy = ry !== null ? ry : 54.5;
 
-                const a = 0.5 * ay;
-                const b = vy0;
-                const c = startY - HOME_PLATE_Y;
-
+                // Formula from user script: t = (-vy0 - sqrt(vy0^2 - 2*ay*(ry - plate_y))) / ay
                 let t_plate = null;
 
-                if (a === 0) {
-                    // Linear: vy0 * t + c = 0 -> t = -c / vy0
-                    if (b !== 0) t_plate = -c / b;
+                if (ay === 0) {
+                    if (vy0 !== 0) {
+                        t_plate = -(calcRy - HOME_PLATE_Y) / vy0;
+                    }
                 } else {
-                    // Quadratic
-                    const term = b * b - 4 * a * c;
+                    const term = vy0 * vy0 - 2 * ay * (calcRy - HOME_PLATE_Y);
                     if (term >= 0) {
-                        // Choose correct root. vy0 is negative. t should be positive.
-                        // Standard physics: (-b - sqrt) / 2a gives the earlier intersection (downward path)
-                        t_plate = (-b - Math.sqrt(term)) / (2 * a);
+                        t_plate = (-vy0 - Math.sqrt(term)) / ay;
                     }
                 }
 
@@ -168,14 +163,14 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
                     const vy_plate = vy0 + ay * t_plate;
                     const vz_plate = vz0 + az * t_plate;
 
-                    const vy_abs = Math.abs(vy_plate);
-                    if (vy_abs !== 0) {
-                        const toDeg = 180 / Math.PI;
-                        // Calculate values
-                        const calcVAA = Math.atan(vz_plate / vy_abs) * toDeg;
-                        const calcHAA = Math.atan(vx_plate / vy_abs) * toDeg;
+                    // User Formula: VAA = degrees(arctan(vz_p / -vy_p))
+                    const vy_p_neg = -vy_plate;
 
-                        // Use calculated if CSV is null
+                    if (vy_p_neg !== 0) {
+                        const toDeg = 180 / Math.PI;
+                        const calcVAA = Math.atan(vz_plate / vy_p_neg) * toDeg;
+                        const calcHAA = Math.atan(vx_plate / vy_p_neg) * toDeg;
+
                         if (vaa === null) vaa = calcVAA;
                         if (haa === null) haa = calcHAA;
                     }
