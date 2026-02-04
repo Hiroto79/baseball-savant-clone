@@ -186,6 +186,7 @@ export const DataProvider = ({ children }) => {
                     release_speed: parseNum(getValue(row, ['release_speed', 'velocity'])),
                     release_spin_rate: parseNum(getValue(row, ['release_spin_rate', 'spin_rate'])),
                     release_pos_x: parseNum(getValue(row, ['release_pos_x'])),
+                    release_pos_y: parseNum(getValue(row, ['release_pos_y'])),
                     release_pos_z: parseNum(getValue(row, ['release_pos_z'])),
 
                     // Robust bat_speed check (Wrapped in parseNum)
@@ -231,7 +232,7 @@ export const DataProvider = ({ children }) => {
                     sz_bot: parseNum(getValue(row, ['sz_bot'])),
                     effective_speed: row.effective_speed,
                     release_extension: row.release_extension,
-                    attack_angle: parseNum(getValue(row, ['attack_angle', 'attack angle', 'swing_angle'])),
+                    attack_angle: parseNum(getValue(row, ['attack_angle', 'attack angle', 'swing_angle', 'swing_vertical_angle'])),
                     attack_direction: parseNum(getValue(row, ['attack_direction', 'attack direction'])),
                     estimated_woba_using_speedangle: parseNum(getValue(row, ['estimated_woba_using_speedangle', 'estimated_woba'])),
                     game_pk: row.game_pk,
