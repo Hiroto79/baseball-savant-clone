@@ -52,6 +52,11 @@ create table public.savant_data (
   spin_axis int,
   delta_home_win_exp float,
   delta_run_exp float,
+  vaa float,
+  haa float,
+  attack_angle float,
+  attack_direction float,
+  estimated_woba_using_speedangle float,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
