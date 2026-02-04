@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Legend, ReferenceDot } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Legend, ReferenceDot, ReferenceLine } from 'recharts';
 import { useSettings } from '../../context/SettingsContext';
 import { convertVelocity } from '../../utils/units';
 import Trajectory3D from '../Analysis/Trajectory3D';
@@ -142,6 +142,29 @@ const PitchingDashboard = ({ data = [] }) => {
                                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                                 <XAxis type="number" dataKey="velocity" name={language === 'ja' ? '球速' : 'Velocity'} unit={units === 'imperial' ? ' mph' : ' km/h'} domain={['auto', 'auto']} stroke="#888" />
                                 <YAxis type="number" dataKey="spin" name={language === 'ja' ? '回転数' : 'Spin Rate'} unit=" rpm" domain={['auto', 'auto']} stroke="#888" />
+                                <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
+                                <Legend />
+                                <Scatter name="Pitches" data={chartData}>
+                                    {chartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[entry.type] || '#94a3b8'} />
+                                    ))}
+                                </Scatter>
+                            </ScatterChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Vertical vs Horizontal Break (New) */}
+                <div className="rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col min-h-[400px]">
+                    <h3 className="text-lg font-semibold mb-4">{language === 'ja' ? '変化量 (Horizontal vs Vertical)' : 'Movement (Horizontal vs Vertical)'}</h3>
+                    <div className="flex-1">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                                <XAxis type="number" dataKey="hBreak" name="Horizontal Break" domain={[-60, 60]} stroke="#888" label={{ value: 'Horizontal (cm)', position: 'insideBottom', offset: -10, fill: '#888' }} />
+                                <YAxis type="number" dataKey="vBreak" name="Vertical Break" domain={[-60, 60]} stroke="#888" label={{ value: 'Vertical (cm)', angle: -90, position: 'insideLeft', fill: '#888' }} />
+                                <ReferenceLine x={0} stroke="#666" />
+                                <ReferenceLine y={0} stroke="#666" />
                                 <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
                                 <Legend />
                                 <Scatter name="Pitches" data={chartData}>

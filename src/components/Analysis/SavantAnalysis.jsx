@@ -11,6 +11,9 @@ import KPICards from './KPICards';
 import Trajectory3D from './Trajectory3D';
 import StrikeZoneHeatmap from './StrikeZoneHeatmap';
 import ContactAnalysis3D from './ContactAnalysis3D';
+import PitchMetricsSummary from './PitchMetricsSummary';
+import PolarSprayChart from './PolarSprayChart';
+import BatterMetricsTable from './BatterMetricsTable';
 import PlayerSearch from './PlayerSearch';
 import PitchTypeSelector from './PitchTypeSelector';
 
@@ -729,6 +732,11 @@ const SavantAnalysis = ({ data }) => {
 
                         {mode === 'pitching' ? (
                             <>
+                                {/* Detailed Metrics Summary (New) */}
+                                <div className="md:col-span-2">
+                                    <PitchMetricsSummary data={filteredData} selectedPlayers={selectedPlayers} />
+                                </div>
+
                                 <div className="md:col-span-2 grid md:grid-cols-2 gap-6">
                                     <ComparisonChart
                                         data={chartData}
@@ -795,10 +803,13 @@ const SavantAnalysis = ({ data }) => {
                             </>
                         ) : (
                             <>
-                                <div className="md:col-span-2 grid md:grid-cols-3 gap-6">
-                                    <div className="space-y-4 md:col-span-2">
-                                        <h3 className="text-lg font-bold ml-1">{language === 'ja' ? '球種別打撃成績' : 'Batting Stats by Pitch Type'}</h3>
-                                        <BattingStatsTable data={battingStatsTableData} units={units} />
+                                <div className="md:col-span-2">
+                                    <BatterMetricsTable data={filteredData} selectedPlayers={selectedPlayers} />
+                                </div>
+
+                                <div className="md:col-span-2 grid md:grid-cols-2 gap-6">
+                                    <div className="md:col-span-1">
+                                        <PolarSprayChart data={filteredData} selectedPlayers={selectedPlayers} />
                                     </div>
                                     <div className="md:col-span-1">
                                         <BattedBallProfile data={battedBallProfile} />
