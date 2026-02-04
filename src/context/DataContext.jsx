@@ -155,20 +155,23 @@ export const DataProvider = ({ children }) => {
             // console.log('Original CSV Headers:', Object.keys(firstRow));
 
             Object.keys(firstRow).forEach(key => {
-                // Normalize: trim, lowercase, remove quotes, remove BOM, convert full-width to half-width
+                // Normalize: trim, lowercase, remove quotes, remove BOM, convert full-width to half-width, REMOVE UNDERSCORES AND SPACES
                 const normalized = key.trim().toLowerCase()
                     .replace(/['"]/g, '')
                     .replace(/^\ufeff/, '')
-                    .replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+                    .replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+                    .replace(/[_\s\.]/g, ''); // Remove _ and space and dot
 
                 keyMap[normalized] = key;
-                keyMap[key] = key;
+                // Also store original lowercased for exact matches if needed? No, fuzzy is better.
             });
 
-            // Helper to get value from multiple potential key names
+            // Helper to get value
             const getValue = (row, targets) => {
                 for (const t of targets) {
-                    const k = keyMap[t.toLowerCase()];
+                    // Normalize target same way
+                    const normTarget = t.toLowerCase().replace(/[_\s\.]/g, '');
+                    const k = keyMap[normTarget];
                     if (k && row[k] !== undefined) return row[k];
                 }
                 return undefined;

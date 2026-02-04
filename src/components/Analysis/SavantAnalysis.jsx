@@ -725,6 +725,18 @@ const SavantAnalysis = ({ data }) => {
 
                     {/* Main Analysis Sections */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* HEALTH CHECK (Temporary) */}
+                        {filteredData && filteredData.length > 0 && (
+                            <div className="md:col-span-2 bg-gray-900 border border-gray-700 p-2 text-xs font-mono text-gray-300">
+                                <strong>Data Health (Valid Rows / Total {filteredData.length}):</strong><br />
+                                VAA: {filteredData.filter(d => d.vaa !== null).length} |
+                                HAA: {filteredData.filter(d => d.haa !== null).length} |
+                                AttackAngle: {filteredData.filter(d => d.attack_angle !== null).length} |
+                                RelPosY: {filteredData.filter(d => d.release_pos_y !== null).length} |
+                                PitchType: {filteredData.filter(d => d.pitch_type !== null).length}
+                            </div>
+                        )}
+
                         {/* Comparison Table (Left or Top) */}
                         <div className="md:col-span-2">
                             <ComparisonTable data={summaryData} metrics={metrics} />
