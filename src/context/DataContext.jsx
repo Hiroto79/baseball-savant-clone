@@ -232,7 +232,9 @@ export const DataProvider = ({ children }) => {
                     sz_bot: parseNum(getValue(row, ['sz_bot'])),
                     effective_speed: row.effective_speed,
                     release_extension: row.release_extension,
-                    attack_angle: parseNum(getValue(row, ['attack_angle', 'attack angle', 'swing_angle', 'swing_vertical_angle'])),
+                    vaa: parseNum(getValue(row, ['vaa', 'vertical_approach_angle', 'plate_loc_height_visual'])), // Some datasets use visual height? No, keep standard.
+                    haa: parseNum(getValue(row, ['haa', 'horizontal_approach_angle'])),
+                    attack_angle: parseNum(getValue(row, ['attack_angle', 'attack angle', 'swing_angle', 'swing_vertical_angle', 'Attack Angle (deg)', 'AttackAngle', 'Attack Angle'])),
                     attack_direction: parseNum(getValue(row, ['attack_direction', 'attack direction'])),
                     estimated_woba_using_speedangle: parseNum(getValue(row, ['estimated_woba_using_speedangle', 'estimated_woba'])),
                     game_pk: row.game_pk,

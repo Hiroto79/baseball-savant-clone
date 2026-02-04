@@ -62,43 +62,41 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
             if (pfx_x !== null) { g.hbSum += (-pfx_x * 12); g.hbCount++; }
             if (pfx_z !== null) { g.ivbSum += (pfx_z * 12); g.ivbCount++; }
 
-            // VAA / HAA Calculation
-            // vy0, vz0, vx0, ay, az, ax, release_pos_y
-            // plate_y = 1.417
-            // t_plate = (-vy0 - sqrt(vy0^2 - 2*ay*(release_pos_y - plate_y))) / ay
-            const vy0 = getVal(d.vy0);
-            const vz0 = getVal(d.vz0);
-            const vx0 = getVal(d.vx0);
-            const ay = getVal(d.ay);
-            const az = getVal(d.az);
-            const ax = getVal(d.ax);
-            const ry = getVal(d.release_pos_y);
+            // VAA / HAA Calc or Direct
+            let vaa = getVal(d.vaa);
+            let haa = getVal(d.haa);
 
-            if (vy0 !== null && vz0 !== null && vx0 !== null && ay !== null && az !== null && ax !== null && ry !== null) {
-                const plate_y = 1.417; // ft
-                // Avoid division by zero if ay is 0 (unlikely for pitch)
-                if (ay !== 0) {
-                    const term = vy0 * vy0 - 2 * ay * (ry - plate_y);
-                    if (term >= 0) {
-                        const t_plate = (-vy0 - Math.sqrt(term)) / ay;
+            // If missing, calculate from physics
+            if (vaa === null || haa === null) {
+                const vy0 = getVal(d.vy0);
+                const vz0 = getVal(d.vz0);
+                const vx0 = getVal(d.vx0);
+                const ay = getVal(d.ay);
+                const az = getVal(d.az);
+                const ax = getVal(d.ax);
+                const ry = getVal(d.release_pos_y);
 
-                        const vx_p = vx0 + ax * t_plate;
-                        const vy_p = vy0 + ay * t_plate;
-                        const vz_p = vz0 + az * t_plate;
+                if (vy0 !== null && vz0 !== null && vx0 !== null && ay !== null && az !== null && ax !== null && ry !== null) {
+                    const plate_y = 1.417; // ft
+                    if (ay !== 0) {
+                        const term = vy0 * vy0 - 2 * ay * (ry - plate_y);
+                        if (term >= 0) {
+                            const t_plate = (-vy0 - Math.sqrt(term)) / ay;
+                            const vx_p = vx0 + ax * t_plate;
+                            const vy_p = vy0 + ay * t_plate;
+                            const vz_p = vz0 + az * t_plate;
 
-                        // VAA = degrees(arctan(vz_p / -vy_p))
-                        // HAA = degrees(arctan(vx_p / -vy_p))
-                        // Note: JS math usually radians
-                        if (vy_p !== 0) {
-                            const vaa = Math.atan(vz_p / -vy_p) * (180 / Math.PI);
-                            const haa = Math.atan(vx_p / -vy_p) * (180 / Math.PI);
-
-                            g.vaaSum += vaa; g.vaaCount++;
-                            g.haaSum += haa; g.haaCount++;
+                            if (vy_p !== 0) {
+                                if (vaa === null) vaa = Math.atan(vz_p / -vy_p) * (180 / Math.PI);
+                                if (haa === null) haa = Math.atan(vx_p / -vy_p) * (180 / Math.PI);
+                            }
                         }
                     }
                 }
             }
+
+            if (vaa !== null) { g.vaaSum += vaa; g.vaaCount++; }
+            if (haa !== null) { g.haaSum += haa; g.haaCount++; }
 
             // Swing / Whiff / Zone / Chase
             const desc = d.description;
