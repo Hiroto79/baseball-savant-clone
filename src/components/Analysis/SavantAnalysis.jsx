@@ -737,25 +737,19 @@ const SavantAnalysis = ({ data }) => {
                                     <PitchMetricsSummary data={filteredData} selectedPlayers={selectedPlayers} />
                                 </div>
 
-                                <div className="md:col-span-2 grid md:grid-cols-2 gap-6">
+                                <div className="md:col-span-2">
                                     <ComparisonChart
                                         data={chartData}
                                         lines={chartLines.map(l => ({ dataKey: `${l.id}_vel`, name: l.name }))}
                                         yLabel={language === 'ja' ? `平均球速 (${units === 'metric' ? 'km/h' : 'mph'})` : `Avg Velocity (${units === 'metric' ? 'km/h' : 'mph'})`}
                                     />
-                                    <div className="bg-card border border-border rounded-xl p-4 shadow-sm h-[400px] overflow-hidden flex flex-col">
-                                        <h3 className="text-lg font-bold mb-2">{language === 'ja' ? '球種別データ (投手)' : 'Pitch Type Statistics'}</h3>
-                                        <div className="overflow-auto flex-1">
-                                            <PitchStatsTable data={pitchStatsTableData} units={units} />
-                                        </div>
-                                    </div>
                                 </div>
 
                                 { /* 3D Trajectory & Heatmap */}
                                 <div className="md:col-span-2 grid md:grid-cols-3 gap-6">
                                     <div className="md:col-span-2">
                                         <Trajectory3D
-                                            key="traj-3d-view" // Ensure persistence
+                                            key="traj-3d-view"
                                             data={trajectoryData}
                                             language={language}
                                             units={units}
@@ -845,8 +839,9 @@ const SavantAnalysis = ({ data }) => {
                     <ChevronsUpDown className="h-12 w-12 mb-4 opacity-20" />
                     <p>{language === 'ja' ? '選手を選択して比較を開始してください' : 'Select players to start comparison'}</p>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 };
 
