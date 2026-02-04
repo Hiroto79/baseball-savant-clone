@@ -725,7 +725,7 @@ const SavantAnalysis = ({ data }) => {
 
                     {/* Main Analysis Sections */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Comparison Table (Left or Top) */}
+                        {/* Comparison Table - Inspector Removed Verified */}
                         <div className="md:col-span-2">
                             <ComparisonTable data={summaryData} metrics={metrics} />
                         </div>
