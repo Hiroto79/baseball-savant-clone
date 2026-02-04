@@ -71,7 +71,7 @@ const BatterMetricsTable = ({ data, selectedPlayers }) => {
 
             // Attack Angle: 'attack_angle' or 'swing_angle'? User script: `attack_angle`.
             // Check DataContext.jsx: we don't map `attack_angle` explicitly but `...row` copies everything.
-            if (d.attack_angle) {
+            if (d.attack_angle !== null && d.attack_angle !== undefined) {
                 const aa = getVal(d.attack_angle);
                 if (aa !== null) { g.attackAngleSum += aa; g.attackAngleCount++; }
             }

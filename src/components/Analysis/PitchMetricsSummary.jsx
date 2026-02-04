@@ -62,34 +62,44 @@ const PitchMetricsSummary = ({ data, selectedPlayers }) => {
             if (pfx_x !== null) { g.hbSum += (-pfx_x * 12); g.hbCount++; }
             if (pfx_z !== null) { g.ivbSum += (pfx_z * 12); g.ivbCount++; }
 
-            // VAA / HAA Calc or Direct
-            let vaa = getVal(d.vaa);
+            // VAA / HAA Calculation (User Python Logic)
+            const vy0 = getVal(d.vy0);
+            const vz0 = getVal(d.vz0);
+            const vx0 = getVal(d.vx0);
+            const ay = getVal(d.ay);
+            const az = getVal(d.az);
+            const ax = getVal(d.ax);
+            const ry = getVal(d.release_pos_y);
+
+            let vaa = getVal(d.vaa); // Try CSV first
             let haa = getVal(d.haa);
 
-            // If missing, calculate from physics
-            if (vaa === null || haa === null) {
-                const vy0 = getVal(d.vy0);
-                const vz0 = getVal(d.vz0);
-                const vx0 = getVal(d.vx0);
-                const ay = getVal(d.ay);
-                const az = getVal(d.az);
-                const ax = getVal(d.ax);
-                const ry = getVal(d.release_pos_y);
+            // Always attempt calc if CSV missing
+            if ((vaa === null || haa === null) && vy0 !== null && vz0 !== null && vx0 !== null && ay !== null && az !== null && ax !== null && ry !== null) {
+                const HOME_PLATE_Y = 17 / 12; // 1.417 ft
+                const a = 0.5 * ay;
+                const b = vy0;
+                const c = ry - HOME_PLATE_Y;
 
-                if (vy0 !== null && vz0 !== null && vx0 !== null && ay !== null && az !== null && ax !== null && ry !== null) {
-                    const plate_y = 1.417; // ft
-                    if (ay !== 0) {
-                        const term = vy0 * vy0 - 2 * ay * (ry - plate_y);
-                        if (term >= 0) {
-                            const t_plate = (-vy0 - Math.sqrt(term)) / ay;
-                            const vx_p = vx0 + ax * t_plate;
-                            const vy_p = vy0 + ay * t_plate;
-                            const vz_p = vz0 + az * t_plate;
+                if (a !== 0) {
+                    const term = b * b - 4 * a * c;
+                    if (term >= 0) {
+                        const t_plate = (-b - Math.sqrt(term)) / (2 * a);
 
-                            if (vy_p !== 0) {
-                                if (vaa === null) vaa = Math.atan(vz_p / -vy_p) * (180 / Math.PI);
-                                if (haa === null) haa = Math.atan(vx_p / -vy_p) * (180 / Math.PI);
-                            }
+                        const vx_plate = vx0 + ax * t_plate;
+                        const vy_plate = vy0 + ay * t_plate;
+                        const vz_plate = vz0 + az * t_plate;
+
+                        const vy_abs = Math.abs(vy_plate);
+                        if (vy_abs !== 0) {
+                            const toDeg = 180 / Math.PI;
+                            // Calculate values
+                            const calcVAA = Math.atan(vz_plate / vy_abs) * toDeg;
+                            const calcHAA = Math.atan(vx_plate / vy_abs) * toDeg;
+
+                            // Use calculated if CSV is null
+                            if (vaa === null) vaa = calcVAA;
+                            if (haa === null) haa = calcHAA;
                         }
                     }
                 }
