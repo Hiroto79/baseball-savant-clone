@@ -17,6 +17,7 @@ import BatterMetricsTable from './BatterMetricsTable';
 import PlayerSearch from './PlayerSearch';
 import PitchMovementChart from './PitchMovementChart';
 import PitchTypeSelector from './PitchTypeSelector';
+import BattingStatsByCountTable from './BattingStatsByCountTable';
 
 const SavantAnalysis = ({ data }) => {
     const { language, units } = useSettings();
@@ -736,6 +737,9 @@ const SavantAnalysis = ({ data }) => {
                                 {/* Detailed Metrics Summary (New) */}
                                 <div className="md:col-span-2">
                                     <PitchMetricsSummary data={filteredData} selectedPlayers={selectedPlayers} />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <BattingStatsByCountTable data={filteredData} selectedPlayers={selectedPlayers} mode={mode} />
+                                    </div>
                                 </div>
 
                                 <div className="md:col-span-2">

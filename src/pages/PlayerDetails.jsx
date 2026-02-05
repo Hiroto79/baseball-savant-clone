@@ -6,6 +6,7 @@ import { useSettings } from '../context/SettingsContext';
 import { KMH_TO_MPH, MPH_TO_KMH } from '../utils/units';
 import StrikeZone from '../components/StrikeZone';
 import SprayChart from '../components/SprayChart';
+import ReleaseAngleChart from '../components/Analysis/ReleaseAngleChart';
 
 const PlayerDetails = () => {
     const { playerId } = useParams();
@@ -161,6 +162,12 @@ const PlayerDetails = () => {
                         <SprayChart hits={hits} />
                     </div>
                 </div>
+
+                {isPitcher && (
+                    <div className="col-span-full min-h-[400px]">
+                        <ReleaseAngleChart pitches={pitches} />
+                    </div>
+                )}
             </div>
         </div>
     );
