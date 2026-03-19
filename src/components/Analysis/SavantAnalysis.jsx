@@ -794,6 +794,9 @@ const SavantAnalysis = ({ data }) => {
                             <>
                                 <div className="md:col-span-2">
                                     <BatterMetricsTable data={filteredData} selectedPlayers={selectedPlayers} />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                        <BattingStatsByCountTable data={filteredData} selectedPlayers={selectedPlayers} mode={mode} />
+                                    </div>
                                 </div>
 
                                 <div className="md:col-span-2 grid md:grid-cols-2 gap-6">

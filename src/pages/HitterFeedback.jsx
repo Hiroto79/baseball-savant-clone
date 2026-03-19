@@ -346,16 +346,43 @@ const HitterFeedback = () => {
         const rows = getFilteredRows(tagConfig, player);
         if (rows.length === 0) return null;
 
+        // Find the "best" swing based on Max Exit Velocity
+        let bestRow = null;
+        let maxEV = -1;
+
+        rows.forEach(r => {
+            const ev = r.ExitVelocity || r['Exit Velocity'];
+            if (typeof ev === 'number' && ev > maxEV) {
+                maxEV = ev;
+                bestRow = r;
+            }
+        });
+
+        const format = (val, precision = 1) => {
+            if (val === null || val === undefined || val === '') return '';
+            const num = parseFloat(val);
+            return isNaN(num) ? '' : num.toFixed(precision);
+        };
+
+        if (bestRow) {
+            return {
+                ev: format(bestRow.ExitVelocity),
+                angle: format(bestRow.LaunchAngle),
+                dist: format(bestRow.Distance),
+                spin: format(bestRow.SpinRate),
+                batSpeed: format(bestRow.BatSpeed) || '',
+                accel: format(bestRow.Acceleration, 2),
+                power: format(bestRow.Power),
+                adjust: format(bestRow.Adjust)
+            };
+        }
+
+        // Fallback to Averages if no ExitVelocity found (?)
         const avg = (key) => {
             const vals = rows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
             if (vals.length === 0) return '';
             return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
         };
-
-        // For Image 3 layout, we might need Max?
-        // Let's return both if useful, or stick to Avg as standard.
-        // Image 3 boxes are big, imply single value.
-        // Let's use AVG for consistency.
 
         const avgAccel = (key) => {
             const vals = rows.map(r => r[key] || r[key.replace(/\s/g, '')]).filter(v => typeof v === 'number');
