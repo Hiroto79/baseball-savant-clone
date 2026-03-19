@@ -1233,13 +1233,52 @@ const Feedback = () => {
                                                                 </td>
                                                                 <td className="border border-black font-bold text-[10px]">{stat.avgVelocity}</td>
                                                                 <td className="border border-black bg-gray-300 font-bold text-[10px]">
-                                                                    {stat.type.includes('ストレート') ? '100' : (Number(stat.avgVelocity) / Number(fb.avgVelocity) * 100).toFixed(0)}
+                                                                    {stat.type.includes('ストレート') ? '100.0' : (Number(stat.avgVelocity) / Number(fb.avgVelocity) * 100).toFixed(1)}
                                                                 </td>
                                                             </tr>
                                                         ));
                                                     })()}
                                                 </tbody>
                                             </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Velocity Gap Reference Table */}
+                                    <div className="mt-4 print:mt-4">
+                                        <div className="text-right text-[10px] font-bold mb-0.5 pr-1">緩急比基準 (%)</div>
+                                        <div className="flex w-full border border-black text-[9px] font-bold text-center">
+                                            <div className="flex-1 flex flex-col border-r border-black">
+                                                <div className="bg-[#00BFFF] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">ツーシーム</div>
+                                                <div className="py-1 flex items-center justify-center min-h-[20px]">99</div>
+                                            </div>
+                                            <div className="flex-1 flex flex-col border-r border-black">
+                                                <div className="bg-[#A6A6A6] py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">シュート</div>
+                                                <div className="py-1 flex items-center justify-center min-h-[20px]">97 (99)</div>
+                                            </div>
+                                            <div className="flex-1 flex flex-col border-r border-black">
+                                                <div className="bg-[#0070C0] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">カット</div>
+                                                <div className="py-1 flex items-center justify-center min-h-[20px]">95</div>
+                                            </div>
+                                            <div className="flex-1 flex flex-col border-r border-black">
+                                                <div className="bg-[#FFC000] py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">スプリット</div>
+                                                <div className="py-1 flex items-center justify-center min-h-[20px]">93</div>
+                                            </div>
+                                            <div className="flex-1 flex flex-col border-r border-black">
+                                                <div className="bg-[#D9D9D9] py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">フォーク</div>
+                                                <div className="py-1 flex items-center justify-center min-h-[20px]">92</div>
+                                            </div>
+                                            <div className="flex-1 flex flex-col border-r border-black">
+                                                <div className="bg-[#7030A0] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">スラ (縦)</div>
+                                                <div className="py-1 flex items-center justify-center min-h-[20px]">90 (91)</div>
+                                            </div>
+                                            <div className="flex-1 flex flex-col border-r border-black">
+                                                <div className="bg-[#FFE599] py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">チェンジ</div>
+                                                <div className="py-1 flex items-center justify-center min-h-[20px]">90</div>
+                                            </div>
+                                            <div className="flex-1 flex flex-col">
+                                                <div className="bg-[#00B050] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">カーブ</div>
+                                                <div className="py-1 flex items-center justify-center min-h-[20px]">85</div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
