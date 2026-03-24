@@ -2,18 +2,22 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Papa from 'papaparse';
 import { Upload, FileText, Printer, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, BarChart, Bar, ReferenceArea, ReferenceDot, Polygon, Customized, Label } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, BarChart, Bar, ReferenceArea, ReferenceDot, ReferenceLine, Polygon, Customized, Label } from 'recharts';
 
 const Feedback = () => {
-    const { language } = useSettings();
-    const [uploadData, setUploadData] = useState([]);
+    const { language, feedbackPitchingData, setFeedbackPitchingData, feedbackPitchingFile, setFeedbackPitchingFile } = useSettings();
+    const [uploadData, setUploadData] = useState(feedbackPitchingData || []);
+    const [fileName, setFileName] = useState(feedbackPitchingFile || '');
     const [players, setPlayers] = useState([]);
     const [selectedPlayer, setSelectedPlayer] = useState('');
     const [customPlayerName, setCustomPlayerName] = useState(''); // Editable name for print
     const [loading, setLoading] = useState(false);
-    const [viewMode, setViewMode] = useState('individual'); // 'individual' | 'team'
+    const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]); // New state for report date
+    const [viewMode, setViewMode] = useState('individual'); // 'individual' | 'team' | 'print-all'
     const [teamPitchType, setTeamPitchType] = useState('ストレート');
     const [selectedThrowHand, setSelectedThrowHand] = useState('Right'); // 'Right' | 'Left'
+    const [teamPlayersPerPage, setTeamPlayersPerPage] = useState(20); // Changed from 30 to 20
+    const [teamPlayerSort, setTeamPlayerSort] = useState('original'); // 'original', 'grade', 'velocity_desc', 'spin_desc', 'strike_desc'
 
     // Manual Inputs for Comparison
     const [manualData, setManualData] = useState({
@@ -39,12 +43,27 @@ const Feedback = () => {
         }
     }, [selectedPlayer]);
 
+    // Auto-derive players from uploadData if it exists (e.g. from context)
+    useEffect(() => {
+        if (uploadData && uploadData.length > 0) {
+            const uniquePlayers = [...new Set(uploadData.map(d => d['Player Name'] || d.PlayerName).filter(Boolean))];
+            setPlayers(uniquePlayers);
+            // If there's no selected player, default to the first
+            if (uniquePlayers.length > 0 && !selectedPlayer) {
+                setSelectedPlayer(uniquePlayers[0]);
+            }
+        }
+    }, [uploadData]);
+
     // Handle File Upload
     const handleFileUpload = (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
         setLoading(true);
+        setFileName(file.name);
+        if (setFeedbackPitchingFile) setFeedbackPitchingFile(file.name);
+
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
@@ -57,6 +76,7 @@ const Feedback = () => {
                     return;
                 }
                 setUploadData(data);
+                if (setFeedbackPitchingData) setFeedbackPitchingData(data);
                 const uniquePlayers = [...new Set(data.map(d => d['Player Name'] || d.PlayerName).filter(Boolean))];
                 setPlayers(uniquePlayers);
                 if (uniquePlayers.length > 0) {
@@ -74,6 +94,7 @@ const Feedback = () => {
 
     // Helper: Get Japanese Pitch Type
     const getJapanesePitchType = (type) => {
+        if (!type) return '';
         const t = type.toLowerCase();
 
         if (t.includes('quick') && (t.includes('fastball') || t.includes('straight'))) return 'ストレート(クイック)';
@@ -421,10 +442,10 @@ const Feedback = () => {
     }, [uploadData, selectedThrowHand, teamPitchType]);
 
 
-    // Calculate Averages for Selected Player
-    const playerStats = useMemo(() => {
-        if (!selectedPlayer || uploadData.length === 0) return null;
-        const playerData = uploadData.filter(d => (d['Player Name'] || d.PlayerName) === selectedPlayer);
+    // Calculate Averages for a Player
+    const calcPitcherStats = (pName) => {
+        if (!pName || uploadData.length === 0) return null;
+        const playerData = uploadData.filter(d => (d['Player Name'] || d.PlayerName) === pName);
 
         const processData = (data) => {
             const byType = {};
@@ -634,15 +655,17 @@ const Feedback = () => {
         };
 
         return processData(playerData);
-    }, [selectedPlayer, uploadData]);
+    };
+
+    const memoPlayerStats = useMemo(() => calcPitcherStats(selectedPlayer), [selectedPlayer, uploadData]);
 
     const handleManualChange = (e) => {
         const { name, value } = e.target;
         setManualData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleManualStrikeRateChange = (type, value) => {
-        setManualStrikeRates(prev => ({ ...prev, [type]: value }));
+    const handleManualStrikeRateChange = (player, pitchType, value) => {
+        setManualStrikeRates(prev => ({ ...prev, [`${player}-${pitchType}`]: value }));
     };
 
     const [teamManualStrikeRates, setTeamManualStrikeRates] = useState({});
@@ -666,20 +689,20 @@ const Feedback = () => {
     const prevStats = null; // Placeholder for previous stats if logic is re-implemented later
 
     // Prepare Chart Data: Merge Quick Straight into Straight for visual chart only
-    const chartData = useMemo(() => {
-        if (!playerStats || !playerStats.averages) return [];
+    const calcChartData = (currentStats) => {
+        if (!currentStats || !currentStats.averages) return [];
 
         const parseVal = (val) => {
             const num = Number(val);
             return isFinite(num) ? num : null;
         };
 
-        const straight = playerStats.averages.find(s => s.type === 'ストレート');
-        const quick = playerStats.averages.find(s => s.type === 'ストレート(クイック)');
+        const straight = currentStats.averages.find(s => s.type === 'ストレート');
+        const quick = currentStats.averages.find(s => s.type === 'ストレート(クイック)');
 
         // Base data without straight types
         // Filter out any entries with invalid HB/VB to prevent chart errors
-        let data = playerStats.averages
+        let data = currentStats.averages
             .filter(s => s.type !== 'ストレート' && s.type !== 'ストレート(クイック)')
             .map(s => ({
                 ...s,
@@ -725,7 +748,9 @@ const Feedback = () => {
             }
         }
         return data;
-    }, [playerStats]);
+    };
+
+    const memoChartData = useMemo(() => calcChartData(memoPlayerStats), [memoPlayerStats]);
 
     // Debug state
     // const [debugMsg, setDebugMsg] = useState('');
@@ -733,7 +758,19 @@ const Feedback = () => {
     if (loading) return <div className="p-8 text-center">Loading...</div>;
 
     return (
-        <div className="p-6 max-w-[210mm] print:max-w-[206mm] mx-auto bg-white min-h-screen text-black print:p-2 print:min-h-0 print:h-auto print:pb-0 print:overflow-hidden">
+        <div className="p-6 mx-auto bg-white min-h-screen text-black print:p-0 print:px-0 print:min-h-0 print:h-auto print:pb-0">
+            <style>{`
+                @media print {
+                    @page {
+                        size: ${viewMode === 'team' ? 'A4 landscape' : 'A4 portrait'};
+                        margin: 0mm;
+                    }
+                    body {
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                }
+            `}</style>
             {/* Debug Info Overlay Removed */}
 
             <div className="print:hidden mb-8 space-y-6 bg-gray-50 p-6 rounded-xl border border-gray-200">
@@ -748,13 +785,19 @@ const Feedback = () => {
                             </button>
                             <button
                                 onClick={() => setViewMode('team')}
-                                className={`px-6 py-2 rounded-md font-bold transition-all ${viewMode === 'team' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}
+                                className={`px-4 py-2 rounded-md font-bold transition-all text-sm ${viewMode === 'team' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}
                             >
                                 チーム一覧
                             </button>
+                            <button
+                                onClick={() => setViewMode('print-all')}
+                                className={`px-4 py-2 rounded-md font-bold transition-all text-xs lg:text-sm ${viewMode === 'print-all' ? 'bg-purple-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}
+                            >
+                                全員分一括印刷
+                            </button>
                         </div>
                         <div className="h-10 w-px bg-gray-300 mx-2"></div>
-                        <div className="grid grid-cols-2 gap-4 flex-grow">
+                        <div className="grid grid-cols-2 gap-2 lg:gap-4 flex-grow">
                             <div className="space-y-1">
                                 <label className="block text-[10px] uppercase tracking-wider font-bold text-gray-500">{language === 'ja' ? 'データアップロード' : 'Upload CSV'}</label>
                                 <div className="relative">
@@ -809,28 +852,9 @@ const Feedback = () => {
                         )
                     ) : (
                         <div className="space-y-4">
-                            {/* Team List Strike Rate Input Section */}
-                            <div className="mb-4 bg-blue-50 border border-blue-200 p-2 rounded print:hidden">
-                                <h3 className="font-bold text-sm mb-2">制球率調整 (球種別・%)</h3>
-                                <div className="overflow-x-auto whitespace-nowrap pb-2">
-                                    {teamListStats?.pitchers?.map(p => (
-                                        <div key={p.name} className="inline-block mr-4 text-center">
-                                            <div className="text-[10px] font-bold mb-1 text-blue-700">{p.name} ({p.avgStrikeRate}%)</div>
-                                            <input
-                                                type="text"
-                                                className="border border-gray-300 rounded text-center w-20 text-sm font-bold p-1"
-                                                placeholder={p.strikeRate}
-                                                value={teamManualStrikeRates[p.name] !== undefined ? teamManualStrikeRates[p.name] : ''}
-                                                onChange={(e) => handleTeamManualStrikeRateChange(p.name, e.target.value)}
-                                            />
-                                        </div>
-                                    )) || <div className="text-gray-400 text-xs">データがありません</div>}
-                                </div>
-                            </div>
-
                             <div className="flex justify-between items-center bg-white p-4 rounded-lg border">
-                                <div className="flex gap-4 items-center">
-                                    <span className="font-bold text-gray-700">チームレポート設定:</span>
+                                <div className="flex gap-2 lg:gap-4 items-center flex-wrap">
+                                    <span className="font-bold text-gray-700 whitespace-nowrap">設定:</span>
                                     <div className="flex items-center gap-2 p-1 bg-gray-100 rounded">
                                         <select value={teamPitchType} onChange={(e) => setTeamPitchType(e.target.value)} className="p-1 border border-gray-300 rounded bg-white text-xs">
                                             <option value="ストレート">ストレート</option>
@@ -843,10 +867,30 @@ const Feedback = () => {
                                             <option value="Left">左投げ</option>
                                         </select>
                                     </div>
+                                    <div className="flex items-center gap-2 p-1 bg-gray-100 rounded">
+                                        <label className="text-[10px] font-bold text-gray-600 whitespace-nowrap">表示順:</label>
+                                        <select value={teamPlayerSort} onChange={(e) => setTeamPlayerSort(e.target.value)} className="p-1 border border-gray-300 rounded bg-white text-[10px] font-bold">
+                                            <option value="original">デフォルト</option>
+                                            <option value="grade">学年順</option>
+                                            <option value="velocity_desc">球速順 (降順)</option>
+                                            <option value="spin_desc">回転数順 (降順)</option>
+                                            <option value="strike_desc">制球率順 (降順)</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex items-center gap-2 p-1 bg-gray-100 rounded">
+                                        <label className="text-[10px] font-bold text-gray-600 whitespace-nowrap">1ページ上限:</label>
+                                        <select value={teamPlayersPerPage} onChange={(e) => setTeamPlayersPerPage(Number(e.target.value))} className="p-1 border border-gray-300 rounded bg-white text-[10px] font-bold">
+                                            <option value={15}>15人</option>
+                                            <option value={20}>20人</option>
+                                            <option value={25}>25人</option>
+                                            <option value={30}>30人</option>
+                                            <option value={40}>40人</option>
+                                            <option value={50}>50人</option>
+                                            <option value={1000}>無制限</option>
+                                        </select>
+                                    </div>
                                 </div>
-                                <div className="flex gap-3">
-                                    <input name="teamQuickAvg" placeholder="チーム Ｑ平均 (秒)" value={manualData.teamQuickAvg} onChange={handleManualChange} className="p-1.5 border rounded bg-yellow-50 text-xs w-32" />
-                                </div>
+                                
                             </div>
                         </div>
                     )}
@@ -855,75 +899,21 @@ const Feedback = () => {
 
             {/* Individual Report Content */}
             {
-                viewMode === 'individual' && selectedPlayer && (
-                    <div className="mt-8 flex flex-col gap-4">
-                        {/* Expanded Manual Inputs */}
-                        <div className="mb-4 bg-blue-50 border border-blue-200 p-2 rounded text-[10px] print:hidden">
-                            <h3 className="font-bold mb-1">比較データ手動入力 (前回・チーム平均)</h3>
-                            <div className="grid grid-cols-2 gap-2">
-                                {/* Previous Data */}
-                                <div>
-                                    <h4 className="font-bold text-gray-700 mb-0.5">前回</h4>
-                                    <div className="grid grid-cols-3 gap-1">
-                                        <input name="prevVelocity" placeholder="球速" value={manualData.prevVelocity || ''} onChange={handleManualChange} className="border p-1 w-full" />
-                                        <input name="prevSpin" placeholder="回転数" value={manualData.prevSpin || ''} onChange={handleManualChange} className="border p-1 w-full" />
-                                        <input name="prevEfficiency" placeholder="効率(%)" value={manualData.prevEfficiency || ''} onChange={handleManualChange} className="border p-1 w-full" />
-                                        <input name="prevVB" placeholder="縦変化" value={manualData.prevVB || ''} onChange={handleManualChange} className="border p-1 w-full" />
-                                        <input name="prevHB" placeholder="横変化" value={manualData.prevHB || ''} onChange={handleManualChange} className="border p-1 w-full" />
-                                        <input name="prevStrikeRate" placeholder="制球率" value={manualData.prevStrikeRate || ''} onChange={handleManualChange} className="border p-1 w-full" />
-                                    </div>
-                                </div>
-                                {/* Team Average Data */}
-                                <div>
-                                    <h4 className="font-bold text-gray-700 mb-0.5">チーム平均</h4>
-                                    <div className="grid grid-cols-3 gap-1">
-                                        <input name="teamVelocity" placeholder="球速" value={manualData.teamVelocity || ''} onChange={handleManualChange} className="border p-1 w-full" />
-                                        <input name="teamSpin" placeholder="回転数" value={manualData.teamSpin || ''} onChange={handleManualChange} className="border p-1 w-full" />
-                                        <input name="teamEfficiency" placeholder="効率(%)" value={manualData.teamEfficiency || ''} onChange={handleManualChange} className="border p-1 w-full" />
-                                        <input name="teamVB" placeholder="縦変化" value={manualData.teamVB || ''} onChange={handleManualChange} className="border p-1 w-full" />
-                                        <input name="teamHB" placeholder="横変化" value={manualData.teamHB || ''} onChange={handleManualChange} className="border p-1 w-full" />
-                                        <input name="teamStrikeRate" placeholder="制球率" value={manualData.teamStrikeRate || ''} onChange={handleManualChange} className="border p-1 w-full" />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="mt-2 grid grid-cols-3 gap-1">
-                                <input name="quickTimeBest" placeholder="Ｑ最短 (秒)" value={manualData.quickTimeBest} onChange={handleManualChange} className="border p-1 w-full" />
-                                <input name="quickTimeAvg" placeholder="Ｑ平均 (秒)" value={manualData.quickTimeAvg} onChange={handleManualChange} className="border p-1 w-full" />
-                                <input name="quickTimeTeam" placeholder="前回タイム" value={manualData.quickTimeTeam} onChange={handleManualChange} className="border p-1 w-full" />
-                            </div>
-                        </div>
+                (viewMode === 'individual' || viewMode === 'print-all') && (viewMode === 'print-all' ? players : [selectedPlayer]).map((mappedPlayer, index) => {
+                    if (!mappedPlayer) return null;
 
-                        {playerStats && playerStats.averages && playerStats.averages.length > 0 && (
-                            <>
-                                <div className="border border-blue-200 bg-blue-50 p-3 rounded-lg print:hidden">
-                                    <label className="block text-xs font-bold text-blue-800 mb-2">制球率調整 (球種別・%)</label>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                                        {playerStats.averages.map((stat, idx) => {
-                                            const isStraight = stat.type.includes('ストレート') || stat.type.toLowerCase().includes('straight') || stat.type.toLowerCase().includes('fastball');
-                                            // Apply Manual Strike Rate Override
-                                            const displayStrikeRate = manualStrikeRates[stat.type] || stat.strikeRate;
+                    const isPrintAll = viewMode === 'print-all';
+                    const playerStats = isPrintAll ? calcPitcherStats(mappedPlayer) : memoPlayerStats;
+                    const chartData = isPrintAll ? calcChartData(playerStats) : memoChartData;
+                    const displayPlayerName = isPrintAll ? mappedPlayer : (customPlayerName || selectedPlayer);
 
-                                            return (
-                                                <div key={stat.type} className="flex gap-2 items-center text-xs">
-                                                    <span className="font-bold" style={{ color: getTypeColor(stat.type) }}>{stat.type}</span>
-                                                    <input
-                                                        className="border rounded w-12 text-center"
-                                                        placeholder={stat.strikeRate}
-                                                        value={manualStrikeRates[stat.type] !== undefined ? manualStrikeRates[stat.type] : ''}
-                                                        onChange={(e) => handleManualStrikeRateChange(stat.type, e.target.value)}
-                                                    />
-                                                    <span>%</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </>
-                        )}
+                    if (!playerStats) return null;
 
-                        <div className="print:block print:w-full bg-white text-black font-sans py-4 print:py-0">
+                    return (
+                        <div key={mappedPlayer} className={`mt-8 flex flex-col gap-4 ${isPrintAll ? 'print:break-after-page' : ''}`}>
+                            <div className="print:block print:w-full bg-white text-black font-sans py-4 print:py-0">
                             <div className="flex justify-between items-center mb-1 print:mb-0">
-                                <h2 className="text-3xl font-bold border-b-2 border-black pb-1 print:pb-0">{customPlayerName || selectedPlayer}</h2>
+                                <h2 className="text-3xl font-bold border-b-2 border-black pb-1 print:pb-0">{displayPlayerName}</h2>
                                 <div className="text-xl font-bold">{new Date().toLocaleDateString('ja-JP')}</div>
                             </div>
                             <div className="w-full h-6 mb-4 print:mb-2 flex overflow-hidden items-center justify-center">
@@ -971,7 +961,17 @@ const Feedback = () => {
                                                         <td className="border border-black font-bold text-sm align-middle">{stat.avgRH}</td>
                                                         <td className="border border-black font-bold text-sm align-middle">{stat.avgRS}</td>
                                                         <td className="border border-black font-bold text-sm align-middle">{stat.avgGyro}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle" rowSpan={isStraight ? 2 : 1}>{displayStrikeRate}</td>
+                                                        <td className="border border-black font-bold text-sm align-middle p-0" rowSpan={isStraight ? 2 : 1}>
+                                                            <input
+                                                                type="text"
+                                                                className="w-full h-full bg-transparent border-none outline-none text-center font-bold"
+                                                                style={{ fontSize: 'inherit' }}
+                                                                placeholder={stat.strikeRate}
+                                                                value={manualStrikeRates[`${mappedPlayer}-${stat.type}`] !== undefined ? manualStrikeRates[`${mappedPlayer}-${stat.type}`] : (stat.strikeRate || '')}
+                                                                onChange={(e) => handleManualStrikeRateChange(mappedPlayer, stat.type, e.target.value)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        </td>
                                                     </tr>
                                                     {isStraight && (
                                                         <tr className="h-6 print:h-5">
@@ -1022,28 +1022,36 @@ const Feedback = () => {
                                                         <td className="border border-black text-[10px] font-bold">{fb.maxEfficiency || '-'}</td>
                                                         <td className="border border-black text-[10px] font-bold">{fb.maxVB || '-'}</td>
                                                         <td className="border border-black text-[10px] font-bold">{fb.maxHB || '-'}</td>
-                                                        <td className="border border-black text-[10px] font-bold">{displayStrikeRate}</td>
+                                                        <td className="border border-black text-[10px] font-bold p-0">
+                                                            <input
+                                                                type="text"
+                                                                className="w-full h-full bg-transparent border-none outline-none text-center font-bold"
+                                                                placeholder={fb.type ? fb.strikeRate : '-'}
+                                                                value={fb.type && manualStrikeRates[`${mappedPlayer}-${fb.type}`] !== undefined ? manualStrikeRates[`${mappedPlayer}-${fb.type}`] : ''}
+                                                                onChange={(e) => fb.type && handleManualStrikeRateChange(mappedPlayer, fb.type, e.target.value)}
+                                                            />
+                                                        </td>
                                                     </>
                                                 );
                                             })()}
                                         </tr>
                                         <tr className="h-6">
                                             <td className="border border-black font-bold bg-gray-50 text-green-700">前回</td>
-                                            <td className="border border-black font-bold">{manualData.prevVelocity || '-'}</td>
-                                            <td className="border border-black font-bold">{manualData.prevSpin || '-'}</td>
-                                            <td className="border border-black font-bold bg-white">{manualData.prevEfficiency || prevStats?.avgEfficiency || '-'}</td>
-                                            <td className="border border-black font-bold bg-white">{manualData.prevVB || prevStats?.avgVB || '-'}</td>
-                                            <td className="border border-black font-bold bg-white">{manualData.prevHB || prevStats?.avgHB || '-'}</td>
-                                            <td className="border border-black font-bold bg-white">{manualData.prevStrikeRate || '-'}</td>
+                                            <td className="border border-black font-bold p-0"><input name={`${mappedPlayer}-prevVelocity`} value={manualData[`${mappedPlayer}-prevVelocity`] || ''} onChange={handleManualChange} placeholder="-" className="w-full h-full bg-transparent border-none outline-none text-center font-bold text-xs" /></td>
+                                            <td className="border border-black font-bold p-0"><input name={`${mappedPlayer}-prevSpin`} value={manualData[`${mappedPlayer}-prevSpin`] || ''} onChange={handleManualChange} placeholder="-" className="w-full h-full bg-transparent border-none outline-none text-center font-bold text-xs" /></td>
+                                            <td className="border border-black font-bold bg-white p-0"><input name={`${mappedPlayer}-prevEfficiency`} value={manualData[`${mappedPlayer}-prevEfficiency`] || ''} onChange={handleManualChange} placeholder={prevStats?.avgEfficiency || '-'} className="w-full h-full bg-transparent border-none outline-none text-center font-bold text-xs" /></td>
+                                            <td className="border border-black font-bold bg-white p-0"><input name={`${mappedPlayer}-prevVB`} value={manualData[`${mappedPlayer}-prevVB`] || ''} onChange={handleManualChange} placeholder={prevStats?.avgVB || '-'} className="w-full h-full bg-transparent border-none outline-none text-center font-bold text-xs" /></td>
+                                            <td className="border border-black font-bold bg-white p-0"><input name={`${mappedPlayer}-prevHB`} value={manualData[`${mappedPlayer}-prevHB`] || ''} onChange={handleManualChange} placeholder={prevStats?.avgHB || '-'} className="w-full h-full bg-transparent border-none outline-none text-center font-bold text-xs" /></td>
+                                            <td className="border border-black font-bold bg-white p-0"><input name={`${mappedPlayer}-prevStrikeRate`} value={manualData[`${mappedPlayer}-prevStrikeRate`] || ''} onChange={handleManualChange} placeholder="-" className="w-full h-full bg-transparent border-none outline-none text-center font-bold text-xs" /></td>
                                         </tr>
                                         <tr className="h-6">
                                             <td className="border border-black font-bold bg-gray-50 text-red-700">チーム平均</td>
-                                            <td className="border border-black font-bold bg-white">{manualData.teamVelocity || teamStats?.avgVelocity || '-'}</td>
-                                            <td className="border border-black font-bold bg-white">{manualData.teamSpin || teamStats?.avgSpin || '-'}</td>
-                                            <td className="border border-black font-bold bg-white">{manualData.teamEfficiency || teamStats?.avgEfficiency || '-'}</td>
-                                            <td className="border border-black font-bold bg-white">{manualData.teamVB || '-'}</td>
-                                            <td className="border border-black font-bold bg-white">{manualData.teamHB || '-'}</td>
-                                            <td className="border border-black font-bold bg-white">{manualData.teamStrikeRate || teamStats?.avgStrikeRate || '-'}</td>
+                                            <td className="border border-black font-bold bg-white p-0"><input name="teamVelocity" value={manualData.teamVelocity || ''} onChange={handleManualChange} placeholder={teamStats?.avgVelocity || '-'} className="w-full h-full bg-transparent border-none outline-none text-center font-bold text-xs text-red-700" /></td>
+                                            <td className="border border-black font-bold bg-white p-0"><input name="teamSpin" value={manualData.teamSpin || ''} onChange={handleManualChange} placeholder={teamStats?.avgSpin || '-'} className="w-full h-full bg-transparent border-none outline-none text-center font-bold text-xs text-red-700" /></td>
+                                            <td className="border border-black font-bold bg-white p-0"><input name="teamEfficiency" value={manualData.teamEfficiency || ''} onChange={handleManualChange} placeholder={teamStats?.avgEfficiency || '-'} className="w-full h-full bg-transparent border-none outline-none text-center font-bold text-xs text-red-700" /></td>
+                                            <td className="border border-black font-bold bg-white p-0"><input name="teamVB" value={manualData.teamVB || ''} onChange={handleManualChange} placeholder="-" className="w-full h-full bg-transparent border-none outline-none text-center font-bold text-xs text-red-700" /></td>
+                                            <td className="border border-black font-bold bg-white p-0"><input name="teamHB" value={manualData.teamHB || ''} onChange={handleManualChange} placeholder="-" className="w-full h-full bg-transparent border-none outline-none text-center font-bold text-xs text-red-700" /></td>
+                                            <td className="border border-black font-bold bg-white p-0"><input name="teamStrikeRate" value={manualData.teamStrikeRate || ''} onChange={handleManualChange} placeholder={teamStats?.avgStrikeRate || '-'} className="w-full h-full bg-transparent border-none outline-none text-center font-bold text-xs text-red-700" /></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -1057,7 +1065,7 @@ const Feedback = () => {
                                         <tr className="bg-[#FFE5D9] h-7">
                                             <th className="border border-black p-0.5">最短タイム (秒)</th>
                                             <th className="border border-black p-0.5">平均タイム (秒)</th>
-                                            <th className="border border-black p-0.5">前回タイム</th>
+                                            <th className="border border-black p-0.5">前回タイム (秒)</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1072,16 +1080,18 @@ const Feedback = () => {
                             </div>
 
                             {/* Equal Height Wrapper - Unified height strategy for consistent print rendering */}
-                            <div className="flex flex-row justify-center gap-4 items-stretch print:gap-1 print:gap-2 min-h-[400px] print:min-h-0 break-inside-avoid print:w-[98%] print:mx-auto">
+                            <div className="flex flex-row justify-center gap-4 items-stretch print:gap-2 print:min-h-0 print:w-full">
 
 
                                 {/* Left: Change Chart & Table */}
-                                <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-4 print:pb-[26px] flex flex-col h-full relative" style={{ height: 'auto' }}>
+                                <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-1 flex flex-col relative">
                                     <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">変化量チャートと球種別平均値</h3>
-                                    <div className="relative ml-0 print:ml-[-6px] h-[240px] print:h-[200px] mb-2 print:mb-0 w-[90%] print:w-[75%]">
+                                    <div className="relative ml-0 print:ml-[-6px] h-[260px] print:h-[200px] w-full print:mb-0 print:w-[75%]">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" />
+                                                <ReferenceLine x={0} stroke="black" strokeWidth={1.5} />
+                                                <ReferenceLine y={0} stroke="black" strokeWidth={1.5} />
                                                 <XAxis type="number" dataKey="avgHB" domain={[-70, 70]} tick={{ fontSize: 9 }} label={{ value: '横の変化量', position: 'insideBottom', offset: 0, fontSize: 10 }} />
                                                 <YAxis type="number" dataKey="avgVB" domain={[-70, 70]} tick={{ fontSize: 9 }} label={{ value: '縦の変化量', angle: -90, position: 'insideLeft', dx: 20, dy: -5, textAnchor: 'middle', fontSize: 10 }} />
                                                 <Tooltip cursor={{ strokeDasharray: '3 3' }} />
@@ -1092,47 +1102,34 @@ const Feedback = () => {
                                                     ))}
                                                 </Scatter>
 
-                                                <Customized component={({ xAxis, yAxis, width, height }) => {
-                                                    // Visual Debug: Render a red rect at top-left to prove component is mounted
-                                                    // and print coordinate info
-                                                    if (!xAxis || !yAxis || chartData.length < 2) return null;
+                                                <Customized component={(props) => {
+                                                    const { xAxis, yAxis } = props;
+                                                    if (!xAxis || !yAxis || !xAxis.scale || !yAxis.scale || chartData.length < 2) return null;
 
-                                                    const points = chartData.map(s => {
-                                                        const x = xAxis.scale(s.avgHB);
-                                                        const y = yAxis.scale(s.avgVB);
-                                                        return { x, y, type: s.type };
-                                                    });
+                                                    const points = chartData.map(s => ({
+                                                        x: xAxis.scale(s.avgHB),
+                                                        y: yAxis.scale(s.avgVB),
+                                                    }));
 
                                                     const cx = points.reduce((sum, p) => sum + p.x, 0) / points.length;
                                                     const cy = points.reduce((sum, p) => sum + p.y, 0) / points.length;
 
-                                                    points.sort((a, b) => {
-                                                        return Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx);
-                                                    });
+                                                    const sorted = [...points].sort((a, b) =>
+                                                        Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx)
+                                                    );
 
-                                                    const pathData = points.map((p, i) => (i === 0 ? 'M' : 'L') + `${p.x},${p.y}`).join(' ') + ' Z';
+                                                    const pathData = sorted.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ') + ' Z';
 
                                                     return (
                                                         <g>
-                                                            {/* Debug: Red Box at 0,0 to confirming rendering context */}
-                                                            <rect x={0} y={0} width={20} height={20} fill="red" opacity={0.5} />
-
-                                                            {/* The Polygon */}
-                                                            <path d={pathData} fill="#9ca3af" fillOpacity={0.3} stroke="#9ca3af" strokeWidth={1} />
-
-                                                            {/* Debug: Labels at each vertex */}
-                                                            {points.map((p, i) => (
-                                                                <text key={i} x={p.x} y={p.y} fontSize={8} fill="black">
-                                                                    {`${Math.round(p.x)},${Math.round(p.y)}`}
-                                                                </text>
-                                                            ))}
+                                                            <path d={pathData} fill="#9ca3af" fillOpacity={0.35} stroke="#9ca3af" strokeWidth={1.5} />
                                                         </g>
                                                     );
                                                 }} />
                                             </ScatterChart>
                                         </ResponsiveContainer>
                                     </div>
-                                    <table className="w-full print:w-[95%] print:mx-auto border-collapse border border-black text-[10px] print:text-[8px] text-center table-fixed mt-auto print:mt-[48px]">
+                                    <table className="w-full print:w-[95%] print:mx-auto border-collapse border border-black text-[10px] print:text-[8px] text-center table-fixed mt-auto print:mt-2">
                                         <thead>
                                             <tr className="bg-gray-100 h-8 print:h-6">
                                                 <th className="border border-black">球種<br />(平均値)</th>
@@ -1157,70 +1154,72 @@ const Feedback = () => {
                                 </div>
 
                                 {/* Right: Velocity Difference Vertical Chart */}
-                                <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-4 print:pb-[26px] flex flex-col h-full relative" style={{ height: 'auto' }}>
+                                <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-1 flex flex-col relative">
                                     <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">球速緩急差（平均値）</h3>
                                     <div className="flex flex-grow items-stretch relative print:pr-2">
                                         {/* Vertical Velocity Scale */}
-                                        <div className="w-[30%] relative flex justify-end pr-6 print:pr-8">
-                                            {/* The single vertical line - Reduced to 3/4 length, centered */}
-                                            <div className="absolute right-4 top-[12.5%] h-[75%] w-[2px] bg-gray-400"></div>
+                                        <div className="w-[30%] flex justify-end pr-2 print:pr-6">
+                                            <div className="relative w-16 h-full">
+                                                {/* The single vertical line */}
+                                                <div className="absolute right-2 top-[12.5%] h-[75%] w-[2px] bg-gray-400"></div>
 
-                                            {(() => {
-                                                // Dynamic Scale Calculation
-                                                const vels = playerStats.averages.map(s => Number(s.avgVelocity)).filter(v => !isNaN(v) && v > 0);
-                                                const minV = vels.length ? Math.min(...vels) : 100;
-                                                const maxV = vels.length ? Math.max(...vels) : 140;
+                                                {(() => {
+                                                    // Dynamic Scale Calculation
+                                                    const vels = playerStats.averages.map(s => Number(s.avgVelocity)).filter(v => !isNaN(v) && v > 0);
+                                                    const minV = vels.length ? Math.min(...vels) : 100;
+                                                    const maxV = vels.length ? Math.max(...vels) : 140;
 
-                                                let minScale = Math.floor(minV / 10) * 10;
-                                                let maxScale = Math.ceil(maxV / 10) * 10;
+                                                    let minScale = Math.floor(minV / 10) * 10;
+                                                    let maxScale = maxV <= 125 ? 130 : Math.ceil(maxV / 10) * 10;
 
-                                                if (maxScale - minScale < 40) {
-                                                    maxScale = minScale + 40;
-                                                }
+                                                    if (maxScale - minScale < 40) {
+                                                        maxScale = minScale + 40;
+                                                    }
 
-                                                const ticks = [];
-                                                for (let v = maxScale; v >= minScale; v -= 5) {
-                                                    ticks.push(v);
-                                                }
+                                                    const ticks = [];
+                                                    for (let v = maxScale; v >= minScale; v -= 5) {
+                                                        ticks.push(v);
+                                                    }
 
-                                                return (
-                                                    <>
-                                                        {ticks.map(v => (
-                                                            <div key={v} className="absolute flex items-center"
-                                                                style={{ bottom: `calc(12.5% + ${((v - minScale) / (maxScale - minScale)) * 75}%)` }}>
-                                                                <span className="text-[11px] font-bold pr-3">{v}</span>
-                                                            </div>
-                                                        ))}
+                                                    return (
+                                                        <>
+                                                            {ticks.map(v => (
+                                                                <div key={v} className="absolute flex items-center right-6"
+                                                                    style={{ bottom: `calc(12.5% + ${((v - minScale) / (maxScale - minScale)) * 75}%)` }}>
+                                                                    <span className="text-[11px] font-bold pr-1">{v}</span>
+                                                                </div>
+                                                            ))}
 
-                                                        {playerStats.averages.map(stat => (
-                                                            <div
-                                                                key={stat.type}
-                                                                className="absolute w-4 h-4 rounded-full border border-white shadow-sm ring-1 ring-gray-200"
-                                                                style={{
-                                                                    bottom: `calc(12.5% + ${((Math.max(minScale, Math.min(maxScale, Number(stat.avgVelocity))) - minScale) / (maxScale - minScale)) * 75}% - 8px)`,
-                                                                    right: '9px',
-                                                                    backgroundColor: getTypeColor(stat.type),
-                                                                    zIndex: 10
-                                                                }}
-                                                            />
-                                                        ))}
-                                                    </>
-                                                );
-                                            })()}
+                                                            {playerStats.averages.map(stat => (
+                                                                <div
+                                                                    key={stat.type}
+                                                                    className="absolute w-4 h-4 rounded-full border border-white shadow-sm ring-1 ring-gray-200"
+                                                                    style={{
+                                                                        bottom: `calc(12.5% + ${((Math.max(minScale, Math.min(maxScale, Number(stat.avgVelocity))) - minScale) / (maxScale - minScale)) * 75}% - 8px)`,
+                                                                        right: '1px',
+                                                                        backgroundColor: getTypeColor(stat.type),
+                                                                        zIndex: 10
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                        </>
+                                                    );
+                                                })()}
 
-                                            <div className="absolute top-[88%] right-4 translate-x-1/2 text-[10px] font-bold text-center w-20 whitespace-nowrap">
-                                                投球速度
+                                                <div className="absolute top-[88%] right-2 translate-x-1/2 text-[10px] font-bold text-center w-20 whitespace-nowrap">
+                                                    投球速度
+                                                </div>
                                             </div>
                                         </div>
 
                                         {/* Speed Ratio Table */}
                                         <div className="w-[70%] flex flex-col justify-center">
-                                            <table className="border-collapse border border-black text-[9px] text-center table-fixed h-fit">
+                                            <table className="border-collapse border border-black text-[8px] text-center table-fixed h-fit w-full">
                                                 <thead>
                                                     <tr className="bg-gray-100 h-10">
-                                                        <th className="border border-black w-[30%] text-[8px]">球種</th>
+                                                        <th className="border border-black w-[35%] text-[8px]">球種</th>
                                                         <th className="border border-black w-[30%] text-[8px]">投球<br />速度</th>
-                                                        <th className="border border-black w-[40%] text-[8px] bg-gray-300">ストレート<br />に対する<br />割合<br />(%)</th>
+                                                        <th className="border border-black w-[35%] text-[8px] bg-gray-300">ストレート<br />に対する<br />割合<br />(%)</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1228,7 +1227,7 @@ const Feedback = () => {
                                                         const fb = playerStats.averages.find(s => s.type.includes('ストレート')) || { avgVelocity: 1 };
                                                         return playerStats.averages.map(stat => (
                                                             <tr key={stat.type} className="h-8">
-                                                                <td className="border border-black text-white font-bold" style={{ backgroundColor: getTypeColor(stat.type) }}>
+                                                                <td className="border border-black text-white font-bold whitespace-nowrap" style={{ backgroundColor: getTypeColor(stat.type) }}>
                                                                     {stat.type.includes('(クイック)') ? 'クイック' : formatPitchTypeName(stat.type)}
                                                                 </td>
                                                                 <td className="border border-black font-bold text-[10px]">{stat.avgVelocity}</td>
@@ -1244,39 +1243,39 @@ const Feedback = () => {
                                     </div>
 
                                     {/* Velocity Gap Reference Table */}
-                                    <div className="mt-4 print:mt-4">
+                                    <div className="mt-auto print:mt-1">
                                         <div className="text-right text-[10px] font-bold mb-0.5 pr-1">緩急比基準 (%)</div>
                                         <div className="flex w-full border border-black text-[9px] font-bold text-center">
                                             <div className="flex-1 flex flex-col border-r border-black">
-                                                <div className="bg-[#00BFFF] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">ツーシーム</div>
+                                                <div className="bg-[#00BFFF] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px] text-[9px] whitespace-nowrap">ツーシーム</div>
                                                 <div className="py-1 flex items-center justify-center min-h-[20px]">99</div>
                                             </div>
                                             <div className="flex-1 flex flex-col border-r border-black">
-                                                <div className="bg-[#A6A6A6] py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">シュート</div>
+                                                <div className="bg-[#A6A6A6] py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px] text-[9px] whitespace-nowrap">シュート</div>
                                                 <div className="py-1 flex items-center justify-center min-h-[20px]">97 (99)</div>
                                             </div>
                                             <div className="flex-1 flex flex-col border-r border-black">
-                                                <div className="bg-[#0070C0] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">カット</div>
+                                                <div className="bg-[#0070C0] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px] text-[9px] whitespace-nowrap">カット</div>
                                                 <div className="py-1 flex items-center justify-center min-h-[20px]">95</div>
                                             </div>
                                             <div className="flex-1 flex flex-col border-r border-black">
-                                                <div className="bg-[#FFC000] py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">スプリット</div>
+                                                <div className="bg-[#FFC000] py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px] text-[9px] whitespace-nowrap">スプリット</div>
                                                 <div className="py-1 flex items-center justify-center min-h-[20px]">93</div>
                                             </div>
                                             <div className="flex-1 flex flex-col border-r border-black">
-                                                <div className="bg-[#D9D9D9] py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">フォーク</div>
+                                                <div className="bg-[#D9D9D9] py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px] text-[9px] whitespace-nowrap">フォーク</div>
                                                 <div className="py-1 flex items-center justify-center min-h-[20px]">92</div>
                                             </div>
                                             <div className="flex-1 flex flex-col border-r border-black">
-                                                <div className="bg-[#7030A0] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">スラ (縦)</div>
+                                                <div className="bg-[#7030A0] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px] text-[9px] whitespace-nowrap">スラ (縦)</div>
                                                 <div className="py-1 flex items-center justify-center min-h-[20px]">90 (91)</div>
                                             </div>
                                             <div className="flex-1 flex flex-col border-r border-black">
-                                                <div className="bg-[#FFE599] py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">チェンジ</div>
+                                                <div className="bg-[#FFE599] py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px] text-[9px] whitespace-nowrap">チェンジ</div>
                                                 <div className="py-1 flex items-center justify-center min-h-[20px]">90</div>
                                             </div>
                                             <div className="flex-1 flex flex-col">
-                                                <div className="bg-[#00B050] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px]">カーブ</div>
+                                                <div className="bg-[#00B050] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px] text-[9px] whitespace-nowrap">カーブ</div>
                                                 <div className="py-1 flex items-center justify-center min-h-[20px]">85</div>
                                             </div>
                                         </div>
@@ -1287,112 +1286,157 @@ const Feedback = () => {
                             </div>
 
                         </div>
-                    </div>
-                )
+                        </div>
+                    );
+                })
             }
             {
-                viewMode === 'team' && teamStats && (
-                    <div id="report-container" className="print:block print:w-full bg-white text-black font-sans print:py-0 print:pb-3 py-4">
-                        <div className="flex justify-between items-center mb-1">
-                            <h2 className="text-3xl font-bold border-b-2 border-black pb-1">チーム：{teamPitchType}データ一覧</h2>
-                            <div className="text-xl font-bold">{new Date().toLocaleDateString('ja-JP')}</div>
-                        </div>
-                        <div className="w-full h-6 mb-4 flex overflow-hidden items-center justify-center">
-                            <img src="/assets/baseball_stitch_line.png" alt="Stitch Line" className="w-full h-full object-cover object-left" />
-                        </div>
+                viewMode === 'team' && teamStats && (() => {
+                    let sortedPitchers = [...teamStats.pitchers];
+                    if (teamPlayerSort === 'grade') {
+                        sortedPitchers.sort((a, b) => b.gradeGroup.localeCompare(a.gradeGroup));
+                    } else if (teamPlayerSort === 'velocity_desc') {
+                        sortedPitchers.sort((a, b) => (Number(b.avgVelocity) || 0) - (Number(a.avgVelocity) || 0));
+                    } else if (teamPlayerSort === 'spin_desc') {
+                        sortedPitchers.sort((a, b) => (Number(b.avgSpin) || 0) - (Number(a.avgSpin) || 0));
+                    } else if (teamPlayerSort === 'strike_desc') {
+                        const getStrike = (p) => parseFloat(teamManualStrikeRates[p.name] !== undefined ? teamManualStrikeRates[p.name] : p.strikeRate) || 0;
+                        sortedPitchers.sort((a, b) => getStrike(b) - getStrike(a));
+                    }
 
-                        <div className="text-red-600 font-bold text-2xl mb-4">{selectedThrowHand === 'Right' ? '右投げ' : '左投げ'}</div>
+                    const pages = [];
+                    for (let i = 0; i < sortedPitchers.length; i += teamPlayersPerPage) {
+                        pages.push(sortedPitchers.slice(i, i + teamPlayersPerPage));
+                    }
+                    if (pages.length === 0) pages.push([]);
 
-                        <table className="w-full print:w-[98%] print:mx-auto border-collapse border border-black text-center text-[10px] table-fixed">
-                            <thead>
-                                <tr className="bg-gray-100">
-                                    <th className="border border-black p-0.5 w-[10%]">氏名</th>
-                                    <th className="border border-black p-0.5 w-[4%]"></th>
-                                    <th className="border border-black p-0.5 bg-red-200 leading-none">投球速度<br />(km/h)</th>
-                                    <th className="border border-black p-0.5 bg-red-200 leading-none">回転数<br />(rpm)</th>
-                                    <th className="border border-black p-0.5 bg-red-200 leading-none">回転効率<br />(%)</th>
-                                    <th className="border border-black p-0.5 bg-red-200 leading-none">回転方向<br />(時:分)</th>
-                                    <th className="border border-black p-0.5 bg-red-200 leading-none">縦の<br />変化量<br />(cm)</th>
-                                    <th className="border border-black p-0.5 bg-red-200 leading-none">横の<br />変化量<br />(cm)</th>
-                                    <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />角度<br />(横)<br />(°)</th>
-                                    <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />角度<br />(縦)<br />(°)</th>
-                                    <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />高さ<br />(m)</th>
-                                    <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />横<br />(m)</th>
-                                    <th className="border border-black p-0.5 bg-red-200 leading-none">ジャイロ<br />角度<br />(°)</th>
-                                    <th className="border border-black p-0.5 bg-red-200 leading-none">制球率<br />(%)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {teamStats.pitchers.map((p, index) => (
-                                    <React.Fragment key={p.name}>
-                                        <tr className="h-5">
-                                            <td className={`border border-black font-bold p-0.5 align-middle ${index % 2 === 1 ? 'bg-gray-200' : 'bg-white'}`} rowSpan={2}>{p.name}</td>
-                                            <td className={`border border-black p-0.5 text-[7px] text-gray-500 ${index % 2 === 1 ? 'bg-gray-200' : 'bg-gray-50'}`}>平均値</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''} ${Number(p.avgVelocity) >= Number(teamStats.avgVelocity) ? 'bg-yellow-200' : ''}`}>{p.avgVelocity}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''} ${Number(p.avgSpin) >= Number(teamStats.avgSpin) ? 'bg-yellow-200' : ''}`}>{p.avgSpin}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgEff}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgSpinDir}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgVB}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgHB}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgRah}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgRav}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgRh}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgRs}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.avgGyro}</td>
-                                            <td className={`border border-black font-bold p-0.5 align-middle ${index % 2 === 1 ? 'bg-gray-200' : ''}`} rowSpan={2}>
-                                                <input
-                                                    type="text"
-                                                    value={teamManualStrikeRates[p.name] !== undefined ? teamManualStrikeRates[p.name] : p.strikeRate}
-                                                    onChange={(e) => handleTeamManualStrikeRateChange(p.name, e.target.value)}
-                                                    className="w-full h-full text-center bg-transparent border-none outline-none font-bold p-0 m-0"
-                                                />
-                                            </td>
-                                        </tr>
-                                        <tr className="h-5">
-                                            <td className={`border border-black p-0.5 text-[7px] text-gray-500 ${index % 2 === 1 ? 'bg-gray-200' : 'bg-gray-50'}`}>最大値</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxStraightVelocity}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxSpin}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxEfficiency}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxSpinDir || '-'}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxVB || '-'}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxHB || '-'}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRAH || '-'}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRAV || '-'}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRH || '-'}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRS || '-'}</td>
-                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxGyro || '-'}</td>
-                                        </tr>
-                                    </React.Fragment>
-                                ))}
-                            </tbody>
-                        </table>
+                    return (
+                        <div id="report-container" className="bg-white text-black font-sans">
+                            {pages.map((pagePitchers, pageIndex) => (
+                                <div key={pageIndex} className={`print:block print:w-full print:py-0 print:pb-3 py-4 ${pageIndex < pages.length - 1 ? 'print:break-after-page' : ''}`}>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <h2 className="text-3xl font-bold border-b-2 border-black pb-1">チーム：{teamPitchType}データ一覧 {pages.length > 1 ? `(${pageIndex + 1}/${pages.length})` : ''}</h2>
+                                        <div className="text-xl font-bold">{new Date().toLocaleDateString('ja-JP')}</div>
+                                    </div>
+                                    <div className="w-full h-6 mb-4 flex overflow-hidden items-center justify-center">
+                                        <img src="/assets/baseball_stitch_line.png" alt="Stitch Line" className="w-full h-full object-cover object-left" />
+                                    </div>
 
-                        <div className="mt-4 flex justify-center items-center gap-4">
-                            <div className="bg-yellow-200 w-12 h-6 border border-black"></div>
-                            <div className="font-bold text-lg">投球速度、回転数が平均以上、制球率が60%以上</div>
+                                    <div className="text-red-600 font-bold text-2xl mb-4">{selectedThrowHand === 'Right' ? '右投げ' : '左投げ'}</div>
+
+                                    <table className="w-full print:w-[98%] print:mx-auto border-collapse border border-black text-center text-[10px] table-fixed">
+                                        <thead>
+                                            <tr className="bg-gray-100">
+                                                <th className="border border-black p-0.5 w-[10%]">氏名</th>
+                                                <th className="border border-black p-0.5 w-[4%]"></th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">投球速度<br />(km/h)</th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">回転数<br />(rpm)</th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">回転効率<br />(%)</th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">回転方向<br />(時:分)</th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">縦の<br />変化量<br />(cm)</th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">横の<br />変化量<br />(cm)</th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />角度<br />(横)<br />(°)</th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />角度<br />(縦)<br />(°)</th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />高さ<br />(m)</th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />横<br />(m)</th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">ジャイロ<br />角度<br />(°)</th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">制球率<br />(%)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {pagePitchers.map((p, index) => {
+                                                const pStrikeRateRaw = teamManualStrikeRates[p.name] !== undefined ? teamManualStrikeRates[p.name] : p.strikeRate;
+                                                const pStrikeRate = parseFloat(pStrikeRateRaw);
+                                                
+                                                const targetVelocity = teamStats.avgVelocity !== undefined ? teamStats.avgVelocity : (teamStats.avgMaxVelocity !== undefined ? teamStats.avgMaxVelocity : 0);
+                                                const targetSpin = teamStats.avgSpin !== undefined ? teamStats.avgSpin : 0;
+                                                
+                                                const isHighVelocity = Number(p.avgVelocity) >= Number(targetVelocity);
+                                                const isHighSpin = Number(p.avgSpin) >= Number(targetSpin);
+                                                const isHighStrikeRate = !isNaN(pStrikeRate) && pStrikeRate >= 60;
+                                                const isElite = isHighVelocity && isHighSpin && isHighStrikeRate;
+                                                
+                                                const nameBg = isElite ? 'bg-[#ffff00]' : (index % 2 === 1 ? 'bg-gray-200' : 'bg-white');
+                                                const rowPattern = index % 2 === 1 ? 'bg-gray-200' : '';
+                                                
+                                                return (
+                                                    <React.Fragment key={p.name}>
+                                                        <tr className="h-5">
+                                                            <td className={`border border-black font-bold p-0.5 align-middle ${nameBg}`} rowSpan={2}>{p.name}</td>
+                                                            <td className={`border border-black p-0.5 text-[7px] text-gray-500 ${index % 2 === 1 ? 'bg-gray-200' : 'bg-gray-50'}`}>平均値</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern} ${isHighVelocity ? 'bg-[#ffff00]' : ''}`}>{p.avgVelocity}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern} ${isHighSpin ? 'bg-[#ffff00]' : ''}`}>{p.avgSpin}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgEff}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgSpinDir}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgVB}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgHB}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgRah}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgRav}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgRh}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgRs}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgGyro}</td>
+                                                            <td className={`border border-black font-bold p-0.5 align-middle ${isHighStrikeRate ? 'bg-[#ffff00]' : (index % 2 === 1 ? 'bg-gray-200' : 'bg-white')}`} rowSpan={2}>
+                                                                <input
+                                                                    type="text"
+                                                                    value={pStrikeRateRaw}
+                                                                    onChange={(e) => handleTeamManualStrikeRateChange(p.name, e.target.value)}
+                                                                    className="w-full h-full text-center bg-transparent border-none outline-none font-bold p-0 m-0"
+                                                                />
+                                                            </td>
+                                                        </tr>
+                                                        <tr className="h-5">
+                                                            <td className={`border border-black p-0.5 text-[7px] text-gray-500 ${index % 2 === 1 ? 'bg-gray-200' : 'bg-gray-50'}`}>最大値</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxStraightVelocity}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxSpin}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxEfficiency}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxSpinDir || '-'}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxVB || '-'}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxHB || '-'}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRAH || '-'}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRAV || '-'}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRH || '-'}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRS || '-'}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxGyro || '-'}</td>
+                                                        </tr>
+                                                    </React.Fragment>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+
+                                    {pageIndex === pages.length - 1 && (
+                                        <>
+                                            <div className="mt-4 flex justify-center items-center gap-4">
+                                                <div className="bg-[#ffff00] w-12 h-6 border border-black"></div>
+                                                <div className="font-bold text-lg">投球速度、回転数が平均以上、制球率が60%以上</div>
+                                            </div>
+
+                                            <div className="mt-4 flex justify-center">
+                                                <table className="w-[70%] border-collapse border border-black text-center table-fixed">
+                                                    <tbody className="h-12">
+                                                        <tr className="bg-blue-600 text-white h-10">
+                                                            <th className="border border-black text-white text-sm bg-blue-600 font-bold align-middle text-center leading-tight px-2" rowSpan={2}>最大速度時の<br />平均値</th>
+                                                            <th className="border border-black text-sm">投球速度<br />(km/h)</th>
+                                                            <th className="border border-black text-sm">総回転数<br />(rpm)</th>
+                                                            <th className="border border-black text-sm">制球率<br />(%)</th>
+                                                            <th className="border border-black text-sm">チーム平均<br />クイック<br />(秒)</th>
+                                                        </tr>
+                                                        <tr className="text-2xl font-bold">
+                                                            <td className="border border-black">{teamStats.avgMaxVelocity}</td>
+                                                            <td className="border border-black">{teamStats.avgSpin}</td>
+                                                            <td className="border border-black">{teamStats.avgStrikeRate}</td>
+                                                            <td className="border border-black text-blue-700 p-0 bg-white"><input name="teamQuickAvg" value={manualData.teamQuickAvg || ''} onChange={handleManualChange} placeholder="-" className="w-full h-full text-center bg-transparent border-none outline-none font-bold text-blue-700" /></td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            ))}
                         </div>
-
-                        <div className="mt-4 flex justify-center">
-                            <table className="w-[70%] border-collapse border border-black text-center table-fixed">
-                                <tbody className="h-12">
-                                    <tr className="bg-blue-600 text-white h-10">
-                                        <th className="border border-black text-white text-sm bg-blue-600 font-bold align-middle text-center leading-tight px-2" rowSpan={2}>最大速度時の<br />平均値</th>
-                                        <th className="border border-black text-sm">投球速度<br />(km/h)</th>
-                                        <th className="border border-black text-sm">総回転数<br />(rpm)</th>
-                                        <th className="border border-black text-sm">制球率<br />(%)</th>
-                                        <th className="border border-black text-sm">チーム平均<br />クイック<br />(秒)</th>
-                                    </tr>
-                                    <tr className="text-2xl font-bold">
-                                        <td className="border border-black">{teamStats.avgMaxVelocity}</td>
-                                        <td className="border border-black">{teamStats.avgSpin}</td>
-                                        <td className="border border-black">{teamStats.avgStrikeRate}</td>
-                                        <td className="border border-black text-blue-700">{manualData.teamQuickAvg || '-'}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )
+                    );
+                })()
             }
         </div >
     );

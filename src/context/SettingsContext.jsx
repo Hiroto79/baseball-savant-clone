@@ -8,6 +8,12 @@ export const SettingsProvider = ({ children }) => {
     const [language, setLanguageState] = useState('ja'); // Default to Japanese
     const [units, setUnitsState] = useState('metric'); // Default to Metric
 
+    // Transient state for preserving feedback uploads across page navigation
+    const [feedbackPitchingData, setFeedbackPitchingData] = useState(null);
+    const [feedbackBattingData, setFeedbackBattingData] = useState(null);
+    const [feedbackPitchingFile, setFeedbackPitchingFile] = useState('');
+    const [feedbackBattingFile, setFeedbackBattingFile] = useState('');
+
     // Load settings from localStorage on mount
     useEffect(() => {
         const savedLanguage = localStorage.getItem('language');
@@ -28,7 +34,13 @@ export const SettingsProvider = ({ children }) => {
     };
 
     return (
-        <SettingsContext.Provider value={{ language, units, setLanguage, setUnits }}>
+        <SettingsContext.Provider value={{ 
+            language, units, setLanguage, setUnits,
+            feedbackPitchingData, setFeedbackPitchingData,
+            feedbackBattingData, setFeedbackBattingData,
+            feedbackPitchingFile, setFeedbackPitchingFile,
+            feedbackBattingFile, setFeedbackBattingFile
+        }}>
             {children}
         </SettingsContext.Provider>
     );
