@@ -98,14 +98,14 @@ const Feedback = () => {
         const t = type.toLowerCase();
 
         if (t.includes('quick') && (t.includes('fastball') || t.includes('straight'))) return 'ストレート(クイック)';
-        if (t.includes('fastball') || t.includes('straight')) return 'ストレート';
         if (t.includes('two') || t.includes('2')) return 'ツーシーム';
-        if (t.includes('slider')) return 'スライダー';
-        if (t.includes('curve')) return 'カーブ';
         if (t.includes('cut')) return 'カットボール';
-        if (t.includes('split')) return 'スプリット';
+        if (t.includes('split') || t.includes('fork')) return 'スプリット';
         if (t.includes('change')) return 'チェンジアップ';
         if (t.includes('sinker')) return 'シンカー';
+        if (t.includes('fastball') || t.includes('straight')) return 'ストレート';
+        if (t.includes('slider')) return 'スライダー';
+        if (t.includes('curve')) return 'カーブ';
         return type;
     };
 
@@ -115,11 +115,11 @@ const Feedback = () => {
         const t = type.toLowerCase();
         if (t.includes('ストレート') || t.includes('straight') || t.includes('fastball') || t.includes('4シーム') || t.includes('4-seam')) return '#ef4444';
         if (t.includes('カーブ') || t.includes('curve')) return '#3b82f6';
-        if (t.includes('スライダー') || t.includes('slider')) return '#eab308';
-        if (t.includes('チェンジ') || t.includes('change')) return '#22c55e';
-        if (t.includes('フォーク') || t.includes('split') || t.includes('fork')) return '#a855f7';
+        if (t.includes('チェンジアップ') || t.includes('change')) return '#22c55e';
+        if (t.includes('スライダー') || t.includes('slider') || t.includes('sweeper')) return '#eab308';
+        if (t.includes('フォーク') || t.includes('スプリット') || t.includes('split') || t.includes('fork')) return '#a855f7';
         if (t.includes('カット') || t.includes('cutter')) return '#f97316';
-        if (t.includes('シンカー') || t.includes('sinker') || t.includes('2シーム') || t.includes('2-seam')) return '#ec4899';
+        if (t.includes('シンカー') || t.includes('ツーシーム') || t.includes('sinker') || t.includes('2シーム') || t.includes('2-seam')) return '#ec4899';
         return '#6b7280';
     };
 
@@ -215,8 +215,14 @@ const Feedback = () => {
             // Robust Average Helper
             const getAvg = (arr, key, precision = 1, allowZero = false) => {
                 const getVal = (d, k) => {
-                    if (k === 'Vertical Break') return d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)'];
+                    if (k === 'Velocity') return d['Velocity'] || d['Speed'] || d.Velocity || d.Speed;
+                    if (k === 'Vertical Break') return d['VB (spin)'] || d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)'];
                     if (k === 'Horizontal Break') return d['Horizontal Break'] || d.HorizontalBreak || d['HB (trajectory)'];
+                    if (k === 'Total Spin') return d['Total Spin'] || d.TotalSpin || d['Spin'];
+                    if (k === 'Efficiency') {
+                        const ek = Object.keys(d).find(x => x.toLowerCase().includes('efficienc'));
+                        return d['Spin Efficiency'] || d.SpinEfficiency || d['Spin Efficiency (release)'] || (ek ? d[ek] : undefined);
+                    }
                     return d[k] || d[k.replace(' ', '')];
                 };
                 const valid = arr.map(d => {
@@ -229,7 +235,18 @@ const Feedback = () => {
                 return (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(precision);
             };
             const getAvgInt = (arr, key, allowZero = false) => {
-                const valid = arr.map(d => Number(d[key] || d[key.replace(' ', '')] || 0)).filter(v => !isNaN(v) && (allowZero || v !== 0));
+                const getVal = (d, k) => {
+                    if (k === 'Velocity') return d['Velocity'] || d['Speed'] || d.Velocity || d.Speed;
+                    if (k === 'Vertical Break') return d['VB (spin)'] || d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)'];
+                    if (k === 'Horizontal Break') return d['Horizontal Break'] || d.HorizontalBreak || d['HB (trajectory)'];
+                    if (k === 'Total Spin') return d['Total Spin'] || d.TotalSpin || d['Spin'];
+                    if (k === 'Efficiency') {
+                        const ek = Object.keys(d).find(x => x.toLowerCase().includes('efficienc'));
+                        return d['Spin Efficiency'] || d.SpinEfficiency || d['Spin Efficiency (release)'] || (ek ? d[ek] : undefined);
+                    }
+                    return d[k] || d[k.replace(' ', '')];
+                };
+                const valid = arr.map(d => Number(getVal(d, key) || 0)).filter(v => !isNaN(v) && (allowZero || v !== 0));
                 if (!valid.length) return '-';
                 return Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
             };
@@ -252,9 +269,7 @@ const Feedback = () => {
 
             const avgVelocity = getAvg(straightPitches, 'Velocity', 1);
             const avgSpin = getAvgInt(straightPitches, 'Total Spin');
-            // Calculate Avg Efficiency manually to ensure correct key usage and decimal formatting
-            const avgEffValRaw = straightPitches.map(d => d['Spin Efficiency (release)'] || d['Spin Efficiency'] || d.SpinEfficiency).filter(v => v !== undefined && v !== '');
-            const avgEff = avgEffValRaw.length ? (avgEffValRaw.reduce((a, b) => a + Number(b), 0) / avgEffValRaw.length).toFixed(1) : '-';
+            const avgEff = getAvg(straightPitches, 'Efficiency', 1);
             const avgVB = getAvg(straightPitches, 'Vertical Break', 1, true); // Allow 0 for breaks
             const avgHB = getAvg(straightPitches, 'Horizontal Break', 1, true); // Allow 0 for breaks
             const avgRahActual = getAvg(straightPitches, 'Horizontal Angle', 1);
@@ -296,8 +311,11 @@ const Feedback = () => {
             let maxVelVal = -Infinity;
 
             distinctStraightPitches.forEach(d => {
-                const v = Number(d.Velocity);
-                if (!isNaN(v) && v > maxVelVal) {
+                const v = Number(d.Velocity || d.Speed || d['Speed']);
+                const spin = Number(d['Total Spin'] || d.TotalSpin || d['Spin']);
+                const vb = Number(d['VB (spin)'] || d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)']);
+                // Exclude pitches with purely missing tracking data
+                if (!isNaN(v) && v > maxVelVal && (!isNaN(spin) || !isNaN(vb))) {
                     maxVelVal = v;
                     fastestPitch = d;
                 }
@@ -307,14 +325,14 @@ const Feedback = () => {
             const allPitchersMaxStraightVel = maxVelVal > 0 ? maxVelVal.toFixed(1) : 0;
 
             // Get metrics FROM THE FASTEST PITCH
-            const maxSpinVal = fastestPitch ? Number(fastestPitch['Total Spin'] || fastestPitch.TotalSpin || 0).toFixed(0) : 0;
+            const maxSpinVal = fastestPitch ? Number(fastestPitch['Total Spin'] || fastestPitch.TotalSpin || fastestPitch['Spin'] || 0).toFixed(0) : 0;
             const maxEffVal = fastestPitch ? Number(fastestPitch['Spin Efficiency'] || fastestPitch.SpinEfficiency || fastestPitch['Spin Efficiency (release)'] || 0) : 0;
-            const maxSpinDir = fastestPitch ? (fastestPitch['Spin Direction'] || fastestPitch.SpinAxis || '-') : '-';
+            const maxSpinDir = fastestPitch ? (fastestPitch['Spin Direction'] || fastestPitch.SpinAxis || fastestPitch['Spin Axis'] || '-') : '-';
 
             // Helper for specific fastest pitch values
             const getFastestVal = (key) => {
                 if (!fastestPitch) return '-';
-                if (key === 'Vertical Break') return fastestPitch['Vertical Break'] || fastestPitch.VerticalBreak || fastestPitch['VB (trajectory)'];
+                if (key === 'Vertical Break') return fastestPitch['VB (spin)'] || fastestPitch['Vertical Break'] || fastestPitch.VerticalBreak || fastestPitch['VB (trajectory)'];
                 if (key === 'Horizontal Break') return fastestPitch['Horizontal Break'] || fastestPitch.HorizontalBreak || fastestPitch['HB (trajectory)'];
                 if (key === 'Horizontal Angle') return fastestPitch['Horizontal Angle'] || fastestPitch.HorizontalAngle;
                 if (key === 'Release Angle') return fastestPitch['Release Angle'] || fastestPitch.ReleaseAngle;
@@ -458,14 +476,16 @@ const Feedback = () => {
                 if (!byType[type]) {
                     byType[type] = {
                         count: 0,
-                        velocitySum: 0, maxVelocity: -Infinity,
-                        spinSum: 0, maxSpin: -Infinity,
-                        efficiencySum: 0,
-                        vbSum: 0,
-                        hbSum: 0,
-                        releaseAngleSum: 0,
-                        releaseHeightSum: 0,
-                        releaseSideSum: 0,
+                        velocitySum: 0, velocityCount: 0, maxVelocity: -Infinity,
+                        spinSum: 0, spinCount: 0, maxSpin: -Infinity,
+                        efficiencySum: 0, efficiencyCount: 0,
+                        vbSum: 0, vbCount: 0, maxVB: -Infinity,
+                        hbSum: 0, hbCount: 0, maxHB: -Infinity,
+                        releaseAngleSumV: 0, releaseAngleCountV: 0, maxRAV: -Infinity,
+                        releaseAngleSumH: 0, releaseAngleCountH: 0, maxRAH: -Infinity,
+                        releaseHeightSum: 0, releaseHeightCount: 0, maxRH: -Infinity,
+                        releaseSideSum: 0, releaseSideCount: 0, maxRS: -Infinity,
+                        releaseExtensionSum: 0, releaseExtensionCount: 0, maxRE: -Infinity,
                         strikeCount: 0, strikeOppCount: 0,
                         gyroSum: 0, gyroCount: 0,
                         spinDirections: [],
@@ -476,44 +496,66 @@ const Feedback = () => {
                 const stats = byType[type];
                 stats.count++;
 
-                const vel = Number(d.Velocity);
+                const vel = Number(d.Velocity || d.Speed || d['Speed']);
                 if (!isNaN(vel)) {
                     stats.velocitySum += vel;
+                    stats.velocityCount++;
                     if (vel > stats.maxVelocity) stats.maxVelocity = vel;
                 }
-                const spin = Number(d['Total Spin'] || d.TotalSpin);
+                const spin = Number(d['Total Spin'] || d.TotalSpin || d['Spin']);
                 if (!isNaN(spin)) {
                     stats.spinSum += spin;
+                    stats.spinCount++;
                     if (spin > stats.maxSpin) stats.maxSpin = spin;
                 }
-                const eff = Number(d['Spin Efficiency'] || d.SpinEfficiency || d['Spin Efficiency (release)']);
+                const effKey = Object.keys(d).find(k => k.toLowerCase().includes('efficienc'));
+                const eff = Number(d['Spin Efficiency'] || d.SpinEfficiency || d['Spin Efficiency (release)'] || (effKey ? d[effKey] : NaN));
                 if (!isNaN(eff)) {
                     stats.efficiencySum += eff;
+                    stats.efficiencyCount++;
                 }
-                const vb = Number(d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)']);
+                const vb = Number(d['VB (spin)'] || d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)']);
                 if (!isNaN(vb)) {
                     stats.vbSum += vb;
+                    stats.vbCount++;
                     if (vb > stats.maxVB) stats.maxVB = vb;
                 }
                 const hb = Number(d['Horizontal Break'] || d.HorizontalBreak || d['HB (trajectory)']);
                 if (!isNaN(hb)) {
                     stats.hbSum += hb;
+                    stats.hbCount++;
                     if (hb > stats.maxHB) stats.maxHB = hb;
                 }
-                const ra = Number(d['Release Angle'] || d.ReleaseAngle);
-                if (!isNaN(ra)) {
-                    stats.releaseAngleSum += ra;
-                    if (ra > stats.maxRA) stats.maxRA = ra;
+                const raH = Number(d['Horizontal Angle'] || d.HorizontalAngle);
+                if (!isNaN(raH)) {
+                    stats.releaseAngleSumH += raH;
+                    stats.releaseAngleCountH++;
+                    if (raH > stats.maxRAH) stats.maxRAH = raH;
+                }
+                const raV = Number(d['Release Angle'] || d.ReleaseAngle);
+                if (!isNaN(raV)) {
+                    stats.releaseAngleSumV += raV;
+                    stats.releaseAngleCountV++;
+                    if (raV > stats.maxRAV) stats.maxRAV = raV;
                 }
                 const rh = Number(d['Release Height'] || d.ReleaseHeight);
                 if (!isNaN(rh)) {
                     stats.releaseHeightSum += rh;
+                    stats.releaseHeightCount++;
                     if (rh > stats.maxRH) stats.maxRH = rh;
                 }
                 const rs = Number(d['Release Side'] || d.ReleaseSide);
                 if (!isNaN(rs)) {
                     stats.releaseSideSum += rs;
+                    stats.releaseSideCount++;
                     if (rs > stats.maxRS) stats.maxRS = rs;
+                }
+                const reKey = Object.keys(d).find(k => k.toLowerCase().includes('extension'));
+                const re = Number(d['Release Extension'] || d.ReleaseExtension || d.Extension || d['Extension'] || (reKey ? d[reKey] : NaN));
+                if (!isNaN(re)) {
+                    stats.releaseExtensionSum += re;
+                    stats.releaseExtensionCount++;
+                    if (re > stats.maxRE) { stats.maxRE = re; }
                 }
 
                 // FIX: Check Raw Value for Gyro before Number() to avoid converting empty string to 0 and filtering it or not.
@@ -529,7 +571,7 @@ const Feedback = () => {
                     }
                 }
 
-                const sd = d['Spin Direction'] || d.SpinDirection || d['Spin Axis (Clock)'];
+                const sd = d['Spin Direction'] || d.SpinDirection || d['Spin Axis (Clock)'] || d['Spin Axis'] || d.SpinAxis;
                 if (sd) {
                     stats.spinDirections.push(sd);
                     const dist = getMinutesFrom12(sd);
@@ -557,7 +599,7 @@ const Feedback = () => {
             const getVelocityDistribution = (pitches) => {
                 const buckets = {};
                 pitches.forEach(p => {
-                    const v = parseFloat(p.Velocity);
+                    const v = parseFloat(p.Velocity || p.Speed || p['Speed']);
                     if (isNaN(v)) return;
                     const bin = Math.floor(v / 2) * 2; // 2km/h bins
                     buckets[bin] = (buckets[bin] || 0) + 1;
@@ -590,8 +632,11 @@ const Feedback = () => {
                 const typePitches = data.filter(d => getJapanesePitchType(d['Pitch Type'] || d.PitchType) === type);
 
                 typePitches.forEach(d => {
-                    const v = Number(d.Velocity);
-                    if (!isNaN(v) && v > maxV) {
+                    const v = Number(d.Velocity || d.Speed || d['Speed']);
+                    const spin = Number(d['Total Spin'] || d.TotalSpin || d['Spin']);
+                    const vb = Number(d['VB (spin)'] || d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)']);
+                    // Exclude pitches with purely missing tracking data
+                    if (!isNaN(v) && v > maxV && (!isNaN(spin) || !isNaN(vb))) {
                         maxV = v;
                         fastest = d;
                     }
@@ -602,16 +647,23 @@ const Feedback = () => {
                 // Helper to get value from FASTEST pitch
                 const getFV = (key) => {
                     if (!fastest) return '-';
-                    if (key === 'Efficiency') return fastest['Spin Efficiency'] || fastest.SpinEfficiency || fastest['Spin Efficiency (release)'];
-                    if (key === 'Vertical Break') return fastest['Vertical Break'] || fastest.VerticalBreak || fastest['VB (trajectory)'];
+                    if (key === 'Efficiency') {
+                        const k = Object.keys(fastest).find(k => k.toLowerCase().includes('efficienc'));
+                        return fastest['Spin Efficiency'] || fastest.SpinEfficiency || fastest['Spin Efficiency (release)'] || (k ? fastest[k] : NaN);
+                    }
+                    if (key === 'Vertical Break') return fastest['VB (spin)'] || fastest['Vertical Break'] || fastest.VerticalBreak || fastest['VB (trajectory)'];
                     if (key === 'Horizontal Break') return fastest['Horizontal Break'] || fastest.HorizontalBreak || fastest['HB (trajectory)'];
                     if (key === 'Horizontal Angle') return fastest['Horizontal Angle'] || fastest.HorizontalAngle;
                     if (key === 'Release Angle') return fastest['Release Angle'] || fastest.ReleaseAngle;
                     if (key === 'Release Height') return fastest['Release Height'] || fastest.ReleaseHeight;
                     if (key === 'Release Side') return fastest['Release Side'] || fastest.ReleaseSide;
+                    if (key === 'Release Extension') {
+                        const k = Object.keys(fastest).find(k => k.toLowerCase().includes('extension'));
+                        return fastest['Release Extension'] || fastest.ReleaseExtension || fastest.Extension || fastest['Extension'] || (k ? fastest[k] : NaN);
+                    }
                     if (key === 'Gyro') return fastest['Gyro Degree'] || fastest.GyroDegree || fastest['Gyro'] || fastest['Gyro Angle'] || fastest['Spin Axis (Gyro)'] || fastest['Gyro Degree (deg)'];
-                    if (key === 'Spin Direction') return fastest['Spin Direction'] || fastest.SpinDirection || fastest['Spin Axis (Clock)'];
-                    if (key === 'Spin') return fastest['Total Spin'] || fastest.TotalSpin;
+                    if (key === 'Spin Direction') return fastest['Spin Direction'] || fastest.SpinDirection || fastest['Spin Axis (Clock)'] || fastest['Spin Axis'] || fastest.SpinAxis;
+                    if (key === 'Spin') return fastest['Total Spin'] || fastest.TotalSpin || fastest['Spin'];
 
                     return fastest[key];
                 };
@@ -619,23 +671,27 @@ const Feedback = () => {
                 return {
                     type,
                     count: s.count,
-                    avgVelocity: s.count ? Number((s.velocitySum / s.count).toFixed(1)) : 0,
+                    avgVelocity: s.velocityCount ? (s.velocitySum / s.velocityCount).toFixed(1) : '-',
                     maxVelocity: fmtMax(maxVVal, 1),
-                    avgSpin: s.count ? Math.round(s.spinSum / s.count) : 0,
+                    avgSpin: s.spinCount ? Math.round(s.spinSum / s.spinCount) : '-',
                     maxSpin: fmtMax(getFV('Spin'), 0), // Use fastest pitch's spin, integer per request
-                    avgEfficiency: s.count ? Number((s.efficiencySum / s.count).toFixed(1)) : 0,
+                    avgEfficiency: s.efficiencyCount ? (s.efficiencySum / s.efficiencyCount).toFixed(1) : '-',
                     maxEfficiency: fmtMax(getFV('Efficiency'), 1),
                     avgClock: getAverageTime(s.spinDirections),
-                    avgVB: s.count ? Number((s.vbSum / s.count).toFixed(1)) : 0,
+                    avgVB: s.vbCount ? (s.vbSum / s.vbCount).toFixed(1) : '-',
                     maxVB: fmtMax(getFV('Vertical Break'), 1),
-                    avgHB: s.count ? Number((s.hbSum / s.count).toFixed(1)) : 0,
+                    avgHB: s.hbCount ? (s.hbSum / s.hbCount).toFixed(1) : '-',
                     maxHB: fmtMax(getFV('Horizontal Break'), 1),
-                    avgRA: s.count ? (s.releaseAngleSum / s.count).toFixed(2) : 0,
-                    maxRA: fmtMax(getFV('Horizontal Angle'), 2), // Release Angle (Horizontal)
-                    avgRH: s.count ? (s.releaseHeightSum / s.count).toFixed(2) : 0,
+                    avgRAH: s.releaseAngleCountH ? (s.releaseAngleSumH / s.releaseAngleCountH).toFixed(2) : '-',
+                    maxRAH: fmtMax(getFV('Horizontal Angle'), 2),
+                    avgRAV: s.releaseAngleCountV ? (s.releaseAngleSumV / s.releaseAngleCountV).toFixed(2) : '-',
+                    maxRAV: fmtMax(getFV('Release Angle'), 2),
+                    avgRH: s.releaseHeightCount ? (s.releaseHeightSum / s.releaseHeightCount).toFixed(2) : 0,
                     maxRH: fmtMax(getFV('Release Height'), 2),
-                    avgRS: s.count ? (s.releaseSideSum / s.count).toFixed(2) : 0,
+                    avgRS: s.releaseSideCount ? (s.releaseSideSum / s.releaseSideCount).toFixed(2) : 0,
                     maxRS: fmtMax(getFV('Release Side'), 2),
+                    avgExtension: s.releaseExtensionCount ? (s.releaseExtensionSum / s.releaseExtensionCount).toFixed(2) : '-',
+                    maxExtension: fmtMax(getFV('Release Extension'), 2),
                     avgGyro: avgGyro,
                     maxGyro: fmtMax(getFV('Gyro'), 1),
                     maxClock: getFV('Spin Direction') || '-',
@@ -933,9 +989,10 @@ const Feedback = () => {
                                             <th className="border border-black">回転軸<br />(時間)</th>
                                             <th className="border border-black">縦の変化量<br />(cm)</th>
                                             <th className="border border-black">横の変化量<br />(cm)</th>
-                                            <th className="border border-black">リリース高<br />(cm)</th>
-                                            <th className="border border-black">リリース横<br />(cm)</th>
-                                            <th className="border border-black">リリース<br />前後(cm)</th>
+                                            <th className="border border-black">リリース<br />角度<br />(横)<br />(°)</th>
+                                            <th className="border border-black">リリース<br />角度<br />(縦)<br />(°)</th>
+                                            <th className="border border-black">リリース<br />高さ<br />（m）</th>
+                                            <th className="border border-black">リリース<br />横<br />(m)</th>
                                             <th className="border border-black">ジャイロ<br />角度(度)</th>
                                             <th className="border border-black">制球率<br />(%)</th>
                                         </tr>
@@ -957,7 +1014,8 @@ const Feedback = () => {
                                                         <td className="border border-black font-bold text-sm align-middle">{stat.avgClock}</td>
                                                         <td className="border border-black font-bold text-sm align-middle">{stat.avgVB}</td>
                                                         <td className="border border-black font-bold text-sm align-middle">{stat.avgHB}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgRA}</td>
+                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgRAH}</td>
+                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgRAV}</td>
                                                         <td className="border border-black font-bold text-sm align-middle">{stat.avgRH}</td>
                                                         <td className="border border-black font-bold text-sm align-middle">{stat.avgRS}</td>
                                                         <td className="border border-black font-bold text-sm align-middle">{stat.avgGyro}</td>
@@ -982,7 +1040,8 @@ const Feedback = () => {
                                                             <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxClock}</td>
                                                             <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxVB}</td>
                                                             <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxHB}</td>
-                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxRA}</td>
+                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxRAH}</td>
+                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxRAV}</td>
                                                             <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxRH}</td>
                                                             <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxRS}</td>
                                                             <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxGyro}</td>
@@ -1224,15 +1283,15 @@ const Feedback = () => {
                                                 </thead>
                                                 <tbody>
                                                     {(() => {
-                                                        const fb = playerStats.averages.find(s => s.type.includes('ストレート')) || { avgVelocity: 1 };
+                                                        const fb = playerStats.averages.find(s => s.type === 'ストレート' || s.type === 'Straight' || s.type === 'Fastball') || { avgVelocity: 1 };
                                                         return playerStats.averages.map(stat => (
                                                             <tr key={stat.type} className="h-8">
                                                                 <td className="border border-black text-white font-bold whitespace-nowrap" style={{ backgroundColor: getTypeColor(stat.type) }}>
-                                                                    {stat.type.includes('(クイック)') ? 'クイック' : formatPitchTypeName(stat.type)}
+                                                                    {stat.type.includes('(クイック)') || stat.type === 'ストレートクイック' ? 'クイック' : formatPitchTypeName(stat.type)}
                                                                 </td>
                                                                 <td className="border border-black font-bold text-[10px]">{stat.avgVelocity}</td>
                                                                 <td className="border border-black bg-gray-300 font-bold text-[10px]">
-                                                                    {stat.type.includes('ストレート') ? '100.0' : (Number(stat.avgVelocity) / Number(fb.avgVelocity) * 100).toFixed(1)}
+                                                                    {stat.type === 'ストレート' || stat.type === 'Straight' || stat.type === 'Fastball' ? '100.0' : (Number(stat.avgVelocity) / Number(fb.avgVelocity) * 100).toFixed(1)}
                                                                 </td>
                                                             </tr>
                                                         ));
