@@ -113,14 +113,27 @@ const Feedback = () => {
     const getTypeColor = (type) => {
         if (!type) return '#6b7280';
         const t = type.toLowerCase();
-        if (t.includes('ストレート') || t.includes('straight') || t.includes('fastball') || t.includes('4シーム') || t.includes('4-seam')) return '#ef4444';
-        if (t.includes('カーブ') || t.includes('curve')) return '#3b82f6';
-        if (t.includes('チェンジアップ') || t.includes('change')) return '#22c55e';
-        if (t.includes('スライダー') || t.includes('slider') || t.includes('sweeper')) return '#eab308';
-        if (t.includes('フォーク') || t.includes('スプリット') || t.includes('split') || t.includes('fork')) return '#a855f7';
-        if (t.includes('カット') || t.includes('cutter')) return '#f97316';
-        if (t.includes('シンカー') || t.includes('ツーシーム') || t.includes('sinker') || t.includes('2シーム') || t.includes('2-seam')) return '#ec4899';
+        if (t.includes('ストレート') || t.includes('straight') || t.includes('fastball') || t.includes('4シーム') || t.includes('4-seam')) return '#ef4444'; // Red for Straight
+        if (t.includes('ツーシーム') || t.includes('2シーム') || t.includes('2-seam')) return '#00BFFF';
+        if (t.includes('シュート') || t.includes('sinker') || t.includes('シンカー')) return '#A6A6A6';
+        if (t.includes('カット') || t.includes('cutter')) return '#0070C0';
+        if (t.includes('スプリット') || t.includes('split')) return '#FFC000';
+        if (t.includes('フォーク') || t.includes('fork')) return '#D9D9D9';
+        if (t.includes('スライダー') || t.includes('スラ') || t.includes('slider') || t.includes('sweeper')) return '#7030A0';
+        if (t.includes('チェンジアップ') || t.includes('change')) return '#FFE599';
+        if (t.includes('カーブ') || t.includes('curve')) return '#00B050';
         return '#6b7280';
+    };
+
+    // Helper: Get Pitch Text Color (for better contrast against background shape colors)
+    const getTypeTextColor = (type) => {
+        if (!type) return '#ffffff';
+        const t = type.toLowerCase();
+        if (t.includes('シュート') || t.includes('sinker') || t.includes('シンカー')) return '#000000';
+        if (t.includes('スプリット') || t.includes('split')) return '#000000';
+        if (t.includes('フォーク') || t.includes('fork')) return '#000000';
+        if (t.includes('チェンジアップ') || t.includes('change')) return '#000000';
+        return '#ffffff';
     };
 
     // Helper to format pitch type name with line break before parenthesis
@@ -1007,7 +1020,7 @@ const Feedback = () => {
                                             return (
                                                 <React.Fragment key={stat.type}>
                                                     <tr className="h-6 print:h-5">
-                                                        <td className="border border-black font-bold text-white text-xs print:text-[10px] align-middle print:leading-tight" style={{ backgroundColor: getTypeColor(stat.type) }} rowSpan={isStraight ? 2 : 1}>{formatPitchTypeName(stat.type)}</td>
+                                                        <td className="border border-black font-bold text-xs print:text-[10px] align-middle print:leading-tight" style={{ backgroundColor: getTypeColor(stat.type), color: getTypeTextColor(stat.type) }} rowSpan={isStraight ? 2 : 1}>{formatPitchTypeName(stat.type)}</td>
                                                         <td className="border border-black bg-gray-50 text-[9px] align-middle">平均値</td>
                                                         <td className="border border-black font-bold text-sm align-middle">{stat.avgVelocity}</td>
                                                         <td className="border border-black font-bold text-sm align-middle">{stat.avgSpin}</td>
@@ -1202,7 +1215,7 @@ const Feedback = () => {
                                         <tbody>
                                             {playerStats.averages.map(stat => (
                                                 <tr key={stat.type} className="h-6 print:h-5">
-                                                    <td className="border border-black text-white font-bold print:text-[8px]" style={{ backgroundColor: getTypeColor(stat.type) }}>{formatPitchTypeName(stat.type)}</td>
+                                                    <td className="border border-black font-bold print:text-[8px]" style={{ backgroundColor: getTypeColor(stat.type), color: getTypeTextColor(stat.type) }}>{formatPitchTypeName(stat.type)}</td>
                                                     <td className="border border-black">{stat.avgSpin}</td>
                                                     <td className="border border-black bg-gray-300">{stat.avgEfficiency}</td>
                                                     <td className="border border-black">{stat.avgVB}</td>
@@ -1287,12 +1300,12 @@ const Feedback = () => {
                                                         const fb = playerStats.averages.find(s => s.type === 'ストレート' || s.type === 'Straight' || s.type === 'Fastball') || { avgVelocity: 1 };
                                                         return playerStats.averages.map(stat => (
                                                             <tr key={stat.type} className="h-8">
-                                                                <td className="border border-black text-white font-bold whitespace-nowrap" style={{ backgroundColor: getTypeColor(stat.type) }}>
+                                                                <td className="border border-black font-bold whitespace-nowrap" style={{ backgroundColor: getTypeColor(stat.type), color: getTypeTextColor(stat.type) }}>
                                                                     {stat.type.includes('(クイック)') || stat.type === 'ストレートクイック' ? 'クイック' : formatPitchTypeName(stat.type)}
                                                                 </td>
                                                                 <td className="border border-black font-bold text-[10px]">{stat.avgVelocity}</td>
                                                                 <td className="border border-black bg-gray-300 font-bold text-[10px]">
-                                                                    {stat.type === 'ストレート' || stat.type === 'Straight' || stat.type === 'Fastball' ? '100.0' : (Number(stat.avgVelocity) / Number(fb.avgVelocity) * 100).toFixed(1)}
+                                                                    {stat.type === 'ストレート' || stat.type === 'Straight' || stat.type === 'Fastball' ? '100' : (Number(stat.avgVelocity) / Number(fb.avgVelocity) * 100).toFixed(1)}
                                                                 </td>
                                                             </tr>
                                                         ));
