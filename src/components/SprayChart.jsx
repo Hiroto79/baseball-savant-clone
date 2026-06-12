@@ -66,38 +66,39 @@ const SprayChart = ({ hits = [], mode = 'statcast' }) => {
     const chartData = hits.map(h => {
         let x, y;
 
-        if (mode === 'rapsodo') {
-            // Rapsodo data uses hc_x/hc_y (calculated from direction/distance in feet)
-            if (h.hc_x == null || h.hc_y == null) return null;
+        const exitVel = h.launch_speed || h.ExitVelocity || h.exit_velocity || h.exitVel;
+        const dist = h.hit_distance_sc || h.distance || h.Distance;
+        const rawDirection = h.direction || h.ExitDirection || h.Direction || h.bearing || h.hc_x;
 
-            // Rapsodo coordinates are already in feet, centered at home plate
-            // Just need to scale them to match the chart dimensions
-            const RAPSODO_SCALE = 1; // Coordinates are in feet, matches chart scale
-            x = h.hc_x * RAPSODO_SCALE;
-            y = h.hc_y * RAPSODO_SCALE;
+        if (mode === 'rapsodo' || !h.hc_x || !h.hc_y) {
+            // Rapsodo mode or missing hc_x/y: Use direction and distance
+            if (dist == null || rawDirection == null) return null;
+
+            // Ensure distance is in FEET for plotting logic if it's Rapsodo (meters)
+            // But wait, the input 'dist' might already be feet if passed from BattingDashboard.
+            // Let's be safe and check if we should convert.
+            // In BattingDashboard, we pass 'distance' (m) and 'hit_distance_sc' (ft).
+            const distanceInFeet = h.hit_distance_sc || (h.sourceMode === 'rapsodo' ? dist * 3.28084 : dist);
+
+            // Rapsodo Direction is 0 for center, negative for left, positive for right
+            // Convert to radians for Math.sin/cos (0 should be up/center)
+            const rad = (rawDirection * Math.PI) / 180;
+            
+            // Standard conversion: x = r * sin(theta), y = r * cos(theta)
+            // In our SVG, y is negative for outfield (UP)
+            x = distanceInFeet * Math.sin(rad);
+            y = -distanceInFeet * Math.cos(rad);
         } else {
-            // Statcast Mode
-            if (h.hc_x == null || h.hc_y == null) return null;
-
-            // Calculate angle from hc_x/hc_y
+            // Statcast Mode (has hc_x and hc_y)
             const relativeX = (h.hc_x - HOME_PLATE_X);
-            const relativeY = (HOME_PLATE_Y - h.hc_y); // Invert Y so positive is outfield
+            const relativeY = (HOME_PLATE_Y - h.hc_y);
             const angle = Math.atan2(relativeY, relativeX);
 
-            // Use explicit distance if available for best accuracy
-            // This resolves discrepancies where hc_x/y scaling doesn't match hit_distance_sc
-            const dist = h.distance || h.hit_distance_sc;
+            // Statcast distance is already in feet
+            const distanceInFeet = dist || Math.sqrt(relativeX * relativeX + relativeY * relativeY) * SCALE;
 
-            if (dist) {
-                // Polar to Cartesian: x = r * cos(theta), y = r * sin(theta)
-                x = dist * Math.cos(angle);
-                y = dist * Math.sin(angle);
-            } else {
-                // Fallback to scaling if distance is missing
-                // SCALE = 2.5 is standard approximation
-                x = relativeX * SCALE;
-                y = relativeY * SCALE;
-            }
+            x = distanceInFeet * Math.cos(angle);
+            y = -distanceInFeet * Math.sin(angle); 
         }
 
         // Determine hit type/color
@@ -110,18 +111,17 @@ const SprayChart = ({ hits = [], mode = 'statcast' }) => {
             else if (event.includes('home_run')) type = 'home_run';
         }
 
-        // Convert for display based on user settings will be handled in tooltip
         return {
             x,
             y,
             type: type,
-            exitVel: h.launch_speed || h.exitVel,
-            distance: h.distance || h.hit_distance_sc, // Use distance if available, otherwise hit_distance_sc
-            sourceMode: mode, // Track data source for tooltip conversion
+            exitVel: exitVel,
+            distance: dist, // Keep original for tooltip
+            sourceMode: mode, 
         };
     })
         .filter(Boolean)
-        .filter(h => h.y >= 0 && (h.distance == null || h.distance > 10)); // Filter out points behind home or very short distances
+        .filter(h => h.y <= 0 && (Math.abs(h.y) > 10 || Math.abs(h.x) > 10)); // Filter out points at home plate
 
     // Legend Data
     const legendItems = [
@@ -135,32 +135,15 @@ const SprayChart = ({ hits = [], mode = 'statcast' }) => {
     return (
         <div className="w-full h-full min-h-[400px] relative flex flex-col items-center justify-center bg-card/50 rounded-lg p-4">
             <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
-                {/* 
-                  Unified SVG Coordinate System:
-                  Field Dimensions (User Specified):
-                  - Center: 120m = 393.7 ft
-                  - Sides (Foul Poles): 98m = 321.5 ft
-                  
-                  Coordinates:
-                  - Center Fence: (0, -393.7)
-                  - Left Pole: (-227.3, -227.3)  [321.5 * cos(45), 321.5 * sin(45)]
-                  - Right Pole: (227.3, -227.3)
-                  
-                  ViewBox adjusted to fit new dimensions
-                */}
                 <svg viewBox="-300 -450 600 500" className="w-full h-full max-w-[500px] max-h-[400px] overflow-visible">
                     {/* Foul Lines */}
                     <line x1="0" y1="0" x2="-227.3" y2="-227.3" stroke="white" strokeWidth="2" />
                     <line x1="0" y1="0" x2="227.3" y2="-227.3" stroke="white" strokeWidth="2" />
 
-                    {/* Outfield Fence 
-                        Path from Left Pole to Right Pole passing through Center
-                        M -227.3 -227.3 
-                        A 238.5 238.5 0 0 1 227.3 -227.3
-                    */}
+                    {/* Outfield Fence */}
                     <path d="M -227.3 -227.3 A 238.5 238.5 0 0 1 227.3 -227.3" stroke="white" strokeWidth="3" fill="none" />
 
-                    {/* Infield Diamond (90ft bases) */}
+                    {/* Infield Diamond */}
                     <path d="M 0 0 L 63.6 -63.6 L 0 -127.3 L -63.6 -63.6 Z" stroke="#a16207" strokeWidth="2" fill="none" />
 
                     {/* Bases */}
@@ -174,7 +157,7 @@ const SprayChart = ({ hits = [], mode = 'statcast' }) => {
             <ResponsiveContainer width="100%" height={400}>
                 <ScatterChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <XAxis type="number" dataKey="x" domain={[-300, 300]} hide />
-                    <YAxis type="number" dataKey="y" domain={[-50, 450]} hide />
+                    <YAxis type="number" dataKey="y" domain={[-450, 50]} hide />
                     <Tooltip content={<CustomTooltip />} cursor={false} />
                     <Scatter name="Hits" data={chartData}>
                         {chartData.map((entry, index) => (

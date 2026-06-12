@@ -50,29 +50,55 @@ const Upload = () => {
     const parseFile = (file) => {
         setStatus({ type: '', message: '' });
 
-        // For Blast format, skip first 8 rows before preview
+        // For Blast format, handle preview with encoding detection
         if (format === 'blast') {
             const reader = new FileReader();
             reader.onload = (e) => {
-                const text = e.target.result;
-                const lines = text.split('\n');
-                const dataLines = lines.slice(8); // Skip metadata
-                const csvText = dataLines.join('\n');
+                const arrayBuffer = e.target.result;
+                
+                const decodeAndPreview = (buffer, encoding) => {
+                    const decoder = new TextDecoder(encoding);
+                    const text = decoder.decode(buffer);
+                    const lines = text.split('\n');
 
-                Papa.parse(csvText, {
-                    header: true,
-                    skipEmptyLines: true,
-                    dynamicTyping: true,
-                    preview: 10,
-                    complete: (results) => {
-                        setPreview(results.data);
-                    },
-                    error: (error) => {
-                        setStatus({ type: 'error', message: `Failed to parse CSV: ${error.message}` });
+                    // Find the header row
+                    let headerIndex = -1;
+                    for (let i = 0; i < Math.min(lines.length, 30); i++) {
+                        const line = lines[i];
+                        if ((line.includes('Date') || line.includes('日付')) &&
+                            (line.includes('Speed') || line.includes('スイング') || line.includes('バットスピード'))) {
+                            headerIndex = i;
+                            break;
+                        }
                     }
-                });
+
+                    if (headerIndex === -1) {
+                        if (encoding === 'utf-8') {
+                            return decodeAndPreview(buffer, 'shift-jis');
+                        }
+                        return;
+                    }
+
+                    const dataLines = lines.slice(headerIndex);
+                    const csvText = dataLines.join('\n');
+
+                    Papa.parse(csvText, {
+                        header: true,
+                        skipEmptyLines: true,
+                        dynamicTyping: true,
+                        preview: 10,
+                        complete: (results) => {
+                            setPreview(results.data);
+                        },
+                        error: (error) => {
+                            setStatus({ type: 'error', message: `Failed to parse CSV: ${error.message}` });
+                        }
+                    });
+                };
+
+                decodeAndPreview(arrayBuffer, 'utf-8');
             };
-            reader.readAsText(file, 'Shift_JIS'); // Read as Shift-JIS encoding
+            reader.readAsArrayBuffer(file);
         } else {
             Papa.parse(file, {
                 header: true,
@@ -97,50 +123,69 @@ const Upload = () => {
 
         setStatus({ type: '', message: '' });
 
-        // For Blast format, we need to find the header row dynamically
+        // For Blast format, we need to find the header row dynamically and handle encoding
         if (format === 'blast') {
             const reader = new FileReader();
             reader.onload = (e) => {
-                const text = e.target.result;
-                const lines = text.split('\n');
+                const arrayBuffer = e.target.result;
+                
+                // Try UTF-8 first, then Shift-JIS
+                const decodeAndParse = (buffer, encoding) => {
+                    const decoder = new TextDecoder(encoding);
+                    const text = decoder.decode(buffer);
+                    const lines = text.split('\n');
 
-                // Find the header row (contains "Date" or "日付" or "Bat Speed")
-                let headerIndex = 0;
-                for (let i = 0; i < Math.min(lines.length, 20); i++) {
-                    const line = lines[i];
-                    if ((line.includes('Date') || line.includes('日付')) &&
-                        (line.includes('Bat Speed') || line.includes('スイング') || line.includes('バットスピード'))) {
-                        headerIndex = i;
-                        break;
-                    }
-                }
-
-                console.log(`Blast Header found at index: ${headerIndex}`);
-
-                const dataLines = lines.slice(headerIndex);
-                const csvText = dataLines.join('\n');
-
-                Papa.parse(csvText, {
-                    header: true,
-                    skipEmptyLines: true,
-                    dynamicTyping: true,
-                    complete: (results) => {
-                        try {
-                            uploadBlastData(results.data, file.name);
-                            setStatus({
-                                type: 'success',
-                                message: `Successfully uploaded ${results.data.length} rows of Blast data!`
-                            });
-                        } catch (error) {
-                            setStatus({ type: 'error', message: error.message });
+                    // Find the header row
+                    let headerIndex = -1;
+                    for (let i = 0; i < Math.min(lines.length, 30); i++) {
+                        const line = lines[i];
+                        if ((line.includes('Date') || line.includes('日付')) &&
+                            (line.includes('Speed') || line.includes('スイング') || line.includes('バットスピード'))) {
+                            headerIndex = i;
+                            break;
                         }
-                    },
-                    error: (error) => {
-                        setStatus({ type: 'error', message: `Failed to parse CSV: ${error.message}` });
                     }
-                });
+
+                    if (headerIndex === -1) {
+                        if (encoding === 'utf-8') {
+                            return decodeAndParse(buffer, 'shift-jis');
+                        }
+                        throw new Error('Blast header not found in CSV.');
+                    }
+
+                    console.log(`Blast Header found at index: ${headerIndex} using ${encoding}`);
+
+                    const dataLines = lines.slice(headerIndex);
+                    const csvText = dataLines.join('\n');
+
+                    Papa.parse(csvText, {
+                        header: true,
+                        skipEmptyLines: true,
+                        dynamicTyping: true,
+                        complete: (results) => {
+                            try {
+                                uploadBlastData(results.data, file.name);
+                                setStatus({
+                                    type: 'success',
+                                    message: `Successfully uploaded ${results.data.length} rows of Blast data!`
+                                });
+                            } catch (error) {
+                                setStatus({ type: 'error', message: error.message });
+                            }
+                        },
+                        error: (error) => {
+                            setStatus({ type: 'error', message: `Failed to parse CSV: ${error.message}` });
+                        }
+                    });
+                };
+
+                try {
+                    decodeAndParse(arrayBuffer, 'utf-8');
+                } catch (error) {
+                    setStatus({ type: 'error', message: error.message });
+                }
             };
-            reader.readAsText(file, 'Shift_JIS'); // Read as Shift-JIS encoding
+            reader.readAsArrayBuffer(file);
             return;
         }
 

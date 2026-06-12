@@ -375,36 +375,6 @@ const SavantAnalysis = ({ data }) => {
         return { movementData: data, movementDomain: domain };
     }, [filteredData, mode, selectedPlayers, selectedPitchTypes, units]);
 
-    // Prepare Release Point Data
-    const releasePointData = useMemo(() => {
-        if (mode !== 'pitching' || selectedPlayers.length === 0) return [];
-
-        const data = [];
-        filteredData.forEach(d => {
-            const p = d.player_name;
-            if (!selectedPlayers.includes(p)) return;
-            const pType = d.pitch_name;
-            if (selectedPitchTypes.length > 0 && !selectedPitchTypes.includes(pType)) return;
-
-            if (d.release_pos_x !== undefined && d.release_pos_z !== undefined) {
-                // Savant Release Point: X is catcher's perspective? 
-                // Normally release_pos_x is from catcher's view (negative is LHP arm side, positive is RHP arm side)
-                // We use it as is.
-
-                // Helper to convert ft to m if needed (usually feet)
-                const FT_TO_M = 0.3048; // 1 foot = 0.3048 meters
-                const convertPos = (val) => units === 'metric' ? Number(val) * FT_TO_M : Number(val);
-
-                data.push({
-                    player: pType || 'Unknown',
-                    x: convertPos(d.release_pos_x),
-                    y: convertPos(d.release_pos_z),
-                    fullPlayerName: p
-                });
-            }
-        });
-        return data;
-    }, [filteredData, mode, selectedPlayers, selectedPitchTypes, units]);
 
     // Prepare Batted Ball Profile
     const battedBallProfile = useMemo(() => {
@@ -638,22 +608,9 @@ const SavantAnalysis = ({ data }) => {
                                     </div>
                                 </div>
 
-                                {/* Movement & Release Point */}
-                                <div className="md:col-span-2 grid md:grid-cols-2 gap-6">
-                                    <div>
-                                        <PitchMovementChart data={filteredData} selectedPlayers={selectedPlayers} />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold mb-2 ml-1">{language === 'ja' ? 'リリースポイント' : 'Release Point'}</h3>
-                                        <ScatterPlot
-                                            data={releasePointData}
-                                            xKey="x"
-                                            yKey="y"
-                                            xLabel={language === 'ja' ? `横位置 (${units === 'metric' ? 'm' : 'ft'})` : `Horizontal Pos (${units === 'metric' ? 'm' : 'ft'})`}
-                                            yLabel={language === 'ja' ? `高さ (${units === 'metric' ? 'm' : 'ft'})` : `Height (${units === 'metric' ? 'm' : 'ft'})`}
-                                            aspect="square"
-                                        />
-                                    </div>
+                                {/* Movement Only */}
+                                <div className="md:col-span-2">
+                                    <PitchMovementChart data={filteredData} selectedPlayers={selectedPlayers} />
                                 </div>
 
                                 <div className="md:col-span-2">

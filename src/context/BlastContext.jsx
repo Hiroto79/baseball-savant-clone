@@ -167,92 +167,86 @@ export const BlastProvider = ({ children }) => {
             console.log('Available Blast columns:', Object.keys(firstRow));
             const isJapanese = Object.keys(firstRow).some(key => key.includes('日付') || key.includes('スイング'));
 
-            if (isJapanese) {
-                processedData = rawData.map(row => {
-                    const mapped = {};
-                    // Map Japanese headers to Supabase columns
-                    const headerMap = {
-                        '日付': 'date',
-                        'スイングスピード (mph)': 'bat_speed',
-                        'バットスピード (mph)': 'bat_speed',
-                        'アッパースイング度 (deg)': 'attack_angle',
-                        '垂直バット角度 (deg)': 'vertical_bat_angle',
-                        'パワー (kW)': 'power',
-                        'スイング時間 (sec)': 'time_to_contact',
-                        '手の最大スピード (mph)': 'peak_hand_speed',
-                        'オンプレーンの効率 (%)': 'on_plane_efficiency',
-                        '体の回転による加速スコア': 'rotation_score',
-                        'オンプレーンのスコア': 'on_plane_score', // Assuming this exists or similar
-                        'コネクションのスコア': 'connection_score', // Assuming this exists
-                        '体の回転によるバットの加速の大きさ（初動） (g)': 'rotation_acceleration',
-                        ' 体とバットの角度（インパクト） (deg)': 'connection_at_impact',
-                        ' 体とバットの角度（構え） (deg)': 'connection_at_address',
-                        ' バット角度 (deg)': 'bat_angle'
-                    };
+            const headers = Object.keys(firstRow);
+            console.log('Available Blast columns:', headers);
 
-                    // Also map English headers if mixed or standard
-                    const englishMap = {
-                        'Date': 'date',
-                        'Bat Speed (mph)': 'bat_speed',
-                        'Attack Angle (deg)': 'attack_angle',
-                        'Vertical Bat Angle (deg)': 'vertical_bat_angle',
-                        'Power (kW)': 'power',
-                        'Time to Contact (sec)': 'time_to_contact',
-                        'Peak Hand Speed (mph)': 'peak_hand_speed',
-                        'On Plane Efficiency (%)': 'on_plane_efficiency',
-                        'Rotation Score': 'rotation_score',
-                        'On Plane Score': 'on_plane_score',
-                        'Connection Score': 'connection_score',
-                        'Rotational Acceleration (g)': 'rotation_acceleration',
-                        'Connection at Impact (deg)': 'connection_at_impact',
-                        'Connection at Address (deg)': 'connection_at_address',
-                        'Bat Angle (deg)': 'bat_angle'
-                    };
-
-                    Object.keys(row).forEach(key => {
-                        const targetKey = headerMap[key] || englishMap[key];
-                        if (targetKey) {
-                            mapped[targetKey] = row[key];
-                        }
-                    });
-                    return mapped;
+            // Helper to find column by keyword
+            const findCol = (keywords) => {
+                return headers.find(h => {
+                    const lowH = h.toLowerCase();
+                    return keywords.some(k => lowH.includes(k.toLowerCase()));
                 });
+            };
+
+            // Define mapping based on keywords
+            const colMap = {
+                date: findCol(['日付', 'Date']),
+                bat_speed: findCol(['バットスピード', 'スイングスピード', 'Bat Speed', 'Swing Speed']),
+                attack_angle: findCol(['アッパースイング', 'アタックアングル', 'Attack Angle']),
+                vertical_bat_angle: findCol(['垂直バット', 'Vertical Bat']),
+                power: findCol(['パワー', 'Power']),
+                time_to_contact: findCol(['スイング時間', 'Time to Contact']),
+                peak_hand_speed: findCol(['手の最大スピード', 'Peak Hand Speed']),
+                on_plane_efficiency: findCol(['オンプレーンの効率', 'On Plane Efficiency']),
+                rotation_score: findCol(['体の回転による加速スコア', 'Rotation Score']),
+                on_plane_score: findCol(['オンプレーンのスコア', 'On Plane Score']),
+                connection_score: findCol(['コネクションのスコア', 'Connection Score']),
+                rotation_acceleration: findCol(['体の回転によるバットの加速', 'Rotational Acceleration']),
+                connection_at_impact: findCol(['体とバットの角度（インパクト）', 'Connection at Impact']),
+                connection_at_address: findCol(['体とバットの角度（構え）', 'Connection at Address']),
+                bat_angle: findCol(['バット角度', 'Bat Angle'])
+            };
+
+            console.log('Detected Column Mapping:', colMap);
+
+            processedData = rawData.map(row => {
+                const mapped = {};
+                Object.entries(colMap).forEach(([targetKey, sourceKey]) => {
+                    if (sourceKey && row[sourceKey] !== undefined) {
+                        mapped[targetKey] = row[sourceKey];
+                    }
+                });
+                return mapped;
+            });
+
+            // Extract player info from filename
+            // Examples: "Player 123.csv", "John Doe_Blast.csv", "2023-10-26_Player 5.csv"
+            let playerName = 'Uploaded';
+            const playerMatch = fileName.match(/Player\s+(\d+)/i) || fileName.match(/Player(\d+)/i);
+            if (playerMatch) {
+                playerName = `Player ${playerMatch[1]}`;
             } else {
-                // Assume standard English headers but map to snake_case for Supabase
-                processedData = rawData.map(row => {
-                    const mapped = {
-                        date: row.Date,
-                        bat_speed: parseNum(row['Bat Speed (mph)'] || row.BatSpeed),
-                        attack_angle: parseNum(row['Attack Angle (deg)'] || row.AttackAngle),
-                        vertical_bat_angle: parseNum(row['Vertical Bat Angle (deg)'] || row.VerticalBatAngle),
-                        power: parseNum(row['Power (kW)'] || row.Power),
-                        time_to_contact: parseNum(row['Time to Contact (sec)'] || row.TimeToContact),
-                        peak_hand_speed: parseNum(row['Peak Hand Speed (mph)'] || row.PeakHandSpeed),
-                        on_plane_efficiency: parseNum(row['On Plane Efficiency (%)'] || row.OnPlaneEfficiency),
-                        rotation_score: parseNum(row['Rotation Score'] || row.RotationScore),
-                        on_plane_score: parseNum(row['On Plane Score'] || row.OnPlaneScore),
-                        connection_score: parseNum(row['Connection Score'] || row.ConnectionScore),
-                        rotation_acceleration: parseNum(row['Rotational Acceleration (g)'] || row.RotationAcceleration),
-                        connection_at_impact: parseNum(row['Connection at Impact (deg)'] || row.ConnectionAtImpact),
-                        connection_at_address: parseNum(row['Connection at Address (deg)'] || row.ConnectionAtAddress),
-                        bat_angle: parseNum(row['Bat Angle (deg)'] || row.BatAngle)
-                    };
-                    return mapped;
-                });
+                // Try to take the first part of filename before first underscore or space
+                const namePart = fileName.split(/[_\s]/)[0].replace('.csv', '');
+                if (namePart && isNaN(Number(namePart))) {
+                    playerName = namePart;
+                }
             }
-
-            // Extract player info from filename if available
-            const playerMatch = fileName.match(/Player (\d+)/);
-            const playerId = playerMatch ? playerMatch[1] : 'Uploaded';
 
             // Generate unique file ID
             const fileId = Date.now() + Math.random();
 
             // Prepare for DB
             const dbRows = processedData.map(d => {
+                // Check if we have a date and try to parse it
+                let rowDate = null;
+                if (d.date) {
+                    const dateStr = String(d.date);
+                    if (dateStr.includes('年')) {
+                        rowDate = parseJapaneseDate(dateStr);
+                    } else {
+                        try {
+                            const dateObj = new Date(dateStr);
+                            if (!isNaN(dateObj.getTime())) {
+                                rowDate = dateObj.toISOString().split('T')[0];
+                            }
+                        } catch (e) { }
+                    }
+                }
+
                 const row = {
-                    date: isJapanese ? parseJapaneseDate(d.date) : (d.date ? new Date(d.date).toISOString().split('T')[0] : null),
-                    player_name: playerId, // Use extracted player ID/Name from filename
+                    date: rowDate,
+                    player_name: playerName,
                     bat_speed: parseNum(d.bat_speed),
                     attack_angle: parseNum(d.attack_angle),
                     vertical_bat_angle: parseNum(d.vertical_bat_angle),
@@ -271,11 +265,10 @@ export const BlastProvider = ({ children }) => {
                     upload_id: String(fileId)
                 };
 
-                // Validation: Skip row only if bat_speed is missing (critical for analysis)
-                // Relaxed validation to avoid skipping rows with partial data
-                if (row.bat_speed === null || row.bat_speed === undefined) {
-                    return null;
-                }
+                // Validation: Only skip if absolutely no data
+                const hasData = Object.values(row).some(v => v !== null && v !== undefined && v !== '' && typeof v === 'number');
+                if (!hasData) return null;
+
                 return row;
             }).filter(Boolean);
 

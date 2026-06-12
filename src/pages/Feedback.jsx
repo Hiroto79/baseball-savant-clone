@@ -5,14 +5,12 @@ import { useSettings } from '../context/SettingsContext';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, BarChart, Bar, ReferenceArea, ReferenceDot, ReferenceLine, Polygon, Customized, Label } from 'recharts';
 
 const Feedback = () => {
-    const { language, feedbackPitchingData, setFeedbackPitchingData, feedbackPitchingFile, setFeedbackPitchingFile } = useSettings();
+    const { language, feedbackPitchingData, setFeedbackPitchingData, setFeedbackPitchingFile } = useSettings();
     const [uploadData, setUploadData] = useState(feedbackPitchingData || []);
-    const [fileName, setFileName] = useState(feedbackPitchingFile || '');
     const [players, setPlayers] = useState([]);
     const [selectedPlayer, setSelectedPlayer] = useState('');
     const [customPlayerName, setCustomPlayerName] = useState(''); // Editable name for print
     const [loading, setLoading] = useState(false);
-    const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]); // New state for report date
     const [viewMode, setViewMode] = useState('individual'); // 'individual' | 'team' | 'print-all'
     const [teamPitchType, setTeamPitchType] = useState('ストレート');
     const [selectedThrowHand, setSelectedThrowHand] = useState('Right'); // 'Right' | 'Left'
@@ -53,6 +51,7 @@ const Feedback = () => {
                 setSelectedPlayer(uniquePlayers[0]);
             }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [uploadData]);
 
     // Handle File Upload
@@ -61,7 +60,6 @@ const Feedback = () => {
         if (!file) return;
 
         setLoading(true);
-        setFileName(file.name);
         if (setFeedbackPitchingFile) setFeedbackPitchingFile(file.name);
 
         Papa.parse(file, {
@@ -471,6 +469,7 @@ const Feedback = () => {
             avgEfficiency: validEffs.length ? (validEffs.reduce((a, b) => a + b, 0) / validEffs.length).toFixed(1) : '-',
             avgStrikeRate: validStrikes.length ? (validStrikes.reduce((a, b) => a + b, 0) / validStrikes.length).toFixed(1) : '-'
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [uploadData, selectedThrowHand, teamPitchType]);
 
 
@@ -635,10 +634,6 @@ const Feedback = () => {
                     if (val === undefined || val === null || isNaN(val) || val === -Infinity) return '-';
                     return Number(val).toFixed(fixed);
                 };
-                const fmtMin = (val, fixed) => {
-                    if (val === undefined || val === null || isNaN(val) || val === Infinity) return '-';
-                    return Number(val).toFixed(fixed);
-                };
 
                 // Find Fastest Pitch for "Max" values in Individual Report
                 let fastest = null;
@@ -727,6 +722,7 @@ const Feedback = () => {
         return processData(playerData);
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const memoPlayerStats = useMemo(() => calcPitcherStats(selectedPlayer), [selectedPlayer, uploadData]);
 
     const handleManualChange = (e) => {
@@ -755,7 +751,6 @@ const Feedback = () => {
     };
 
     // Fix ReferenceErrors for variables used in render
-    const teamListStats = teamStats;
     const prevStats = null; // Placeholder for previous stats if logic is re-implemented later
 
     // Prepare Chart Data: Merge Quick Straight into Straight for visual chart only
@@ -828,22 +823,206 @@ const Feedback = () => {
     if (loading) return <div className="p-8 text-center">Loading...</div>;
 
     return (
-        <div className="p-6 mx-auto bg-white min-h-screen text-black print:p-0 print:px-0 print:min-h-0 print:h-auto print:pb-0">
+        <div className="p-6 mx-auto bg-gray-100 min-h-screen text-black print:p-0 print:px-0 print:min-h-0 print:h-auto print:pb-0 print:bg-white">
             <style>{`
                 @media print {
                     @page {
                         size: ${viewMode === 'team' ? 'A4 landscape' : 'A4 portrait'};
-                        margin: 0mm;
+                        margin: 4mm;
+                    }
+                    html,
+                    body,
+                    #root {
+                        width: ${viewMode === 'team' ? '289mm' : '202mm'} !important;
+                        min-width: ${viewMode === 'team' ? '289mm' : '202mm'} !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        overflow: visible !important;
+                        background: white !important;
                     }
                     body {
                         -webkit-print-color-adjust: exact;
                         print-color-adjust: exact;
                     }
+                    #root > div,
+                    main,
+                    main > div {
+                        display: block !important;
+                        width: 100% !important;
+                        min-height: 0 !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        overflow: visible !important;
+                        background: white !important;
+                        color: black !important;
+                    }
+                    aside,
+                    header,
+                    nav,
+                    .print\\:hidden {
+                        display: none !important;
+                    }
+                    .pitcher-report-container {
+                        width: 202mm !important;
+                        height: 288mm !important;
+                        margin: 0 auto !important;
+                        padding: 1.5mm 2mm 1mm !important;
+                        box-sizing: border-box !important;
+                        overflow: hidden !important;
+                        box-shadow: none !important;
+                        border: none !important;
+                        background: white !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                        gap: 0 !important;
+                        color: black !important;
+                        font-family: Arial, "Helvetica Neue", sans-serif !important;
+                    }
+                    .pitcher-report-content {
+                        height: 100% !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                        overflow: hidden !important;
+                    }
+                    .report-title-row {
+                        height: 8mm !important;
+                        align-items: flex-end !important;
+                    }
+                    .report-title-row h2 {
+                        font-size: 15pt !important;
+                        line-height: 1 !important;
+                    }
+                    .report-title-row div {
+                        font-size: 9.5pt !important;
+                        line-height: 1 !important;
+                    }
+                    .report-stitch {
+                        height: 4mm !important;
+                        margin-bottom: 2mm !important;
+                    }
+                    .main-stats-table {
+                        font-size: 8pt !important;
+                    }
+                    .main-stats-table thead tr {
+                        height: 11.5mm !important;
+                    }
+                    .main-stats-table tbody tr {
+                        height: 8.2mm !important;
+                    }
+                    .main-stats-table th {
+                        font-size: 7pt !important;
+                        line-height: 1.15 !important;
+                        padding: 0.6mm !important;
+                    }
+                    .main-stats-table td {
+                        font-size: 9pt !important;
+                        line-height: 1.05 !important;
+                        padding: 0.3mm !important;
+                    }
+                    .main-stats-table td:first-child {
+                        font-size: 7pt !important;
+                    }
+                    .comparison-block {
+                        margin-top: 6mm !important;
+                    }
+                    .comparison-table {
+                        font-size: 9pt !important;
+                    }
+                    .comparison-table thead tr {
+                        height: 9mm !important;
+                    }
+                    .comparison-table tbody tr {
+                        height: 9mm !important;
+                    }
+                    .comparison-table th,
+                    .comparison-table td,
+                    .comparison-table input {
+                        font-size: 9pt !important;
+                        line-height: 1 !important;
+                    }
+                    .quick-block {
+                        height: 15mm !important;
+                        margin-top: 6mm !important;
+                    }
+                    .quick-block > div:first-child {
+                        width: 34mm !important;
+                        font-size: 11pt !important;
+                    }
+                    .quick-block table,
+                    .quick-block th,
+                    .quick-block td {
+                        font-size: 9pt !important;
+                        line-height: 1 !important;
+                    }
+                    .quick-target {
+                        margin-left: 10mm !important;
+                        font-size: 9pt !important;
+                        white-space: nowrap !important;
+                    }
+                    .chart-grid {
+                        height: 136mm !important;
+                        margin-top: 6mm !important;
+                    }
+                    .chart-panel {
+                        height: 136mm !important;
+                        padding: 1.5mm !important;
+                    }
+                    .chart-panel h3 {
+                        font-size: 15pt !important;
+                        line-height: 1 !important;
+                        margin-bottom: 2mm !important;
+                    }
+                    .movement-chart-area {
+                        height: 84mm !important;
+                        width: 100% !important;
+                        margin-left: 0 !important;
+                        flex: none !important;
+                    }
+                    .movement-summary-table {
+                        width: 96% !important;
+                        margin: 2mm auto 0 !important;
+                        font-size: 7.5pt !important;
+                    }
+                    .movement-summary-table thead tr {
+                        height: 10mm !important;
+                    }
+                    .movement-summary-table tbody tr {
+                        height: 7.5mm !important;
+                    }
+                    .velocity-scale {
+                        font-size: 11pt !important;
+                    }
+                    .speed-ratio-table {
+                        font-size: 8pt !important;
+                    }
+                    .speed-ratio-table thead tr {
+                        height: 16mm !important;
+                    }
+                    .speed-ratio-table tbody tr {
+                        height: 11mm !important;
+                    }
+                    .speed-ratio-table th,
+                    .speed-ratio-table td {
+                        font-size: 8pt !important;
+                        line-height: 1.1 !important;
+                    }
+                    .gap-reference {
+                        font-size: 7pt !important;
+                    }
+                    .gap-reference > div > div {
+                        min-height: 5.5mm !important;
+                        padding-top: 0 !important;
+                        padding-bottom: 0 !important;
+                    }
+                    .pitcher-report-container:last-child {
+                        break-after: auto !important;
+                        page-break-after: auto !important;
+                    }
                 }
             `}</style>
             {/* Debug Info Overlay Removed */}
 
-            <div className="print:hidden mb-8 space-y-6 bg-gray-50 p-6 rounded-xl border border-gray-200">
+            <div className="print:hidden mb-8 space-y-6 bg-white p-6 rounded-xl border border-gray-200 shadow-sm max-w-5xl mx-auto">
                 <div className="flex justify-between items-start">
                     <div className="flex gap-4 items-center flex-grow">
                         <div className="flex bg-white rounded-lg border p-1 shadow-sm">
@@ -969,7 +1148,7 @@ const Feedback = () => {
 
             {/* Individual Report Content */}
             {
-                (viewMode === 'individual' || viewMode === 'print-all') && (viewMode === 'print-all' ? players : [selectedPlayer]).map((mappedPlayer, index) => {
+                (viewMode === 'individual' || viewMode === 'print-all') && (viewMode === 'print-all' ? players : [selectedPlayer]).map((mappedPlayer) => {
                     if (!mappedPlayer) return null;
 
                     const isPrintAll = viewMode === 'print-all';
@@ -980,19 +1159,19 @@ const Feedback = () => {
                     if (!playerStats) return null;
 
                     return (
-                        <div key={mappedPlayer} className={`mt-8 flex flex-col gap-4 ${isPrintAll ? 'print:break-after-page' : ''}`}>
-                            <div className="print:block print:w-full bg-white text-black font-sans py-4 print:py-0">
-                            <div className="flex justify-between items-center mb-1 print:mb-0">
+                        <div key={mappedPlayer} className={`mt-8 flex flex-col gap-4 ${isPrintAll ? 'print:break-after-page' : ''} max-w-[800px] mx-auto bg-white shadow-2xl p-8 border border-gray-200 pitcher-report-container`} type="A4">
+                            <div className="pitcher-report-content print:block print:w-full bg-white text-black font-sans py-2 print:py-0">
+                            <div className="report-title-row flex justify-between items-center mb-1 print:mb-0">
                                 <h2 className="text-3xl font-bold border-b-2 border-black pb-1 print:pb-0">{displayPlayerName}</h2>
                                 <div className="text-xl font-bold">{new Date().toLocaleDateString('ja-JP')}</div>
                             </div>
-                            <div className="w-full h-6 mb-4 print:mb-2 flex overflow-hidden items-center justify-center">
+                            <div className="report-stitch w-full h-4 mb-4 print:mb-2 flex overflow-hidden items-center justify-center">
                                 <img src="/assets/baseball_stitch_line.png" alt="Stitch Line" className="w-full h-full object-cover object-left" />
                             </div>
 
                             {/* 1. Main Stats Table */}
                             <div className="mb-2 print:mb-0">
-                                <table className="w-full border-collapse border border-black text-center table-fixed">
+                                <table className="main-stats-table w-full border-collapse border border-black text-center table-fixed">
                                     <thead>
                                         <tr className="bg-gray-100 h-8 text-[10px]">
                                             <th className="border border-black w-20">球種</th>
@@ -1003,37 +1182,29 @@ const Feedback = () => {
                                             <th className="border border-black">回転軸<br />(時間)</th>
                                             <th className="border border-black">縦の変化量<br />(cm)</th>
                                             <th className="border border-black">横の変化量<br />(cm)</th>
-                                            <th className="border border-black">リリース<br />角度<br />(横)<br />(°)</th>
-                                            <th className="border border-black">リリース<br />角度<br />(縦)<br />(°)</th>
-                                            <th className="border border-black">リリース<br />高さ<br />（m）</th>
-                                            <th className="border border-black">リリース<br />横<br />(m)</th>
+
                                             <th className="border border-black">ジャイロ<br />角度(度)</th>
                                             <th className="border border-black">制球率<br />(%)</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {playerStats.averages.map((stat, idx) => {
+                                        {playerStats.averages.map((stat) => {
                                             const isStraight = stat.type.includes('ストレート') || stat.type.toLowerCase().includes('straight') || stat.type.toLowerCase().includes('fastball');
-                                            // Apply Manual Strike Rate Override
-                                            const displayStrikeRate = manualStrikeRates[stat.type] || stat.strikeRate;
 
                                             return (
                                                 <React.Fragment key={stat.type}>
-                                                    <tr className="h-6 print:h-5">
+                                                    <tr className="h-7 print:h-[22px]">
                                                         <td className="border border-black font-bold text-xs print:text-[10px] align-middle print:leading-tight" style={{ backgroundColor: getTypeColor(stat.type), color: getTypeTextColor(stat.type) }} rowSpan={isStraight ? 2 : 1}>{formatPitchTypeName(stat.type)}</td>
                                                         <td className="border border-black bg-gray-50 text-[9px] align-middle">平均値</td>
-                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgVelocity}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgSpin}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgEfficiency}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgClock}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgVB}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgHB}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgRAH}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgRAV}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgRH}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgRS}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle">{stat.avgGyro}</td>
-                                                        <td className="border border-black font-bold text-sm align-middle p-0" rowSpan={isStraight ? 2 : 1}>
+                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgVelocity}</td>
+                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgSpin}</td>
+                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgEfficiency}</td>
+                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgClock}</td>
+                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgVB}</td>
+                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgHB}</td>
+
+                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgGyro}</td>
+                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle p-0" rowSpan={isStraight ? 2 : 1}>
                                                             <input
                                                                 type="text"
                                                                 className="w-full h-full bg-transparent border-none outline-none text-center font-bold"
@@ -1046,19 +1217,16 @@ const Feedback = () => {
                                                         </td>
                                                     </tr>
                                                     {isStraight && (
-                                                        <tr className="h-6 print:h-5">
+                                                        <tr className="h-7 print:h-[22px]">
                                                             <td className="border border-black bg-gray-50 text-[9px] align-middle">最大値</td>
-                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxVelocity}</td>
-                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxSpin}</td>
-                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxEfficiency}</td>
-                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxClock}</td>
-                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxVB}</td>
-                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxHB}</td>
-                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxRAH}</td>
-                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxRAV}</td>
-                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxRH}</td>
-                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxRS}</td>
-                                                            <td className="border border-black font-bold text-sm align-middle bg-gray-300">{stat.maxGyro}</td>
+                                                            <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxVelocity}</td>
+                                                            <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxSpin}</td>
+                                                            <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxEfficiency}</td>
+                                                            <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxClock}</td>
+                                                            <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxVB}</td>
+                                                            <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxHB}</td>
+
+                                                            <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxGyro}</td>
                                                         </tr>
                                                     )}
                                                 </React.Fragment>
@@ -1069,8 +1237,8 @@ const Feedback = () => {
                             </div>
 
                             {/* 2. Comparison Table */}
-                            <div className="mb-2 print:mt-2">
-                                <table className="w-full border-collapse border border-black text-[10px] text-center table-fixed">
+                            <div className="comparison-block mb-2 print:mt-2">
+                                <table className="comparison-table w-full border-collapse border border-black text-[10px] text-center table-fixed">
                                     <thead>
                                         <tr className="bg-red-600 text-white">
                                             <th className="border border-black p-0.5">ストレート</th>
@@ -1087,7 +1255,7 @@ const Feedback = () => {
                                             <td className="border border-black font-bold bg-gray-50">今回</td>
                                             {(() => {
                                                 const fb = playerStats.averages.find(s => s.type.includes('ストレート')) || {};
-                                                const displayStrikeRate = fb.type ? (manualStrikeRates[fb.type] || fb.strikeRate) : '-';
+
                                                 return (
                                                     <>
                                                         <td className="border border-black text-[10px] font-bold">{fb.maxVelocity || '-'}</td>
@@ -1131,7 +1299,7 @@ const Feedback = () => {
                             </div>
 
                             {/* 3. Quick Motion Times */}
-                            <div className="mb-2 print:mb-0 flex items-stretch gap-0">
+                            <div className="quick-block mb-2 print:mb-0 flex items-stretch gap-0">
                                 <div className="bg-red-600 text-white font-bold w-20 flex items-center justify-center border border-black border-r-0 text-sm">クイック</div>
                                 <table className="border-collapse border border-black text-center flex-grow text-[10px] h-full">
                                     <thead>
@@ -1149,17 +1317,17 @@ const Feedback = () => {
                                         </tr>
                                     </tbody>
                                 </table>
-                                <div className="text-sm font-bold ml-4 flex items-center">目標は1.29秒以内</div>
+                                <div className="quick-target text-sm font-bold ml-4 flex items-center">目標は1.29秒以内</div>
                             </div>
 
                             {/* Equal Height Wrapper - Unified height strategy for consistent print rendering */}
-                            <div className="flex flex-row justify-center gap-4 items-stretch print:gap-2 print:min-h-0 print:w-full">
+                            <div className="chart-grid flex flex-row justify-center gap-4 items-stretch print:gap-2 print:min-h-0 print:w-full">
 
 
                                 {/* Left: Change Chart & Table */}
-                                <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-1 flex flex-col relative">
+                                <div className="chart-panel w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-1 flex flex-col relative h-[380px] print:h-[300px]">
                                     <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">変化量チャートと球種別平均値</h3>
-                                    <div className="relative ml-0 print:ml-[-6px] h-[260px] print:h-[200px] w-full print:mb-0 print:w-[75%]">
+                                    <div className="movement-chart-area relative ml-0 print:ml-[-6px] flex-1 w-full print:mb-0 print:w-[85%]">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" />
@@ -1202,7 +1370,7 @@ const Feedback = () => {
                                             </ScatterChart>
                                         </ResponsiveContainer>
                                     </div>
-                                    <table className="w-full print:w-[95%] print:mx-auto border-collapse border border-black text-[10px] print:text-[8px] text-center table-fixed mt-auto print:mt-2">
+                                    <table className="movement-summary-table w-full print:w-[95%] print:mx-auto border-collapse border border-black text-[10px] print:text-[8px] text-center table-fixed mt-auto print:mt-2">
                                         <thead>
                                             <tr className="bg-gray-100 h-8 print:h-6">
                                                 <th className="border border-black">球種<br />(平均値)</th>
@@ -1227,7 +1395,7 @@ const Feedback = () => {
                                 </div>
 
                                 {/* Right: Velocity Difference Vertical Chart */}
-                                <div className="w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-1 flex flex-col relative">
+                                <div className="chart-panel w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-1 flex flex-col relative h-[380px] print:h-[300px]">
                                     <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">球速緩急差（平均値）</h3>
                                     <div className="flex flex-grow items-stretch relative print:pr-2">
                                         {/* Vertical Velocity Scale */}
@@ -1259,7 +1427,7 @@ const Feedback = () => {
                                                             {ticks.map(v => (
                                                                 <div key={v} className="absolute flex items-center right-6"
                                                                     style={{ bottom: `calc(12.5% + ${((v - minScale) / (maxScale - minScale)) * 75}%)` }}>
-                                                                    <span className="text-[11px] font-bold pr-1">{v}</span>
+                                                                    <span className="velocity-scale text-[11px] font-bold pr-1">{v}</span>
                                                                 </div>
                                                             ))}
 
@@ -1287,7 +1455,7 @@ const Feedback = () => {
 
                                         {/* Speed Ratio Table */}
                                         <div className="w-[70%] flex flex-col justify-center">
-                                            <table className="border-collapse border border-black text-[8px] text-center table-fixed h-fit w-full">
+                                            <table className="speed-ratio-table border-collapse border border-black text-[8px] text-center table-fixed h-fit w-full">
                                                 <thead>
                                                     <tr className="bg-gray-100 h-10">
                                                         <th className="border border-black w-[35%] text-[8px]">球種</th>
@@ -1318,7 +1486,7 @@ const Feedback = () => {
                                     {/* Velocity Gap Reference Table */}
                                     <div className="mt-auto print:mt-1">
                                         <div className="text-right text-[10px] font-bold mb-0.5 pr-1">緩急比基準 (%)</div>
-                                        <div className="flex w-full border border-black text-[9px] font-bold text-center">
+                                        <div className="gap-reference flex w-full border border-black text-[9px] font-bold text-center">
                                             <div className="flex-1 flex flex-col border-r border-black">
                                                 <div className="bg-[#00BFFF] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px] text-[9px] whitespace-nowrap">ツーシーム</div>
                                                 <div className="py-1 flex items-center justify-center min-h-[20px]">99</div>
@@ -1386,12 +1554,12 @@ const Feedback = () => {
                     return (
                         <div id="report-container" className="bg-white text-black font-sans">
                             {pages.map((pagePitchers, pageIndex) => (
-                                <div key={pageIndex} className={`print:block print:w-full print:py-0 print:pb-3 py-4 ${pageIndex < pages.length - 1 ? 'print:break-after-page' : ''}`}>
+                                <div key={pageIndex} className={`mt-8 print:block print:w-full print:py-0 print:pb-3 py-8 px-8 bg-white shadow-2xl border border-gray-200 max-w-[1123px] mx-auto print:shadow-none print:border-none print:max-w-none print:p-0 ${pageIndex < pages.length - 1 ? 'print:break-after-page' : ''}`}>
                                     <div className="flex justify-between items-center mb-1">
                                         <h2 className="text-3xl font-bold border-b-2 border-black pb-1">チーム：{teamPitchType}データ一覧 {pages.length > 1 ? `(${pageIndex + 1}/${pages.length})` : ''}</h2>
                                         <div className="text-xl font-bold">{new Date().toLocaleDateString('ja-JP')}</div>
                                     </div>
-                                    <div className="w-full h-6 mb-4 flex overflow-hidden items-center justify-center">
+                                    <div className="w-full h-4 mb-4 flex overflow-hidden items-center justify-center">
                                         <img src="/assets/baseball_stitch_line.png" alt="Stitch Line" className="w-full h-full object-cover object-left" />
                                     </div>
 
@@ -1408,10 +1576,7 @@ const Feedback = () => {
                                                 <th className="border border-black p-0.5 bg-red-200 leading-none">回転方向<br />(時:分)</th>
                                                 <th className="border border-black p-0.5 bg-red-200 leading-none">縦の<br />変化量<br />(cm)</th>
                                                 <th className="border border-black p-0.5 bg-red-200 leading-none">横の<br />変化量<br />(cm)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />角度<br />(横)<br />(°)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />角度<br />(縦)<br />(°)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />高さ<br />(m)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />横<br />(m)</th>
+
                                                 <th className="border border-black p-0.5 bg-red-200 leading-none">ジャイロ<br />角度<br />(°)</th>
                                                 <th className="border border-black p-0.5 bg-red-200 leading-none">制球率<br />(%)</th>
                                             </tr>
@@ -1443,10 +1608,7 @@ const Feedback = () => {
                                                             <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgSpinDir}</td>
                                                             <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgVB}</td>
                                                             <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgHB}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgRah}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgRav}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgRh}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgRs}</td>
+
                                                             <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgGyro}</td>
                                                             <td className={`border border-black font-bold p-0.5 align-middle ${isHighStrikeRate ? 'bg-[#ffff00]' : (index % 2 === 1 ? 'bg-gray-200' : 'bg-white')}`} rowSpan={2}>
                                                                 <input
@@ -1465,10 +1627,7 @@ const Feedback = () => {
                                                             <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxSpinDir || '-'}</td>
                                                             <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxVB || '-'}</td>
                                                             <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxHB || '-'}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRAH || '-'}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRAV || '-'}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRH || '-'}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRS || '-'}</td>
+
                                                             <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxGyro || '-'}</td>
                                                         </tr>
                                                     </React.Fragment>

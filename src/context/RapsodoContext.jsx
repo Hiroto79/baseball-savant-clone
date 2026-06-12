@@ -268,35 +268,35 @@ export const RapsodoProvider = ({ children }) => {
                 }
 
                 const dbRows = data.map(d => {
-                    // Map CSV columns to Database columns
-                    // We use the exact column names found in the CSV (e.g. ExitVelocity, LaunchAngle)
-                    // We also support the spaced versions just in case, but prioritize the non-spaced ones found in the user's file.
+                    // Helper to get value from multiple possible keys
+                    const getValByKeys = (obj, keys) => {
+                        for (const key of keys) {
+                            if (obj[key] !== undefined && obj[key] !== null) return obj[key];
+                        }
+                        return null;
+                    };
 
                     const row = {
-                        date: d.Date,
-                        player_name: d['Player Name'] || d.PlayerName,
-                        exit_velocity: parseNum(d.ExitVelocity || d['Exit Velocity'] || d['Exit Speed']),
-                        launch_angle: parseNum(d.LaunchAngle || d['Launch Angle']),
-                        direction: parseNum(d.ExitDirection || d['Direction']),
-                        spin_rate: Math.round(parseNum(d.Spin || d['Spin Rate'] || d.SpinRate) || 0),
-                        distance: parseNum(d.Distance || d['Total Distance']),
-                        hang_time: parseNum(d.HangTime || d['Hang Time']),
-                        strike_zone_side: parseNum(d.StrikeZoneLocation || d['Strike Zone Side'] || d.StrikeZoneSide), // CSV has StrikeZoneLocation? Or StrikeZoneX? Screenshot showed StrikeZoneLocation
-                        strike_zone_height: parseNum(d['Strike Zone Height'] || d.StrikeZoneHeight), // Screenshot didn't clearly show this, but assuming similar pattern
+                        date: d.Date || d.date,
+                        player_name: d['Player Name'] || d.PlayerName || d.player || d.Name,
+                        exit_velocity: parseNum(getValByKeys(d, ['ExitVelocity', 'Exit Velocity', 'Exit Speed', 'ExitVelocity (km/h)'])),
+                        launch_angle: parseNum(getValByKeys(d, ['LaunchAngle', 'Launch Angle', 'LaunchAngle (deg)'])),
+                        direction: parseNum(getValByKeys(d, ['ExitDirection', 'Direction', 'Bearing', 'ExitDirection (deg)'])),
+                        spin_rate: Math.round(parseNum(getValByKeys(d, ['Spin', 'Spin Rate', 'SpinRate', 'Spin (rpm)'])) || 0),
+                        distance: parseNum(getValByKeys(d, ['Distance', 'Total Distance', 'Distance (m)', 'Distance (ft)'])),
+                        hang_time: parseNum(getValByKeys(d, ['HangTime', 'Hang Time', 'HangTime (s)'])),
+                        strike_zone_side: parseNum(getValByKeys(d, ['StrikeZoneLocation', 'Strike Zone Side', 'StrikeZoneSide', 'PlateLocSide'])),
+                        strike_zone_height: parseNum(getValByKeys(d, ['Strike Zone Height', 'StrikeZoneHeight', 'PlateLocHeight'])),
                         file_name: fileName,
                         upload_id: String(fileId),
                         player_category: category
                     };
 
                     // Strict validation: Skip row if ANY critical value is null/undefined
-                    // User said: "Skip if there are empty cells"
-                    // We check the critical metrics for batting: velocity, angle, distance
-                    // We also check player_name and date
                     const criticalFields = ['player_name', 'exit_velocity', 'launch_angle', 'distance'];
                     const hasEmpty = criticalFields.some(field => row[field] === null || row[field] === undefined || row[field] === '');
 
                     if (hasEmpty) {
-                        // console.log('Skipping row due to empty values:', row);
                         return null;
                     }
 

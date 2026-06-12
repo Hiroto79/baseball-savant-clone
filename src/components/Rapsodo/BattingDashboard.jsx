@@ -39,38 +39,19 @@ const BattingDashboard = ({ data = [] }) => {
         originalExitVel: d.ExitVelocity // km/h
     })).filter(d => d.exitVel && d.launchAngle);
 
-    // For Spray Chart - always use feet for coordinates
+    // For Spray Chart - pass raw metrics and let SprayChart handle coordinates
     const sprayData = data.map(d => {
         if (d.ExitDirection == null || d.Distance == null || d.Distance <= 0) {
-            console.log('Filtered out spray data:', { ExitDirection: d.ExitDirection, Distance: d.Distance });
             return null;
         }
 
-        // Rapsodo input is in meters and km/h
-        const distanceMeters = d.Distance;
-        const distanceFeet = d.Distance * M_TO_FT; // Convert to feet for chart coordinates
-        const exitVelKmh = d.ExitVelocity;
-        const direction = d.ExitDirection;
-
-        // Chart coordinates (SprayChart expects feet)
-        // Convert angle to radians
-        const angleRad = (direction * Math.PI) / 180;
-
-        // Calculate x, y coordinates in feet
-        const x = distanceFeet * Math.sin(angleRad);
-        const y = Math.abs(distanceFeet * Math.cos(angleRad));
-
-        // Keep raw values for tooltip conversion (units handled in tooltip)
-        const rawDistance = distanceMeters; // meters
-        const rawExitVel = exitVelKmh; // km/h
         return {
-            hc_x: x,
-            hc_y: y,
-            hit_distance_sc: distanceFeet,
-            distance: rawDistance, // meters, will be converted in tooltip
-            exitVel: rawExitVel, // km/h, will be converted in tooltip
+            ...d,
+            direction: d.ExitDirection,
+            distance: d.Distance, // meters
+            hit_distance_sc: d.Distance * M_TO_FT, // feet
             events: 'hit',
-            sourceMode: 'rapsodo' // Flag for tooltip to know data is in km/h and meters
+            sourceMode: 'rapsodo'
         };
     }).filter(Boolean);
 
