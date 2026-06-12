@@ -8,7 +8,7 @@ const HitterFeedback = () => {
     const { feedbackBattingData, setFeedbackBattingData, feedbackBattingFile, setFeedbackBattingFile } = useSettings();
     const [allData, setAllData] = useState(feedbackBattingData || []); // Master dataset from one file
     const [fileName, setFileName] = useState(feedbackBattingFile || '');
-    // const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(false); // eslint-disable-line no-unused-vars
     const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedPlayer, setSelectedPlayer] = useState('');
     const [reportType, setReportType] = useState('point'); // point, height, course, hand
