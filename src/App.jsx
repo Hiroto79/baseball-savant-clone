@@ -27,9 +27,15 @@ function App() {
 
   useEffect(() => {
     // Check if user is already authenticated
-    const auth = sessionStorage.getItem('authenticated');
-    setIsAuthenticated(auth === 'true');
-    setIsChecking(false);
+    try {
+      const auth = sessionStorage.getItem('authenticated');
+      setIsAuthenticated(auth === 'true');
+    } catch (error) {
+      console.warn('sessionStorage is not accessible:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setIsChecking(false);
+    }
   }, []);
 
   const handleLogin = () => {

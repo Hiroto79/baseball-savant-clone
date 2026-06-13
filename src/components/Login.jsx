@@ -14,7 +14,11 @@ const Login = ({ onLogin }) => {
         const correctPassword = import.meta.env.VITE_ACCESS_PASSWORD || 'baseball2024';
 
         if (password === correctPassword) {
-            sessionStorage.setItem('authenticated', 'true');
+            try {
+                sessionStorage.setItem('authenticated', 'true');
+            } catch (error) {
+                console.warn('Failed to save authentication to sessionStorage:', error);
+            }
             onLogin();
         } else {
             setError(true);
