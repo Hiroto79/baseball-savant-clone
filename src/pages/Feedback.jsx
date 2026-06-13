@@ -898,16 +898,16 @@ const Feedback = () => {
                     }
                     .report-stitch {
                         height: 4mm !important;
-                        margin-bottom: 2mm !important;
+                        margin-bottom: 1mm !important;
                     }
                     .main-stats-table {
                         font-size: 8pt !important;
                     }
                     .main-stats-table thead tr {
-                        height: 11.5mm !important;
+                        height: 10mm !important;
                     }
                     .main-stats-table tbody tr {
-                        height: 8.2mm !important;
+                        height: 7.5mm !important;
                     }
                     .main-stats-table th {
                         font-size: 7pt !important;
@@ -923,16 +923,16 @@ const Feedback = () => {
                         font-size: 7pt !important;
                     }
                     .comparison-block {
-                        margin-top: 6mm !important;
+                        margin-top: 4mm !important;
                     }
                     .comparison-table {
                         font-size: 9pt !important;
                     }
                     .comparison-table thead tr {
-                        height: 9mm !important;
+                        height: 7.5mm !important;
                     }
                     .comparison-table tbody tr {
-                        height: 9mm !important;
+                        height: 7.5mm !important;
                     }
                     .comparison-table th,
                     .comparison-table td,
@@ -941,8 +941,8 @@ const Feedback = () => {
                         line-height: 1 !important;
                     }
                     .quick-block {
-                        height: 15mm !important;
-                        margin-top: 6mm !important;
+                        height: 12mm !important;
+                        margin-top: 4mm !important;
                     }
                     .quick-block > div:first-child {
                         width: 34mm !important;
@@ -960,34 +960,34 @@ const Feedback = () => {
                         white-space: nowrap !important;
                     }
                     .chart-grid {
-                        height: 136mm !important;
-                        margin-top: 6mm !important;
+                        height: 125mm !important;
+                        margin-top: 4mm !important;
                     }
                     .chart-panel {
-                        height: 136mm !important;
+                        height: 125mm !important;
                         padding: 1.5mm !important;
                     }
                     .chart-panel h3 {
-                        font-size: 15pt !important;
+                        font-size: 14pt !important;
                         line-height: 1 !important;
-                        margin-bottom: 2mm !important;
+                        margin-bottom: 1.5mm !important;
                     }
                     .movement-chart-area {
-                        height: 84mm !important;
+                        height: 75mm !important;
                         width: 100% !important;
                         margin-left: 0 !important;
                         flex: none !important;
                     }
                     .movement-summary-table {
                         width: 96% !important;
-                        margin: 2mm auto 0 !important;
+                        margin: 1.5mm auto 0 !important;
                         font-size: 7.5pt !important;
                     }
                     .movement-summary-table thead tr {
-                        height: 10mm !important;
+                        height: 8mm !important;
                     }
                     .movement-summary-table tbody tr {
-                        height: 7.5mm !important;
+                        height: 6.5mm !important;
                     }
                     .velocity-scale {
                         font-size: 11pt !important;
@@ -996,10 +996,10 @@ const Feedback = () => {
                         font-size: 8pt !important;
                     }
                     .speed-ratio-table thead tr {
-                        height: 16mm !important;
+                        height: 10mm !important;
                     }
                     .speed-ratio-table tbody tr {
-                        height: 11mm !important;
+                        height: 8mm !important;
                     }
                     .speed-ratio-table th,
                     .speed-ratio-table td {
