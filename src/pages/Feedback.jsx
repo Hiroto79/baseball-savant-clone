@@ -1330,7 +1330,7 @@ const Feedback = () => {
                                 {/* Left: Change Chart & Table */}
                                 <div className="chart-panel w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-1 flex flex-col relative h-auto md:min-h-[460px] print:h-[300px]">
                                     <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">変化量チャートと球種別平均値</h3>
-                                    <div className="movement-chart-area relative mx-auto w-[240px] h-[240px] print:mb-0">
+                                    <div className="movement-chart-area relative mx-auto w-[290px] h-[290px] print:mb-0">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" />
