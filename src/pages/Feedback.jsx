@@ -864,7 +864,7 @@ const Feedback = () => {
                     }
                     .pitcher-report-container {
                         width: 202mm !important;
-                        height: 288mm !important;
+                        height: 280mm !important;
                         margin: 0 auto !important;
                         padding: 1.5mm 2mm 1mm !important;
                         box-sizing: border-box !important;
@@ -915,7 +915,7 @@ const Feedback = () => {
                         padding: 0.6mm !important;
                     }
                     .main-stats-table td {
-                        font-size: 9pt !important;
+                        font-size: 8.5pt !important;
                         line-height: 1.05 !important;
                         padding: 0.3mm !important;
                     }
@@ -926,7 +926,7 @@ const Feedback = () => {
                         margin-top: 4mm !important;
                     }
                     .comparison-table {
-                        font-size: 9pt !important;
+                        font-size: 8.5pt !important;
                     }
                     .comparison-table thead tr {
                         height: 7.5mm !important;
@@ -937,7 +937,7 @@ const Feedback = () => {
                     .comparison-table th,
                     .comparison-table td,
                     .comparison-table input {
-                        font-size: 9pt !important;
+                        font-size: 8.5pt !important;
                         line-height: 1 !important;
                     }
                     .quick-block {
@@ -951,7 +951,7 @@ const Feedback = () => {
                     .quick-block table,
                     .quick-block th,
                     .quick-block td {
-                        font-size: 9pt !important;
+                        font-size: 8.5pt !important;
                         line-height: 1 !important;
                     }
                     .quick-target {
