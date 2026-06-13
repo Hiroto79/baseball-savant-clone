@@ -1182,7 +1182,8 @@ const Feedback = () => {
                                             <th className="border border-black">回転軸<br />(時間)</th>
                                             <th className="border border-black">縦の変化量<br />(cm)</th>
                                             <th className="border border-black">横の変化量<br />(cm)</th>
-
+                                            <th className="border border-black">リリース<br />角度<br />(横)<br />(°)</th>
+                                            <th className="border border-black">リリース<br />角度<br />(縦)<br />(°)</th>
                                             <th className="border border-black">ジャイロ<br />角度(度)</th>
                                             <th className="border border-black">制球率<br />(%)</th>
                                         </tr>
@@ -1202,7 +1203,8 @@ const Feedback = () => {
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgClock}</td>
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgVB}</td>
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgHB}</td>
-
+                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgRAH}</td>
+                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgRAV}</td>
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgGyro}</td>
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle p-0" rowSpan={isStraight ? 2 : 1}>
                                                             <input
@@ -1225,7 +1227,8 @@ const Feedback = () => {
                                                             <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxClock}</td>
                                                             <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxVB}</td>
                                                             <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxHB}</td>
-
+                                                            <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxRAH || '-'}</td>
+                                                            <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxRAV || '-'}</td>
                                                             <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxGyro}</td>
                                                         </tr>
                                                     )}
@@ -1576,7 +1579,8 @@ const Feedback = () => {
                                                 <th className="border border-black p-0.5 bg-red-200 leading-none">回転方向<br />(時:分)</th>
                                                 <th className="border border-black p-0.5 bg-red-200 leading-none">縦の<br />変化量<br />(cm)</th>
                                                 <th className="border border-black p-0.5 bg-red-200 leading-none">横の<br />変化量<br />(cm)</th>
-
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />角度<br />(横)<br />(°)</th>
+                                                <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />角度<br />(縦)<br />(°)</th>
                                                 <th className="border border-black p-0.5 bg-red-200 leading-none">ジャイロ<br />角度<br />(°)</th>
                                                 <th className="border border-black p-0.5 bg-red-200 leading-none">制球率<br />(%)</th>
                                             </tr>
@@ -1608,7 +1612,8 @@ const Feedback = () => {
                                                             <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgSpinDir}</td>
                                                             <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgVB}</td>
                                                             <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgHB}</td>
-
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgRah}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgRav}</td>
                                                             <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgGyro}</td>
                                                             <td className={`border border-black font-bold p-0.5 align-middle ${isHighStrikeRate ? 'bg-[#ffff00]' : (index % 2 === 1 ? 'bg-gray-200' : 'bg-white')}`} rowSpan={2}>
                                                                 <input
@@ -1627,7 +1632,8 @@ const Feedback = () => {
                                                             <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxSpinDir || '-'}</td>
                                                             <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxVB || '-'}</td>
                                                             <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxHB || '-'}</td>
-
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRAH || '-'}</td>
+                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRAV || '-'}</td>
                                                             <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxGyro || '-'}</td>
                                                         </tr>
                                                     </React.Fragment>
