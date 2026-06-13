@@ -959,6 +959,12 @@ const Feedback = () => {
                         font-size: 9pt !important;
                         white-space: nowrap !important;
                     }
+                    .movement-chart-area {
+                        height: 70mm !important;
+                        width: 70mm !important;
+                        margin: 0 auto !important;
+                        flex: none !important;
+                    }
                     .chart-grid {
                         height: 125mm !important;
                         margin-top: 4mm !important;
@@ -971,12 +977,6 @@ const Feedback = () => {
                         font-size: 14pt !important;
                         line-height: 1 !important;
                         margin-bottom: 1.5mm !important;
-                    }
-                    .movement-chart-area {
-                        height: 75mm !important;
-                        width: 100% !important;
-                        margin-left: 0 !important;
-                        flex: none !important;
                     }
                     .movement-summary-table {
                         width: 96% !important;
@@ -1330,7 +1330,7 @@ const Feedback = () => {
                                 {/* Left: Change Chart & Table */}
                                 <div className="chart-panel w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-1 flex flex-col relative h-[380px] print:h-[300px]">
                                     <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">変化量チャートと球種別平均値</h3>
-                                    <div className="movement-chart-area relative ml-0 print:ml-[-6px] flex-1 w-full print:mb-0 print:w-[85%]">
+                                    <div className="movement-chart-area relative mx-auto w-[240px] h-[240px] print:mb-0">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" />
