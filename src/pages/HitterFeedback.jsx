@@ -640,10 +640,10 @@ const HitterFeedback = () => {
                     /* Hide EVERYTHING by default */
                     body * { visibility: hidden; }
                     /* Only show the report container and its children */
-                    #report-container, #report-container * { visibility: visible; }
+                    .report-container, .report-container * { visibility: visible; }
 
                     /* Position the report at absolute top-left */
-                    #report-container {
+                    .report-container {
                         position: relative;
                         width: 100% !important;
                         height: auto !important;
@@ -656,7 +656,7 @@ const HitterFeedback = () => {
                         overflow: visible !important;
                         page-break-after: always;
                     }
-                    #report-container:last-child {
+                    .report-container:last-child {
                         page-break-after: auto;
                     }
 
@@ -819,7 +819,7 @@ const HitterFeedback = () => {
                     const scatterData = isPrintAll ? getScatterData(mappedPlayer) : memoScatterData;
                     
                     return (
-                        <div key={mappedPlayer} id={isPrintAll ? undefined : "report-container"} className={`mx-auto bg-white min-h-screen text-black font-sans print:w-full print:max-w-[190mm] print:mx-auto print:p-[4px] print:min-h-0 print:h-auto print:pb-0 print:overflow-hidden max-w-[210mm] print:pt-0 ${isPrintAll ? 'print:break-after-page' : ''}`} style={{ width: '100%', minHeight: 'auto', padding: '10mm' }}>
+                        <div key={mappedPlayer} id={isPrintAll ? undefined : "report-container"} className={`report-container mx-auto bg-white min-h-screen text-black font-sans print:w-full print:max-w-[190mm] print:mx-auto print:p-[4px] print:min-h-0 print:h-auto print:pb-0 print:overflow-hidden max-w-[210mm] print:pt-0 ${isPrintAll ? 'print:break-after-page' : ''}`} style={{ width: '100%', minHeight: 'auto', padding: '10mm' }}>
 
                     {/* Print Spacer (Adjust this height to lower the title in PDF) */}
                     <div className="hidden print:block print:h-[0px]"></div>
@@ -1560,7 +1560,7 @@ const HitterFeedback = () => {
                         const totalTableWidth = colPlayerWidth + (pageCategories.length * (showExtraCols ? 6 : 4) * colDataWidth);
 
                         return (
-                            <div key={pageIndex} id="report-container" className={`bg-white mx-auto text-black leading-tight border border-gray-200 shadow relative p-8 print:px-[2mm] print:pt-[75px] print:pb-[20px] flex flex-col items-center ${pageIndex > 0 ? 'print:break-before-page' : ''}`} style={{ width: '297mm', minHeight: '210mm', writingMode: 'horizontal-tb', marginBottom: '20px' }}>
+                            <div key={pageIndex} id="report-container" className={`report-container bg-white mx-auto text-black leading-tight border border-gray-200 shadow relative p-8 print:px-[2mm] print:pt-[75px] print:pb-[20px] flex flex-col items-center ${pageIndex > 0 ? 'print:break-before-page' : ''}`} style={{ width: '297mm', minHeight: '210mm', writingMode: 'horizontal-tb', marginBottom: '20px' }}>
                                 {/* Print Spacer (Adjust this height to lower the title in PDF) */}
                                 <div className="mb-2 w-full text-left">
                                     <h2 className="text-3xl font-bold border-b border-black inline-block pb-1">チーム：打球データ一覧 {totalPages > 1 ? `(${pageIndex + 1}/${totalPages})` : ''}</h2>
