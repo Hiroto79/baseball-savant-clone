@@ -305,16 +305,15 @@ export const SingleBallCanvas = ({
         // 1. InitRotation_Matrix: 4/2/1シームの初期姿勢
         const matInit = getInitRotationMatrix(seamType);
 
-        // 2. SpinAnimation_Matrix: 基準スピン軸（横X軸）周りのバックスピン回転
-        // -X軸周りに回転することで、正面(+Z面)が下から上(+Y方向)へ巻き上がるバックスピンになる
+        // 2. SpinAnimation_Matrix: 基準スピン軸（横X軸）周りのバックスピン自転
         const matSpin = new THREE.Matrix4().makeRotationX(-spinAngleRef.current);
 
-        // 3. GyroAngle_Matrix: ジャイロ傾斜角 (進行Z軸方向へのチルト)
+        // 3. GyroAngle_Matrix: Rapsodo準拠ジャイロ傾斜角
+        // 0° = 純粋な横スピン (効率100%), 90° = 進行軸(+Z)を向く純粋なライフルスピン (効率0%)
         const gyroRad = (gyroDegrees * Math.PI) / 180;
-        const matGyro = new THREE.Matrix4().makeRotationY(gyroRad);
+        const matGyro = new THREE.Matrix4().makeRotationY(-gyroRad);
 
         // 4. AxisTilt_Matrix: Rapsodo時計盤チルト (12:00 = 0° バックスピン, 1:30 = 45° シュート回転, 6:00 = 180° トップスピン)
-        // 時計回り回転 (-tiltRad)
         const tiltRad = -(calculatedTiltDeg * Math.PI) / 180;
         const matAxisTilt = new THREE.Matrix4().makeRotationZ(tiltRad);
 
