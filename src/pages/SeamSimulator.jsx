@@ -96,18 +96,17 @@ export const SeamSimulator = ({ showHeader = false }) => {
           </button>
 
           {/* Speed selector */}
-          <div className="flex items-center gap-1 bg-zinc-950 px-2 py-1 rounded-lg border border-zinc-800 text-[11px] font-mono">
-            <span className="text-zinc-500 font-bold">速度:</span>
+          <div className="flex items-center gap-1 bg-zinc-950 px-2 py-1 rounded-lg border border-zinc-800 text-[11px]">
+            <span className="text-zinc-500 font-bold">回転速度:</span>
             {[
-              { val: 1.0, label: '1.0x (等速)' },
-              { val: 0.5, label: '0.5x' },
-              { val: 0.25, label: '0.25x' },
-              { val: 0.1, label: '0.1x (スロー)' }
+              { val: 0.35, label: '標準' },
+              { val: 0.15, label: 'ゆっくり' },
+              { val: 0.05, label: '超スロー' }
             ].map(s => (
               <button
                 key={s.val}
                 onClick={() => setPlaybackSpeed(s.val)}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
                   playbackSpeed === s.val
                     ? 'bg-blue-600 text-white font-extrabold shadow'
                     : 'text-zinc-400 hover:text-zinc-200'
