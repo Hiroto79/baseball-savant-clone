@@ -28,6 +28,12 @@
 }
 
 /* Custom utilities that might not be covered by the theme configuration directly or need specific layering */
+@layer base {
+  body {
+    font-family: "Yu Gothic", "游ゴシック", YuGothic, "Yu Gothic Medium", "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  }
+}
+
 @layer utilities {
   .border-border {
     border-color: var(--color-border);

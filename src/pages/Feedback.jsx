@@ -898,7 +898,7 @@ const Feedback = () => {
                         flex-direction: column !important;
                         gap: 0 !important;
                         color: black !important;
-                        font-family: Arial, "Helvetica Neue", sans-serif !important;
+                        font-family: "Yu Gothic", "游ゴシック", YuGothic, "Yu Gothic Medium", "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif !important;
                     }
                     .pitcher-report-content {
                         height: 100% !important;
