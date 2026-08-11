@@ -20,8 +20,8 @@ import { SingleBallCanvas, PITCH_PRESETS } from '../components/RapsodoSeamViewer
 export const SeamSimulator = ({ showHeader = false }) => {
   // Global View & Playback Controls
   const [isPlaying, setIsPlaying] = useState(true);
-  const [playbackSpeed, setPlaybackSpeed] = useState(0.25);
-  const [viewAngle, setViewAngle] = useState('catcher'); // 'catcher', 'pitcher', 'side', 'top'
+  const [playbackSpeed, setPlaybackSpeed] = useState(0.04); // 超低速でじっくり観察
+  const [viewAngle, setViewAngle] = useState('pitcher'); // 'pitcher' (ラプソード基準), 'catcher', 'side', 'top'
 
   // Ball A Settings (Left)
   const [ballA, setBallA] = useState({
@@ -125,8 +125,8 @@ export const SeamSimulator = ({ showHeader = false }) => {
               onChange={(e) => setViewAngle(e.target.value)}
               className="bg-transparent text-zinc-200 text-[11px] font-bold outline-none cursor-pointer"
             >
-              <option value="catcher">捕手視点 (正面)</option>
-              <option value="pitcher">投手視点 (背面)</option>
+              <option value="pitcher">投手視点 (ラプソード基準)</option>
+              <option value="catcher">捕手視点 (本塁側正面)</option>
               <option value="side">側面視点 (三塁側)</option>
               <option value="top">真上視点 (天頂)</option>
             </select>

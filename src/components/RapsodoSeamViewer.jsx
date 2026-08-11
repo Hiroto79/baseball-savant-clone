@@ -4,18 +4,20 @@ import * as THREE from 'three';
 /**
  * Rapsodo Pitching 準拠の 3D Baseball Seam & Spin Visualizer Component
  * 
- * ラプソード公式のスピン軸＆ジャイロ定義:
- * - 12:00 (0°): 矢印の刺さる方向は 3:00〜9:00 の水平線。
- *   右投手(RHP)なら矢印先端は 9:00 (三塁側) を向き、ボールは真上(12:00)へバックスピン。
- *   左投手(LHP)なら矢印先端は 3:00 (一塁側) を向き、ボールは真上(12:00)へバックスピン。
- * - ジャイロ角度 (Gyro Degree):
- *   右投手なら 9:00 方向の矢印が、進行方向(+Z 捕手側)に向かって角度がついていく。
- *   90° で完全なライフルスピン（弾丸渦巻き回転）。
- * - チルト (Tilt / 時計の針):
- *   1:15〜1:30 (右投直球): 矢印は 10:30〜4:30 に刺さり、右上(1:30)へ向かうバックスピン＋シュート。
+ * ラプソード公式仕様:
+ * 1. 視点基準 (Pitcher View):
+ *    - 「投手がボールをリリースした瞬間、投手自身が本塁方向を見た視点」が唯一の基準。
+ *    - 12:00 (純粋バックスピン): ボール上部が奥へ回転するホップ回転。
+ *    - 6:00 (純粋トップスピン): ボール上部が手前へ回転するドロップカーブ。
+ *    - 3:00 (右スピン): 右投手スライダースピン / 左投手シュート。
+ *    - 9:00 (左スピン): 右投手シュート / 左投手スライダー。
+ * 
+ * 2. 縫い目 (Seam Tube) の立体感:
+ *    - 半径 0.058, radialSegments 16 (太く滑らかなチューブ)
+ *    - マットな質感 (roughness: 0.55, 深い赤色: 0xb91c1c)
  */
 
-// ユーザー指定の数式に従ってシームジオメトリを生成 (太さ 0.042 で強調)
+// ユーザー指定の球面パラメータ方程式による縫い目生成 (太さ 0.058, 分割数 16 で立体感を強調)
 function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
   const segments = 360;
@@ -36,7 +38,8 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   }
 
   const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal');
-  const tubeGeo = new THREE.TubeGeometry(curve, 240, 0.042, 10, true);
+  // 半径 0.058, radialSegments 16 で頼もしい立体感
+  const tubeGeo = new THREE.TubeGeometry(curve, 240, 0.058, 16, true);
 
   return tubeGeo;
 }
@@ -68,7 +71,7 @@ export const SingleBallCanvas = ({
   arm = 'R', // 'R' = 右投手, 'L' = 左投手
   isPlaying = true,
   playbackSpeed = 0.03, // 超低速・じっくり観察用の速度
-  viewAngle = 'catcher',
+  viewAngle = 'pitcher', // デフォルト: 投手視点 (ラプソード基準)
   title = 'Ball A',
   accentColor = '#3b82f6',
 }) => {
@@ -108,7 +111,9 @@ export const SingleBallCanvas = ({
     scene.background = new THREE.Color(0x09090b);
 
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 50);
-    camera.position.set(0, 0, 5.0);
+    // デフォルト: 投手視点 (背面から本塁を見る)
+    camera.position.set(0, 0, -5.0);
+    camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -123,13 +128,13 @@ export const SingleBallCanvas = ({
     // ライト
     scene.add(new THREE.AmbientLight(0xffffff, 1.4));
     const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.2);
-    dirLight1.position.set(3, 4, 5);
+    dirLight1.position.set(3, 4, -5); // 投手側からのメインライト
     scene.add(dirLight1);
     const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.6);
-    dirLight2.position.set(-4, -2, -3);
+    dirLight2.position.set(-4, -2, 5);
     scene.add(dirLight2);
 
-    // ラプソード風 同心円グリッド＆十字線
+    // ラプソード風 同心円グリッド＆十字線 (投手視点の背景)
     const bgGroup = new THREE.Group();
     const ringMat = new THREE.LineBasicMaterial({ color: 0x27272a, transparent: true, opacity: 0.5 });
     for (let r = 0.8; r <= 2.2; r += 0.4) {
@@ -141,29 +146,29 @@ export const SingleBallCanvas = ({
     const crossMat = new THREE.LineBasicMaterial({ color: 0x3f3f46, transparent: true, opacity: 0.35 });
     bgGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-2.2, 0, 0), new THREE.Vector3(2.2, 0, 0)]), crossMat));
     bgGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -2.2, 0), new THREE.Vector3(0, 2.2, 0)]), crossMat));
-    bgGroup.position.z = -1.2;
+    bgGroup.position.z = 1.2; // 本塁奥の背景
     scene.add(bgGroup);
 
     // ボールグループ
     const ballGroup = new THREE.Group();
     ballGroupRef.current = ballGroup;
 
-    // 白い球体
+    // 白い牛革球体 (マット質感)
     const sphereGeo = new THREE.SphereGeometry(1.0, 32, 32);
     const sphereMat = new THREE.MeshStandardMaterial({
-      color: 0xf4f4f5,
-      roughness: 0.28,
-      metalness: 0.02,
+      color: 0xf5f5f7,
+      roughness: 0.35,
+      metalness: 0.0,
     });
     const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
     ballGroup.add(sphereMesh);
 
-    // 太めの赤い立体チューブ縫い目
+    // 太くマットな赤い立体チューブ縫い目 (コントラスト強調)
     const tubeGeo = createParametricSeamGeometry(seamType, 1.0);
     const seamMat = new THREE.MeshStandardMaterial({
-      color: 0xdc2626,
-      roughness: 0.2,
-      metalness: 0.1,
+      color: 0xb91c1c, // 深みのある赤
+      roughness: 0.55, // 糸っぽいマットな質感
+      metalness: 0.0,
     });
     const seamMesh = new THREE.Mesh(tubeGeo, seamMat);
     seamMesh.name = 'seamMesh';
@@ -172,12 +177,12 @@ export const SingleBallCanvas = ({
     scene.add(ballGroup);
 
     // 回転軸ベクトルライン（Rapsodo Green Axis Line）
-    // 基準スピン軸（Tilt 12:00 = 水平X軸 3:00〜9:00）に合わせたシリンダー
+    // 基準スピン軸（Tilt 12:00 = 3:00〜9:00 水平線）
     const spinAxisGroup = new THREE.Group();
     spinAxisGroupRef.current = spinAxisGroup;
 
     const poleGeo = new THREE.CylinderGeometry(0.016, 0.016, 2.8, 12);
-    poleGeo.rotateZ(Math.PI / 2); // X軸（3:00〜9:00）に寝かせる
+    poleGeo.rotateZ(Math.PI / 2); // 3:00〜9:00 に寝かせる
     const poleMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
     spinAxisGroup.add(new THREE.Mesh(poleGeo, poleMat));
 
@@ -255,9 +260,9 @@ export const SingleBallCanvas = ({
 
     const newTubeGeo = createParametricSeamGeometry(seamType, 1.0);
     const seamMat = new THREE.MeshStandardMaterial({
-      color: 0xdc2626,
-      roughness: 0.2,
-      metalness: 0.1,
+      color: 0xb91c1c,
+      roughness: 0.55,
+      metalness: 0.0,
     });
     const newSeamMesh = new THREE.Mesh(newTubeGeo, seamMat);
     newSeamMesh.name = 'seamMesh';
@@ -269,16 +274,20 @@ export const SingleBallCanvas = ({
     const camera = cameraRef.current;
     if (!camera) return;
 
-    if (viewAngle === 'catcher') {
-      camera.position.set(0, 0, 5.0);
-      camera.lookAt(0, 0, 0);
-    } else if (viewAngle === 'pitcher') {
+    if (viewAngle === 'pitcher') {
+      // 投手視点 (ラプソード公式基準: 投手の背後から本塁を見る)
       camera.position.set(0, 0, -5.0);
       camera.lookAt(0, 0, 0);
+    } else if (viewAngle === 'catcher') {
+      // 捕手視点 (本塁側から投球を見る)
+      camera.position.set(0, 0, 5.0);
+      camera.lookAt(0, 0, 0);
     } else if (viewAngle === 'side') {
+      // 側面視点 (三塁側)
       camera.position.set(5.0, 0, 0);
       camera.lookAt(0, 0, 0);
     } else if (viewAngle === 'top') {
+      // 真上視点 (天頂)
       camera.position.set(0, 5.0, 0.001);
       camera.lookAt(0, 0, 0);
     }
@@ -306,12 +315,12 @@ export const SingleBallCanvas = ({
         // 1. InitRotation_Matrix: 4/2/1シームの初期姿勢
         const matInit = getInitRotationMatrix(seamType);
 
-        // 2. SpinAnimation_Matrix: 基準スピン軸（横X軸 3:00〜9:00）周りのバックスピン自転
+        // 2. SpinAnimation_Matrix: 基準スピン軸（3:00〜9:00 横X軸）周りの自転
         const spinDir = isLeft ? 1 : -1;
         const matSpin = new THREE.Matrix4().makeRotationX(spinDir * spinAngleRef.current);
 
-        // 3. GyroAngle_Matrix: Rapsodo準拠ジャイロ傾斜角
-        // 矢印方向（右投なら9:00、左投なら3:00）から、進行軸(+Z 捕手側)に向かって角度がついていく
+        // 3. GyroAngle_Matrix: ジャイロ傾斜角
+        // 矢印方向から進行軸に向かって角度がつく
         const gyroRad = (gyroDegrees * Math.PI) / 180;
         const matGyro = new THREE.Matrix4().makeRotationY(isLeft ? gyroRad : -gyroRad);
 
@@ -342,9 +351,10 @@ export const SingleBallCanvas = ({
         const r = 5.0;
         const theta = orbitAnglesRef.current.theta;
         const phi = orbitAnglesRef.current.phi;
+        // 投手視点ベースのオービット
         camera.position.x = r * Math.sin(theta) * Math.cos(phi);
         camera.position.y = r * Math.sin(phi);
-        camera.position.z = r * Math.cos(theta) * Math.cos(phi);
+        camera.position.z = -r * Math.cos(theta) * Math.cos(phi);
         camera.lookAt(0, 0, 0);
       }
 
