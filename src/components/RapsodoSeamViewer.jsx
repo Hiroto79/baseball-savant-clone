@@ -322,8 +322,9 @@ export const SingleBallCanvas = ({
         const gyroRad = (gyroDegrees * Math.PI) / 180;
         const matGyro = new THREE.Matrix4().makeRotationY(isLeft ? gyroRad : -gyroRad);
 
-        // 4. AxisTilt_Matrix: Rapsodo時計盤チルト (12:00 = 0° バックスピン, 1:30 = 45° シュート回転, 6:00 = 180° トップスピン)
-        const tiltRad = -(calculatedTiltDeg * Math.PI) / 180;
+        // 4. AxisTilt_Matrix: 投手視点ラプソード時計盤チルト
+        // 投手視点(-Zから本塁を見る)で: 12:00 = 上(0°), 3:00 = 右(90°), 6:00 = 下(180°), 9:00 = 左(270°)
+        const tiltRad = (calculatedTiltDeg * Math.PI) / 180;
         const matAxisTilt = new THREE.Matrix4().makeRotationZ(tiltRad);
 
         // 5. 行列合成: FinalTransform = AxisTilt * GyroAngle * SpinAnimation * InitRotation
