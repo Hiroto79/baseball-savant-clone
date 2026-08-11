@@ -46,8 +46,9 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
-    // 2-Seam: 写真の通りの実物姿勢。中央に広い白革の余白があり、左右に2本の弧が縦に並ぶ
-    m.identity();
+    // 2-Seam: 実物写真の握り姿勢（人差し指・中指の幅に合わせた美しい縦の2本レール）
+    // Y軸を約22度回転させることで、左右の開き具合が実物写真の樽型プロポーションと完全に一致する
+    m.makeRotationY((22 * Math.PI) / 180);
   } else if (seamType === '1-seam') {
     // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢
     m.makeRotationY(Math.PI / 2);
