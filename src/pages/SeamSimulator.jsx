@@ -195,9 +195,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: '4-seam', label: '4シーム (4-Seam)', desc: '馬蹄形正面' },
-                  { id: '2-seam', label: '2シーム (2-Seam)', desc: '平らな面正面' },
-                  { id: '1-seam', label: '1シーム (1-Seam)', desc: '斜め45度' },
+                  { id: '4-seam', label: '4シーム (4-Seam)', desc: '馬蹄形正面 (4本通過)' },
+                  { id: '2-seam', label: '2シーム (2-Seam)', desc: '2本平行レール正面' },
+                  { id: '1-seam', label: '1シーム (1-Seam)', desc: '中央1本ライン正面' },
                 ].map(s => (
                   <button
                     key={s.id}
@@ -353,9 +353,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: '4-seam', label: '4シーム (4-Seam)', desc: '馬蹄形正面' },
-                  { id: '2-seam', label: '2シーム (2-Seam)', desc: '平らな面正面' },
-                  { id: '1-seam', label: '1シーム (1-Seam)', desc: '斜め45度' },
+                  { id: '4-seam', label: '4シーム (4-Seam)', desc: '馬蹄形正面 (4本通過)' },
+                  { id: '2-seam', label: '2シーム (2-Seam)', desc: '2本平行レール正面' },
+                  { id: '1-seam', label: '1シーム (1-Seam)', desc: '中央1本ライン正面' },
                 ].map(s => (
                   <button
                     key={s.id}
