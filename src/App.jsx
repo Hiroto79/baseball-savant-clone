@@ -15,6 +15,7 @@ import Leaderboard from './pages/Leaderboard';
 import Feedback from './pages/Feedback';
 import HitterFeedback from './pages/HitterFeedback';
 import PitchingSimulator from './pages/PitchingSimulator';
+import SeamSimulator from './pages/SeamSimulator';
 
 import { SettingsProvider } from './context/SettingsContext';
 import { BlastProvider } from './context/BlastContext';
@@ -77,6 +78,7 @@ function App() {
                     <Route path="/feedback" element={<Feedback />} /> {/* Added Feedback route */}
                     <Route path="/hitter-feedback" element={<HitterFeedback />} /> {/* Added HitterFeedback route */}
                     <Route path="/simulator" element={<PitchingSimulator />} />
+                    <Route path="/seam-simulator" element={<SeamSimulator />} />
                     <Route path="/upload" element={<Upload />} />
                     <Route path="/settings" element={<Settings />} />
 
