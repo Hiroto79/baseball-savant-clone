@@ -708,12 +708,34 @@ const Feedback = () => {
                 };
             });
 
+            // 球種の表示順序判定: 1. ストレート -> 2. クイック -> 3. カーブ -> 4. スライダー -> 5. チェンジアップ -> その他 (投球数降順)
+            const getPitchTypeSortPriority = (typeName) => {
+                const t = (typeName || '').toLowerCase();
+                if ((t.includes('ストレート') || t.includes('straight') || t.includes('fastball') || t.includes('4シーム') || t.includes('4-seam')) && !t.includes('クイック') && !t.includes('quick')) {
+                    return 1;
+                }
+                if (t.includes('クイック') || t.includes('quick')) {
+                    return 2;
+                }
+                if (t.includes('カーブ') || t.includes('curve')) {
+                    return 3;
+                }
+                if (t.includes('スライダー') || t.includes('slider') || t.includes('sweeper') || t.includes('スラ')) {
+                    return 4;
+                }
+                if (t.includes('チェンジアップ') || t.includes('チェンジ') || t.includes('change')) {
+                    return 5;
+                }
+                return 999;
+            };
+
             averages.sort((a, b) => {
-                const isAStraight = a.type.includes('ストレート');
-                const isBStraight = b.type.includes('ストレート');
-                if (isAStraight && !isBStraight) return -1;
-                if (!isAStraight && isBStraight) return 1;
-                return b.count - a.count;
+                const priorityA = getPitchTypeSortPriority(a.type);
+                const priorityB = getPitchTypeSortPriority(b.type);
+                if (priorityA !== priorityB) {
+                    return priorityA - priorityB;
+                }
+                return (b.count || 0) - (a.count || 0);
             });
 
             return { averages, rawPitches, velocityDistribution };
