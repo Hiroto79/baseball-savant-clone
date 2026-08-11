@@ -362,13 +362,11 @@ export const SingleBallCanvas = ({
         const matSpin = new THREE.Matrix4().makeRotationX(-spinAngleRef.current);
 
         // 3. GyroAngle_Matrix: Rapsodo準拠ジャイロ傾斜角（符号付き）
-        //    + (プラス) = 左方向へ曲がる（基本のスライダー方向）
-        //    - (マイナス) = 右方向へ曲がる（逆ジャイロ）
         const gyroRad = (gyroDegrees * Math.PI) / 180;
-        const matGyro = new THREE.Matrix4().makeRotationY(-gyroRad);
+        const matGyro = new THREE.Matrix4().makeRotationY(gyroRad);
 
-        // 4. AxisTilt_Matrix: Rapsodo時計盤チルト (12:00 = 0° バックスピン, 1:30 = 45° シュート回転, 6:00 = ±180° トップスピン)
-        const tiltRad = -(calculatedTiltDeg * Math.PI) / 180;
+        // 4. AxisTilt_Matrix: 投手視点で 12:00=上, 3:00=右, 6:00=下, 9:00=左 となる時計回り回転
+        const tiltRad = (calculatedTiltDeg * Math.PI) / 180;
         const matAxisTilt = new THREE.Matrix4().makeRotationZ(tiltRad);
 
         // 5. 行列合成: FinalTransform = AxisTilt * GyroAngle * SpinAnimation * InitRotation
@@ -414,7 +412,7 @@ export const SingleBallCanvas = ({
           {seamType.toUpperCase()}
         </span>
         <span className="px-2 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-750 text-[10px] font-bold text-amber-300 backdrop-blur">
-          {gyroDegrees > 0 ? '◀ 左方向ジャイロ' : gyroDegrees < 0 ? '右方向ジャイロ ▶' : 'ジャイロなし'}
+          {gyroDegrees > 0 ? '右方向ジャイロ ▶' : gyroDegrees < 0 ? '◀ 左方向ジャイロ' : 'ジャイロなし'}
         </span>
       </div>
 

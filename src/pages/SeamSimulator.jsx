@@ -295,9 +295,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
                 className="w-full accent-blue-500 cursor-pointer"
               />
               <div className="flex justify-between text-[9px] text-muted-foreground font-mono mt-0.5">
-                <span>◀ 右方向 (逆ジャイロ) -90°</span>
+                <span>◀ 左方向 -90°</span>
                 <span className="text-zinc-300">0° (ジャイロなし)</span>
-                <span>+90° 左方向 (基本) ▶</span>
+                <span>+90° 右方向 ▶</span>
               </div>
             </div>
           </div>
@@ -453,9 +453,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
                 className="w-full accent-amber-500 cursor-pointer"
               />
               <div className="flex justify-between text-[9px] text-muted-foreground font-mono mt-0.5">
-                <span>◀ 右方向 (逆ジャイロ) -90°</span>
+                <span>◀ 左方向 -90°</span>
                 <span className="text-zinc-300">0° (ジャイロなし)</span>
-                <span>+90° 左方向 (基本) ▶</span>
+                <span>+90° 右方向 ▶</span>
               </div>
             </div>
           </div>
