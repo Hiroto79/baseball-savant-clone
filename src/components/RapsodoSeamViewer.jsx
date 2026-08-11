@@ -41,16 +41,20 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   return tubeGeo;
 }
 
-// シームタイプに応じたボール初期姿勢の回転行列
+// 4シーム / 2シーム / 1シームの初期回転行列 (InitRotation_Matrix)
+// すべて同じ1本の縫い目カーブをY軸でどれだけ回すかだけで表現している。
+// 45°〜120°付近はカーブが自己交差する"8の字"ゾーンになり2シーム/1シームの見分けが
+// つきにくくなるため、実物写真を参考にこのゾーンを避けた角度に調整した。
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
-    // 2-Seam: Yaw(Y軸) 90度回転。縫い目のすき間（平行レール）が正面
-    m.makeRotationY(Math.PI / 2);
+    // 2-Seam: Yaw(Y軸) 30度。4シームに近い、やや広めの雫型（実物写真で縫い目の占める
+    // 範囲が広めだったことに合わせた）
+    m.makeRotationY(Math.PI / 6);
   } else if (seamType === '1-seam') {
-    // 1-Seam: Yaw(Y軸) 45度のみ。4シーム(0°)と2シーム(90°)のちょうど中間の姿勢で、
-    // 左右対称な"雫型"のシルエットになる（X軸回転を加えると非対称にゆがむため廃止）
-    m.makeRotationY(Math.PI / 4);
+    // 1-Seam: Yaw(Y軸) 55度。2シームよりさらに回し、白革の余白が大きい片側寄りの雫型
+    // （60°を超えると縫い目が自己交差し始めるため、その手前の55°に設定）
+    m.makeRotationY((55 * Math.PI) / 180);
   } else {
     // 4-Seam: (0°, 0°, 0°) 馬蹄形が正面
     m.identity();
@@ -145,7 +149,6 @@ export const SingleBallCanvas = ({
 
     // 背景の同心円グリッド（ラプソード風レーダーサークル）
     const gridGroup = new THREE.Group();
-    const ringMat = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.35 });
     [1.3, 1.7, 2.1].forEach(r => {
       const ringGeo = new THREE.RingGeometry(r, r + 0.015, 64);
       const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide, transparent: true, opacity: 0.25 }));
@@ -446,8 +449,8 @@ export const SingleBallCanvas = ({
 
 export const PITCH_PRESETS = [
   { name: '4-Seam Fastball (4シーム)', seamType: '4-seam', rpm: 2350, tiltClock: '1:15', tiltDegrees: 37.5, gyroDegrees: 10, desc: '馬蹄形が正面' },
-  { name: '2-Seam / Sinker (2シーム)', seamType: '2-seam', rpm: 2150, tiltClock: '2:15', tiltDegrees: 67.5, gyroDegrees: 18, desc: '縫い目のすき間が正面' },
-  { name: '1-Seam Gyro Sinker (1シーム)', seamType: '1-seam', rpm: 2100, tiltClock: '2:30', tiltDegrees: 75, gyroDegrees: 35, desc: '頂点がポール寄りに斜め' },
+  { name: '2-Seam / Sinker (2シーム)', seamType: '2-seam', rpm: 2150, tiltClock: '2:15', tiltDegrees: 67.5, gyroDegrees: 18, desc: '馬蹄形に近い広めの回転' },
+  { name: '1-Seam Gyro Sinker (1シーム)', seamType: '1-seam', rpm: 2100, tiltClock: '2:30', tiltDegrees: 75, gyroDegrees: 35, desc: '片側寄りで余白が広い雫型' },
   { name: 'Sweeper (スイーパー)', seamType: '2-seam', rpm: 2600, tiltClock: '9:00', tiltDegrees: -90, gyroDegrees: 30, desc: '横滑りスイーパー' },
   { name: 'Gyro Slider (縦スラ/ジャイロ)', seamType: '4-seam', rpm: 2400, tiltClock: '10:30', tiltDegrees: -45, gyroDegrees: 65, desc: 'ライフル回転' },
   { name: '12-6 Curveball (ドロップカーブ)', seamType: '4-seam', rpm: 2700, tiltClock: '6:00', tiltDegrees: 180, gyroDegrees: 8, desc: 'トップスピン' },
