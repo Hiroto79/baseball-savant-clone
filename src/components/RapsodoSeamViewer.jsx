@@ -3,34 +3,33 @@ import * as THREE from 'three';
 
 /**
  * Rapsodo Pitching 準拠の 3D Baseball Seam & Spin Visualizer Component
- * 
- * ラプソード公式のスピン軸＆ジャイロ定義:
- * - 12:00 (0°): 矢印の刺さる方向は 3:00〜9:00 の水平線。
- *   右投手(RHP)なら矢印先端は 9:00 (三塁側) を向き、ボールは真上(12:00)へバックスピン。
- *   左投手(LHP)なら矢印先端は 3:00 (一塁側) を向き、ボールは真上(12:00)へバックスピン。
- * - ジャイロ角度 (Gyro Degree):
- *   右投手なら 9:00 方向の矢印が、進行方向(+Z 捕手側)に向かって角度がついていく。
- *   90° で完全なライフルスピン（弾丸渦巻き回転）。
- * - チルト (Tilt / 時計の針):
- *   1:15〜1:30 (右投直球): 矢印は 10:30〜4:30 に刺さり、右上(1:30)へ向かうバックスピン＋シュート。
+ *
+ * ラプソード公式のスピン軸＆ジャイロ定義（符号統一版・投手左右の選択は不要）:
+ * - チルト (Tilt / 時計の針): 12:00 (0°) を基準（バックスピン）とし、時計回りが正の角度。
+ *   1:15〜1:30 (右投直球相当): バックスピン＋シュート方向。
+ * - ジャイロ角度 (Gyro Degree, 符号付き -90°〜+90°):
+ *   0° = ジャイロ成分なし（純粋な縦回転）
+ *   + (プラス) = 左方向へ曲がる回転（右投手の基本的なスライダー/カット系の入り方）
+ *   - (マイナス) = 右方向へ曲がる回転（逆ジャイロ / スクリューボール的な入り方）
+ *   |90°| で完全なライフルスピン（弾丸渦巻き回転、スピン効率0%）。
+ *   投手の利き腕を選択する必要はなく、符号だけで左右どちらの曲がりも表現できる。
  */
 
 // ユーザー指定の数式に従ってシームジオメトリを生成 (太さ 0.058 に強調・断面16分割で滑らかに)
 function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
   const segments = 360;
-  const a = seamType === '1-seam' ? 0.40 : 0.35;
-  const r = radius * 1.004;
+  const a = 0.38; // 振幅パラメータ（約22度）
 
   for (let i = 0; i <= segments; i++) {
     const t = (i / segments) * Math.PI * 2;
-    const theta = a * Math.sin(2 * t);
+    // 近似球面パラメータ方程式
+    const theta = Math.PI / 2 + a * Math.sin(2 * t);
     const phi = t;
 
-    // 直交座標変換
-    const x = r * Math.cos(theta) * Math.cos(phi);
-    const y = r * Math.cos(theta) * Math.sin(phi);
-    const z = r * Math.sin(theta);
+    const x = radius * Math.cos(theta) * Math.cos(phi);
+    const y = radius * Math.cos(theta) * Math.sin(phi);
+    const z = radius * Math.sin(theta);
 
     points.push(new THREE.Vector3(x, y, z));
   }
@@ -42,17 +41,16 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   return tubeGeo;
 }
 
-// 4シーム / 2シーム / 1シームの初期回転行列 (InitRotation_Matrix)
+// シームタイプに応じたボール初期姿勢の回転行列
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
     // 2-Seam: Yaw(Y軸) 90度回転。縫い目のすき間（平行レール）が正面
     m.makeRotationY(Math.PI / 2);
   } else if (seamType === '1-seam') {
-    // 1-Seam: Yaw(Y軸) 45度、Pitch(X軸) 45度。頂点がポール寄りに斜め
-    const mX = new THREE.Matrix4().makeRotationX(Math.PI / 4);
-    const mY = new THREE.Matrix4().makeRotationY(Math.PI / 4);
-    m.multiplyMatrices(mY, mX);
+    // 1-Seam: Yaw(Y軸) 45度のみ。4シーム(0°)と2シーム(90°)のちょうど中間の姿勢で、
+    // 左右対称な"雫型"のシルエットになる（X軸回転を加えると非対称にゆがむため廃止）
+    m.makeRotationY(Math.PI / 4);
   } else {
     // 4-Seam: (0°, 0°, 0°) 馬蹄形が正面
     m.identity();
@@ -65,25 +63,27 @@ export const SingleBallCanvas = ({
   rpm = 2200,
   tiltClock = '1:30',
   tiltDegrees = 45,
-  gyroDegrees = 15,
-  arm = 'R', // 'R' = 右投手, 'L' = 左投手
+  gyroDegrees = 15, // 符号付き: + = 左方向へ曲がる（基本）, - = 右方向へ曲がる（逆ジャイロ）
   isPlaying = true,
   playbackSpeed = 0.03, // 超低速・じっくり観察用の速度
-  viewAngle = 'pitcher', // デフォルト: 投手視点 (ラプソード基準)
-  title = 'Ball A',
+  viewAngle = 'pitcher',
+  title = 'Ball',
   accentColor = '#3b82f6',
 }) => {
   const containerRef = useRef(null);
-  const animFrameRef = useRef(null);
-  const spinAngleRef = useRef(0);
+  const rendererRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
-  const rendererRef = useRef(null);
   const ballGroupRef = useRef(null);
   const spinAxisGroupRef = useRef(null);
+  const animFrameRef = useRef(null);
+  const spinAngleRef = useRef(0);
+
+  // マウスドラッグ自由回転用の制御
   const isDraggingRef = useRef(false);
   const prevMousePosRef = useRef({ x: 0, y: 0 });
   const orbitAnglesRef = useRef({ theta: 0, phi: 0 });
+  const viewAngleRef = useRef(viewAngle);
 
   const calculatedTiltDeg = useMemo(() => {
     if (typeof tiltDegrees === 'number' && !isNaN(tiltDegrees)) {
@@ -91,81 +91,96 @@ export const SingleBallCanvas = ({
     }
     if (typeof tiltClock === 'string' && tiltClock.includes(':')) {
       const [h, m] = tiltClock.split(':').map(Number);
-      return ((h % 12) + m / 60) * 30;
+      const totalMinutes = (h % 12) * 60 + (m || 0);
+      return (totalMinutes / 720) * 360;
     }
     return 45;
-  }, [tiltDegrees, tiltClock]);
+  }, [tiltClock, tiltDegrees]);
 
   // Three.js 初期化
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const width = container.clientWidth || 340;
-    const height = container.clientHeight || 340;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.background = new THREE.Color(0x09090b);
 
-    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 50);
-    // デフォルト: 投手視点 (背面から本塁を見る)
-    camera.position.set(0, 0, -5.0);
+    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
+    if (viewAngle === 'catcher') {
+      camera.position.set(0, 0, 5.0);
+    } else if (viewAngle === 'pitcher') {
+      camera.position.set(0, 0, -5.0);
+    } else if (viewAngle === 'side') {
+      camera.position.set(5.0, 0, 0);
+    } else if (viewAngle === 'top') {
+      camera.position.set(0, 5.0, 0.001);
+    } else {
+      camera.position.set(0, 0, -5.0);
+    }
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
-    container.innerHTML = '';
-    container.appendChild(renderer.domElement);
+    renderer.toneMappingExposure = 1.1;
+    container.replaceChildren(renderer.domElement);
     rendererRef.current = renderer;
 
     // ライト
-    scene.add(new THREE.AmbientLight(0xffffff, 1.4));
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.2);
-    dirLight1.position.set(3, 4, -5); // 投手側からのメインライト
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+    scene.add(ambientLight);
+
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
+    dirLight1.position.set(5, 8, 5);
     scene.add(dirLight1);
-    const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.6);
-    dirLight2.position.set(-4, -2, 5);
+
+    const dirLight2 = new THREE.DirectionalLight(0x90b0ff, 1.0);
+    dirLight2.position.set(-5, -5, -5);
     scene.add(dirLight2);
 
-    // ラプソード風 同心円グリッド＆十字線 (投手視点の背景)
-    const bgGroup = new THREE.Group();
-    const ringMat = new THREE.LineBasicMaterial({ color: 0x27272a, transparent: true, opacity: 0.5 });
-    for (let r = 0.8; r <= 2.2; r += 0.4) {
-      const ringGeo = new THREE.BufferGeometry().setFromPoints(
-        new THREE.Path().absarc(0, 0, r, 0, Math.PI * 2, true).getPoints(48)
-      );
-      bgGroup.add(new THREE.LineLoop(ringGeo, ringMat));
-    }
-    const crossMat = new THREE.LineBasicMaterial({ color: 0x3f3f46, transparent: true, opacity: 0.35 });
-    bgGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-2.2, 0, 0), new THREE.Vector3(2.2, 0, 0)]), crossMat));
-    bgGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -2.2, 0), new THREE.Vector3(0, 2.2, 0)]), crossMat));
-    bgGroup.position.z = 1.2; // 本塁奥の背景
-    scene.add(bgGroup);
+    // 背景の同心円グリッド（ラプソード風レーダーサークル）
+    const gridGroup = new THREE.Group();
+    const ringMat = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.35 });
+    [1.3, 1.7, 2.1].forEach(r => {
+      const ringGeo = new THREE.RingGeometry(r, r + 0.015, 64);
+      const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide, transparent: true, opacity: 0.25 }));
+      gridGroup.add(ring);
+    });
+    // 十字線
+    const crossMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.3 });
+    const crossPoints = [
+      new THREE.Vector3(-2.2, 0, 0), new THREE.Vector3(2.2, 0, 0),
+      new THREE.Vector3(0, -2.2, 0), new THREE.Vector3(0, 2.2, 0)
+    ];
+    const crossGeo = new THREE.BufferGeometry().setFromPoints(crossPoints);
+    const crossLines = new THREE.LineSegments(crossGeo, crossMat);
+    gridGroup.add(crossLines);
+    scene.add(gridGroup);
 
-    // ボールグループ
+    // ボール本体グループ
     const ballGroup = new THREE.Group();
     ballGroupRef.current = ballGroup;
 
-    // 白い牛革球体 (マット質感)
-    const sphereGeo = new THREE.SphereGeometry(1.0, 32, 32);
+    // 白球本体
+    const sphereGeo = new THREE.SphereGeometry(0.99, 64, 64);
     const sphereMat = new THREE.MeshStandardMaterial({
-      color: 0xf5f5f7,
+      color: 0xf8fafc,
       roughness: 0.35,
-      metalness: 0.0,
+      metalness: 0.05,
     });
     const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
     ballGroup.add(sphereMesh);
 
-    // 太めの赤い立体チューブ縫い目 (コントラスト強調・マット)
+    // 太めの赤い立体チューブ縫い目
     const tubeGeo = createParametricSeamGeometry(seamType, 1.0);
     const seamMat = new THREE.MeshStandardMaterial({
-      color: 0xb91c1c, // 深みのある赤
-      roughness: 0.55, // 糸っぽいマットな質感
+      color: 0xb91c1c,
+      roughness: 0.55,
       metalness: 0,
     });
     const seamMesh = new THREE.Mesh(tubeGeo, seamMat);
@@ -174,37 +189,36 @@ export const SingleBallCanvas = ({
 
     scene.add(ballGroup);
 
-    // 回転軸ベクトルライン（Rapsodo Green Axis Line）
-    // 基準スピン軸（Tilt 12:00 = 水平X軸 3:00〜9:00）に合わせたシリンダー
+    // スピン軸ライン（矢印＋軸棒）
     const spinAxisGroup = new THREE.Group();
     spinAxisGroupRef.current = spinAxisGroup;
 
-    const poleGeo = new THREE.CylinderGeometry(0.016, 0.016, 2.8, 12);
-    poleGeo.rotateZ(Math.PI / 2); // X軸（3:00〜9:00）に寝かせる
+    // 軸棒
+    const poleGeo = new THREE.CylinderGeometry(0.02, 0.02, 3.2, 16);
+    poleGeo.rotateZ(Math.PI / 2);
     const poleMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
     spinAxisGroup.add(new THREE.Mesh(poleGeo, poleMat));
 
-    // 右投手なら9:00 (-X方向)、左投手なら3:00 (+X方向) に矢印
-    const isLeft = arm === 'L';
+    // 基準姿勢は常に 9:00 (-X方向) の矢印に固定。左右の曲がりはジャイロ角の符号で表現する
     const arrowGeo = new THREE.ConeGeometry(0.06, 0.18, 12);
-    arrowGeo.rotateZ(isLeft ? Math.PI / 2 : -Math.PI / 2);
+    arrowGeo.rotateZ(-Math.PI / 2);
     const arrowMat = new THREE.MeshBasicMaterial({ color: 0x4ade80 });
     const arrowMesh = new THREE.Mesh(arrowGeo, arrowMat);
-    arrowMesh.position.x = isLeft ? 1.4 : -1.4;
+    arrowMesh.position.x = -1.4;
     spinAxisGroup.add(arrowMesh);
 
     // 回転方向を示すスピンリング
     const spinRingPoints = new THREE.Path().absarc(0, 0, 0.45, 0, Math.PI * 1.6, false).getPoints(24);
     const spinRingGeo = new THREE.BufferGeometry().setFromPoints(spinRingPoints.map(p => new THREE.Vector3(0, p.x, p.y)));
     const spinRing = new THREE.Line(spinRingGeo, new THREE.LineBasicMaterial({ color: 0x38bdf8 }));
-    spinRing.position.x = isLeft ? 1.15 : -1.15;
+    spinRing.position.x = -1.15;
     spinAxisGroup.add(spinRing);
 
     scene.add(spinAxisGroup);
 
-    // リサイズ
+    // リサイズハンドラ
     const handleResize = () => {
-      if (!container) return;
+      if (!container || !renderer || !camera) return;
       const w = container.clientWidth;
       const h = container.clientHeight;
       camera.aspect = w / h;
@@ -214,36 +228,69 @@ export const SingleBallCanvas = ({
     window.addEventListener('resize', handleResize);
 
     // マウスドラッグ
+    const applyPresetCamera = (angle) => {
+      if (angle === 'catcher') {
+        camera.position.set(0, 0, 5.0);
+      } else if (angle === 'pitcher') {
+        camera.position.set(0, 0, -5.0);
+      } else if (angle === 'side') {
+        camera.position.set(5.0, 0, 0);
+      } else if (angle === 'top') {
+        camera.position.set(0, 5.0, 0.001);
+      }
+      camera.lookAt(0, 0, 0);
+    };
+
     const onMouseDown = (e) => {
       isDraggingRef.current = true;
       prevMousePosRef.current = { x: e.clientX, y: e.clientY };
     };
+
     const onMouseMove = (e) => {
       if (!isDraggingRef.current) return;
-      const dx = e.clientX - prevMousePosRef.current.x;
-      const dy = e.clientY - prevMousePosRef.current.y;
+      const deltaX = e.clientX - prevMousePosRef.current.x;
+      const deltaY = e.clientY - prevMousePosRef.current.y;
       prevMousePosRef.current = { x: e.clientX, y: e.clientY };
-      orbitAnglesRef.current.theta += dx * 0.01;
-      orbitAnglesRef.current.phi = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, orbitAnglesRef.current.phi + dy * 0.01));
+
+      orbitAnglesRef.current.theta += deltaX * 0.01;
+      orbitAnglesRef.current.phi = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, orbitAnglesRef.current.phi + deltaY * 0.01));
+
+      const r = 5.0;
+      const t = orbitAnglesRef.current.theta;
+      const p = orbitAnglesRef.current.phi;
+
+      camera.position.x = r * Math.sin(t) * Math.cos(p);
+      camera.position.y = r * Math.sin(p);
+      camera.position.z = r * Math.cos(t) * Math.cos(p);
+      camera.lookAt(0, 0, 0);
     };
+
     const onMouseUp = () => {
       isDraggingRef.current = false;
+    };
+    // ダブルクリックで、ドラッグ回転を選択中のプリセット視点へ戻す
+    // （ドラッグ後は視点セレクタの表示と実際のカメラ位置がズレたままになるため）
+    const onDoubleClick = () => {
+      orbitAnglesRef.current = { theta: 0, phi: 0 };
+      applyPresetCamera(viewAngleRef.current);
     };
 
     const dom = renderer.domElement;
     dom.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
+    dom.addEventListener('dblclick', onDoubleClick);
 
     return () => {
       window.removeEventListener('resize', handleResize);
       dom.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      dom.removeEventListener('dblclick', onDoubleClick);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       renderer.dispose();
     };
-  }, [arm]);
+  }, []);
 
   // シームタイプの変更時にジオメトリを更新
   useEffect(() => {
@@ -269,29 +316,29 @@ export const SingleBallCanvas = ({
 
   // 視点切り替え
   useEffect(() => {
+    viewAngleRef.current = viewAngle;
     const camera = cameraRef.current;
     if (!camera) return;
 
-    if (viewAngle === 'pitcher') {
-      // 投手視点 (ラプソード公式基準: 投手の背後から本塁を見る)
-      camera.position.set(0, 0, -5.0);
-      camera.lookAt(0, 0, 0);
-    } else if (viewAngle === 'catcher') {
-      // 捕手視点 (本塁側から投球を見る)
+    // ドラッグで自由回転させた後にプリセット視点へ戻すため、軌道角度もリセットする
+    orbitAnglesRef.current = { theta: 0, phi: 0 };
+
+    if (viewAngle === 'catcher') {
       camera.position.set(0, 0, 5.0);
       camera.lookAt(0, 0, 0);
+    } else if (viewAngle === 'pitcher') {
+      camera.position.set(0, 0, -5.0);
+      camera.lookAt(0, 0, 0);
     } else if (viewAngle === 'side') {
-      // 側面視点 (三塁側)
       camera.position.set(5.0, 0, 0);
       camera.lookAt(0, 0, 0);
     } else if (viewAngle === 'top') {
-      // 真上視点 (天頂)
       camera.position.set(0, 5.0, 0.001);
       camera.lookAt(0, 0, 0);
     }
   }, [viewAngle]);
 
-  // アニメーションループ: Rapsodo公式の厳密なスピン軸・チルト・ジャイロ回転
+  // アニメーションループ & Rapsodo行列力学合成
   useEffect(() => {
     let lastTime = performance.now();
 
@@ -308,23 +355,21 @@ export const SingleBallCanvas = ({
       const spinAxisGroup = spinAxisGroupRef.current;
 
       if (ballGroup && spinAxisGroup) {
-        const isLeft = arm === 'L';
-
         // 1. InitRotation_Matrix: 4/2/1シームの初期姿勢
         const matInit = getInitRotationMatrix(seamType);
 
         // 2. SpinAnimation_Matrix: 基準スピン軸（横X軸 3:00〜9:00）周りのバックスピン自転
-        const spinDir = isLeft ? 1 : -1;
-        const matSpin = new THREE.Matrix4().makeRotationX(spinDir * spinAngleRef.current);
+        //    バックスピンの回転方向自体は投手の左右で変わらないため固定
+        const matSpin = new THREE.Matrix4().makeRotationX(-spinAngleRef.current);
 
-        // 3. GyroAngle_Matrix: Rapsodo準拠ジャイロ傾斜角
-        // 矢印方向（右投なら9:00、左投なら3:00）から、進行軸(+Z 捕手側)に向かって角度がついていく
+        // 3. GyroAngle_Matrix: Rapsodo準拠ジャイロ傾斜角（符号付き）
+        //    + (プラス) = 左方向へ曲がる（基本のスライダー方向）
+        //    - (マイナス) = 右方向へ曲がる（逆ジャイロ）
         const gyroRad = (gyroDegrees * Math.PI) / 180;
-        const matGyro = new THREE.Matrix4().makeRotationY(isLeft ? gyroRad : -gyroRad);
+        const matGyro = new THREE.Matrix4().makeRotationY(-gyroRad);
 
-        // 4. AxisTilt_Matrix: 投手視点ラプソード時計盤チルト
-        // 投手視点(-Zから本塁を見る)で: 12:00 = 上(0°), 3:00 = 右(90°), 6:00 = 下(180°), 9:00 = 左(270°)
-        const tiltRad = (calculatedTiltDeg * Math.PI) / 180;
+        // 4. AxisTilt_Matrix: Rapsodo時計盤チルト (12:00 = 0° バックスピン, 1:30 = 45° シュート回転, 6:00 = ±180° トップスピン)
+        const tiltRad = -(calculatedTiltDeg * Math.PI) / 180;
         const matAxisTilt = new THREE.Matrix4().makeRotationZ(tiltRad);
 
         // 5. 行列合成: FinalTransform = AxisTilt * GyroAngle * SpinAnimation * InitRotation
@@ -345,17 +390,6 @@ export const SingleBallCanvas = ({
         spinAxisGroup.matrix.copy(matAxisOnly);
       }
 
-      const camera = cameraRef.current;
-      if (camera && isDraggingRef.current) {
-        const r = 5.0;
-        const theta = orbitAnglesRef.current.theta;
-        const phi = orbitAnglesRef.current.phi;
-        camera.position.x = r * Math.sin(theta) * Math.cos(phi);
-        camera.position.y = r * Math.sin(phi);
-        camera.position.z = -r * Math.cos(theta) * Math.cos(phi);
-        camera.lookAt(0, 0, 0);
-      }
-
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
         rendererRef.current.render(sceneRef.current, cameraRef.current);
       }
@@ -368,29 +402,25 @@ export const SingleBallCanvas = ({
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [seamType, rpm, calculatedTiltDeg, gyroDegrees, arm, isPlaying, playbackSpeed]);
+  }, [seamType, rpm, calculatedTiltDeg, gyroDegrees, isPlaying, playbackSpeed]);
 
   return (
     <div className="relative w-full h-full flex flex-col items-center justify-center select-none overflow-hidden rounded-2xl bg-zinc-950 border border-zinc-800 shadow-2xl">
-      {/* Header Tag */}
-      <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
-        <span
-          className="px-2.5 py-1 rounded-lg text-xs font-black text-white shadow"
-          style={{ backgroundColor: accentColor }}
-        >
+      {/* HUD Info Badges */}
+      <div className="absolute top-3 left-3 z-10 flex items-center gap-2 pointer-events-none">
+        <span className="px-2.5 py-0.5 rounded-md text-xs font-black text-white shadow-md border border-white/20" style={{ backgroundColor: accentColor }}>
           {title}
         </span>
-        <span className="px-2 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-750 text-[10px] font-bold text-zinc-300 backdrop-blur">
+        <span className="px-2 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-750 text-[10px] font-mono font-bold text-zinc-300 backdrop-blur">
           {seamType.toUpperCase()}
         </span>
         <span className="px-2 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-750 text-[10px] font-bold text-amber-300 backdrop-blur">
-          {arm === 'L' ? '左投 (LHP)' : '右投 (RHP)'}
+          {gyroDegrees > 0 ? '◀ 左方向ジャイロ' : gyroDegrees < 0 ? '右方向ジャイロ ▶' : 'ジャイロなし'}
         </span>
       </div>
 
-      {/* Stats Overlay */}
-      <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-0.5 text-[11px] font-mono text-zinc-400 bg-zinc-900/80 px-2.5 py-1.5 rounded-xl border border-zinc-800 backdrop-blur">
-        <div className="flex items-center gap-1.5 font-bold text-white">
+      <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1 text-[11px] font-mono font-bold text-zinc-300 bg-zinc-900/80 px-2.5 py-1.5 rounded-lg border border-zinc-800 backdrop-blur pointer-events-none">
+        <div className="flex items-center gap-1.5">
           <span className="text-emerald-400">RPM:</span>
           <span>{rpm}</span>
         </div>
@@ -400,7 +430,7 @@ export const SingleBallCanvas = ({
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-yellow-400">Gyro:</span>
-          <span>{gyroDegrees}° ({Math.round(Math.cos((gyroDegrees * Math.PI) / 180) * 100)}% 効率)</span>
+          <span>{gyroDegrees > 0 ? `+${gyroDegrees}` : gyroDegrees}° ({Math.round(Math.cos((Math.abs(gyroDegrees) * Math.PI) / 180) * 100)}% 効率)</span>
         </div>
       </div>
 
@@ -408,7 +438,7 @@ export const SingleBallCanvas = ({
       <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing min-h-[300px]" />
 
       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-zinc-500 pointer-events-none bg-zinc-950/70 px-3 py-0.5 rounded-full border border-zinc-850">
-        🖱️ ドラッグで視点を360°回転
+        🖱️ ドラッグで視点を360°回転 ・ ダブルクリックでプリセット視点に戻る
       </div>
     </div>
   );
@@ -418,8 +448,8 @@ export const PITCH_PRESETS = [
   { name: '4-Seam Fastball (4シーム)', seamType: '4-seam', rpm: 2350, tiltClock: '1:15', tiltDegrees: 37.5, gyroDegrees: 10, desc: '馬蹄形が正面' },
   { name: '2-Seam / Sinker (2シーム)', seamType: '2-seam', rpm: 2150, tiltClock: '2:15', tiltDegrees: 67.5, gyroDegrees: 18, desc: '縫い目のすき間が正面' },
   { name: '1-Seam Gyro Sinker (1シーム)', seamType: '1-seam', rpm: 2100, tiltClock: '2:30', tiltDegrees: 75, gyroDegrees: 35, desc: '頂点がポール寄りに斜め' },
-  { name: 'Sweeper (スイーパー)', seamType: '2-seam', rpm: 2600, tiltClock: '9:00', tiltDegrees: 270, gyroDegrees: 30, desc: '横滑りスイーパー' },
-  { name: 'Gyro Slider (縦スラ/ジャイロ)', seamType: '4-seam', rpm: 2400, tiltClock: '10:30', tiltDegrees: 315, gyroDegrees: 65, desc: 'ライフル回転' },
+  { name: 'Sweeper (スイーパー)', seamType: '2-seam', rpm: 2600, tiltClock: '9:00', tiltDegrees: -90, gyroDegrees: 30, desc: '横滑りスイーパー' },
+  { name: 'Gyro Slider (縦スラ/ジャイロ)', seamType: '4-seam', rpm: 2400, tiltClock: '10:30', tiltDegrees: -45, gyroDegrees: 65, desc: 'ライフル回転' },
   { name: '12-6 Curveball (ドロップカーブ)', seamType: '4-seam', rpm: 2700, tiltClock: '6:00', tiltDegrees: 180, gyroDegrees: 8, desc: 'トップスピン' },
   { name: 'Circle Changeup (チェンジアップ)', seamType: '2-seam', rpm: 1750, tiltClock: '2:45', tiltDegrees: 82.5, gyroDegrees: 28, desc: 'ブレーキ回転' },
 ];

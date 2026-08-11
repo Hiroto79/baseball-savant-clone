@@ -33,7 +33,6 @@ export const SeamSimulator = ({ showHeader = false }) => {
     tiltClock: '1:15',
     tiltDegrees: 37.5,
     gyroDegrees: 10,
-    arm: 'R'
   });
 
   // Ball B Settings (Right)
@@ -44,7 +43,6 @@ export const SeamSimulator = ({ showHeader = false }) => {
     tiltClock: '2:15',
     tiltDegrees: 67.5,
     gyroDegrees: 25,
-    arm: 'R'
   });
 
   // Apply Preset to Ball
@@ -61,9 +59,10 @@ export const SeamSimulator = ({ showHeader = false }) => {
     else setBallB(prev => ({ ...prev, ...updated }));
   };
 
-  // Convert degrees to clock string (e.g. 45 -> 1:30)
+  // Convert degrees (can be negative, -180〜180) to clock string (e.g. 45 -> 1:30, -90 -> 9:00)
   const degToClock = (deg) => {
-    const totalMin = (deg / 30) * 60;
+    const normalized = ((deg % 360) + 360) % 360; // 負の角度を 0〜360 に正規化
+    const totalMin = (normalized / 30) * 60;
     const h = Math.floor(totalMin / 60) || 12;
     const m = Math.round((totalMin % 60) / 15) * 15;
     return `${h === 0 ? 12 : h}:${m === 0 ? '00' : m}`;
@@ -158,7 +157,6 @@ export const SeamSimulator = ({ showHeader = false }) => {
               tiltClock={ballA.tiltClock}
               tiltDegrees={ballA.tiltDegrees}
               gyroDegrees={ballA.gyroDegrees}
-              arm={ballA.arm}
               isPlaying={isPlaying}
               playbackSpeed={playbackSpeed}
               viewAngle={viewAngle}
@@ -217,7 +215,7 @@ export const SeamSimulator = ({ showHeader = false }) => {
               </div>
             </div>
 
-            {/* 2. RPM Slider */}
+            {/* 2. RPM Slider（中央 2200RPM 基準） */}
             <div>
               <div className="flex justify-between text-xs font-bold mb-1">
                 <span className="flex items-center gap-1">
@@ -229,15 +227,20 @@ export const SeamSimulator = ({ showHeader = false }) => {
               <input
                 type="range"
                 min="800"
-                max="3200"
+                max="3600"
                 step="50"
                 value={ballA.rpm}
                 onChange={(e) => setBallA(prev => ({ ...prev, rpm: parseInt(e.target.value, 10) }))}
                 className="w-full accent-blue-500 cursor-pointer"
               />
+              <div className="flex justify-between text-[9px] text-muted-foreground font-mono mt-0.5">
+                <span>800</span>
+                <span className="text-zinc-300">2200 (基準)</span>
+                <span>3600</span>
+              </div>
             </div>
 
-            {/* 3. Spin Axis (Tilt) */}
+            {/* 3. Spin Axis (Tilt) — 中央(0°)が12:00基準 */}
             <div>
               <div className="flex justify-between text-xs font-bold mb-1">
                 <span className="flex items-center gap-1">
@@ -248,8 +251,8 @@ export const SeamSimulator = ({ showHeader = false }) => {
               </div>
               <input
                 type="range"
-                min="0"
-                max="360"
+                min="-180"
+                max="180"
                 step="7.5"
                 value={ballA.tiltDegrees}
                 onChange={(e) => {
@@ -263,28 +266,28 @@ export const SeamSimulator = ({ showHeader = false }) => {
                 className="w-full accent-blue-500 cursor-pointer"
               />
               <div className="flex justify-between text-[9px] text-muted-foreground font-mono mt-0.5">
-                <span>12:00 (0°)</span>
-                <span>3:00 (90°)</span>
-                <span>6:00 (180°)</span>
-                <span>9:00 (270°)</span>
-                <span>12:00 (360°)</span>
+                <span>6:00 (-180°)</span>
+                <span>9:00 (-90°)</span>
+                <span className="text-zinc-300">12:00 (0°)</span>
+                <span>3:00 (+90°)</span>
+                <span>6:00 (+180°)</span>
               </div>
             </div>
 
-            {/* 4. Gyro Angle (0° ~ 90°) */}
+            {/* 4. Gyro Angle（符号付き -90°〜+90°、0°が中央基準。投手の利き腕選択は不要） */}
             <div>
               <div className="flex justify-between text-xs font-bold mb-1">
                 <span className="flex items-center gap-1">
                   <Compass className="w-3.5 h-3.5 text-yellow-400" />
-                  ジャイロ角 (Gyro Angle / 効率)
+                  ジャイロ角 (符号付き / 効率)
                 </span>
                 <span className="font-mono text-yellow-400">
-                  {ballA.gyroDegrees}° (スピン効率: {Math.round(Math.cos((ballA.gyroDegrees * Math.PI) / 180) * 100)}%)
+                  {ballA.gyroDegrees > 0 ? `+${ballA.gyroDegrees}` : ballA.gyroDegrees}° (スピン効率: {Math.round(Math.cos((Math.abs(ballA.gyroDegrees) * Math.PI) / 180) * 100)}%)
                 </span>
               </div>
               <input
                 type="range"
-                min="0"
+                min="-90"
                 max="90"
                 step="1"
                 value={ballA.gyroDegrees}
@@ -292,9 +295,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
                 className="w-full accent-blue-500 cursor-pointer"
               />
               <div className="flex justify-between text-[9px] text-muted-foreground font-mono mt-0.5">
-                <span>0° (100% 垂直)</span>
-                <span>45° (71% 斜め)</span>
-                <span>90° (0% ライフル)</span>
+                <span>◀ 右方向 (逆ジャイロ) -90°</span>
+                <span className="text-zinc-300">0° (ジャイロなし)</span>
+                <span>+90° 左方向 (基本) ▶</span>
               </div>
             </div>
           </div>
@@ -312,7 +315,6 @@ export const SeamSimulator = ({ showHeader = false }) => {
               tiltClock={ballB.tiltClock}
               tiltDegrees={ballB.tiltDegrees}
               gyroDegrees={ballB.gyroDegrees}
-              arm={ballB.arm}
               isPlaying={isPlaying}
               playbackSpeed={playbackSpeed}
               viewAngle={viewAngle}
@@ -371,7 +373,7 @@ export const SeamSimulator = ({ showHeader = false }) => {
               </div>
             </div>
 
-            {/* 2. RPM Slider */}
+            {/* 2. RPM Slider（中央 2200RPM 基準） */}
             <div>
               <div className="flex justify-between text-xs font-bold mb-1">
                 <span className="flex items-center gap-1">
@@ -383,15 +385,20 @@ export const SeamSimulator = ({ showHeader = false }) => {
               <input
                 type="range"
                 min="800"
-                max="3200"
+                max="3600"
                 step="50"
                 value={ballB.rpm}
                 onChange={(e) => setBallB(prev => ({ ...prev, rpm: parseInt(e.target.value, 10) }))}
                 className="w-full accent-amber-500 cursor-pointer"
               />
+              <div className="flex justify-between text-[9px] text-muted-foreground font-mono mt-0.5">
+                <span>800</span>
+                <span className="text-zinc-300">2200 (基準)</span>
+                <span>3600</span>
+              </div>
             </div>
 
-            {/* 3. Spin Axis (Tilt) */}
+            {/* 3. Spin Axis (Tilt) — 中央(0°)が12:00基準 */}
             <div>
               <div className="flex justify-between text-xs font-bold mb-1">
                 <span className="flex items-center gap-1">
@@ -402,8 +409,8 @@ export const SeamSimulator = ({ showHeader = false }) => {
               </div>
               <input
                 type="range"
-                min="0"
-                max="360"
+                min="-180"
+                max="180"
                 step="7.5"
                 value={ballB.tiltDegrees}
                 onChange={(e) => {
@@ -417,28 +424,28 @@ export const SeamSimulator = ({ showHeader = false }) => {
                 className="w-full accent-amber-500 cursor-pointer"
               />
               <div className="flex justify-between text-[9px] text-muted-foreground font-mono mt-0.5">
-                <span>12:00 (0°)</span>
-                <span>3:00 (90°)</span>
-                <span>6:00 (180°)</span>
-                <span>9:00 (270°)</span>
-                <span>12:00 (360°)</span>
+                <span>6:00 (-180°)</span>
+                <span>9:00 (-90°)</span>
+                <span className="text-zinc-300">12:00 (0°)</span>
+                <span>3:00 (+90°)</span>
+                <span>6:00 (+180°)</span>
               </div>
             </div>
 
-            {/* 4. Gyro Angle (0° ~ 90°) */}
+            {/* 4. Gyro Angle（符号付き -90°〜+90°、0°が中央基準。投手の利き腕選択は不要） */}
             <div>
               <div className="flex justify-between text-xs font-bold mb-1">
                 <span className="flex items-center gap-1">
                   <Compass className="w-3.5 h-3.5 text-yellow-400" />
-                  ジャイロ角 (Gyro Angle / 効率)
+                  ジャイロ角 (符号付き / 効率)
                 </span>
                 <span className="font-mono text-yellow-400">
-                  {ballB.gyroDegrees}° (スピン効率: {Math.round(Math.cos((ballB.gyroDegrees * Math.PI) / 180) * 100)}%)
+                  {ballB.gyroDegrees > 0 ? `+${ballB.gyroDegrees}` : ballB.gyroDegrees}° (スピン効率: {Math.round(Math.cos((Math.abs(ballB.gyroDegrees) * Math.PI) / 180) * 100)}%)
                 </span>
               </div>
               <input
                 type="range"
-                min="0"
+                min="-90"
                 max="90"
                 step="1"
                 value={ballB.gyroDegrees}
@@ -446,9 +453,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
                 className="w-full accent-amber-500 cursor-pointer"
               />
               <div className="flex justify-between text-[9px] text-muted-foreground font-mono mt-0.5">
-                <span>0° (100% 垂直)</span>
-                <span>45° (71% 斜め)</span>
-                <span>90° (0% ライフル)</span>
+                <span>◀ 右方向 (逆ジャイロ) -90°</span>
+                <span className="text-zinc-300">0° (ジャイロなし)</span>
+                <span>+90° 左方向 (基本) ▶</span>
               </div>
             </div>
           </div>
@@ -472,7 +479,7 @@ export const SeamSimulator = ({ showHeader = false }) => {
           <div className="p-3 rounded-xl bg-muted/30 border border-border/60 space-y-1">
             <h4 className="font-bold text-foreground">2. ジャイロ回転 (Gyro Angle)</h4>
             <p>
-              回転軸が進行方向に向く（ジャイロ角90°）と、マグナス力による変化量はゼロになりますが、弾道の急激な沈み（ジャイロカッター/縦スラ）や鋭い落ちを演出します。スピン効率 = cos(ジャイロ角)。
+              回転軸が進行方向に向く（|ジャイロ角|90°）と、マグナス力による変化量はゼロになりますが、弾道の急激な沈み（ジャイロカッター/縦スラ）や鋭い落ちを演出します。符号は+が左方向（基本のスライダー系）、-が右方向（逆ジャイロ）を表し、投手の利き腕を選ぶ必要はありません。スピン効率 = cos(|ジャイロ角|)。
             </p>
           </div>
           <div className="p-3 rounded-xl bg-muted/30 border border-border/60 space-y-1">
