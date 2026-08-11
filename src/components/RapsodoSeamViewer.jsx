@@ -46,14 +46,14 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
-    // 2-Seam: Z軸 90度回転。正面に2本の平行な縫い目（レール）が並び、回転時に2本のシームが走る
-    m.makeRotationZ(Math.PI / 2);
+    // 2-Seam: 写真の通りの実物姿勢。中央に広い白革の余白があり、左右に2本の弧が縦に並ぶ
+    m.identity();
   } else if (seamType === '1-seam') {
-    // 1-Seam: Y軸 90度回転。中央に1本の縫い目ラインが通り、回転時に1本のシームだけが見える（ワンシーム）
+    // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢
     m.makeRotationY(Math.PI / 2);
   } else {
-    // 4-Seam: (0°, 0°, 0°) 馬蹄形が正面で、回転時に4本の縫い目が通過する
-    m.identity();
+    // 4-Seam: 馬蹄形（U字）が正面に来て、1回転で4回縫い目が通過する姿勢
+    m.makeRotationX(Math.PI / 2);
   }
   return m;
 }
