@@ -2,28 +2,22 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import * as THREE from 'three';
 
 /**
- * ユーザー指定の球面パラメータ方程式による野球ボールシーム (SeamModel)
+ * Rapsodo Pitching 準拠の 3D Baseball Seam & Spin Visualizer Component
  * 
- * ステップ1: 球面パラメータ方程式
- * θ(t) = a * sin(2t)   (緯度方向の上下の波打ち a ≈ 0.35〜0.40 rad)
- * ϕ(t) = t              (経度方向 t: 0〜2π)
+ * ラプソード公式のスピン軸・回転定義:
+ * - 12:00 (0°): 純粋なバックスピン (正面が下から上へ回転、軸は水平X軸)
+ * - 6:00 (180°): 純粋なトップスピン / ドロップカーブ (正面が上から下へ回転)
+ * - 3:00 (90°): 右方向シュート / アームサイド (正面が左から右へ回転、軸は垂直Y軸)
+ * - 9:00 (270°): 左方向スライダー / グローブサイド (正面が右から左へ回転)
+ * - 1:15〜1:30 (38°〜45°): 右投手フォーシーム (右上1:30方向へのバックスピン+シュート)
  * 
- * 直交座標変換:
- * x(t) = R * cos(θ(t)) * cos(ϕ(t))
- * y(t) = R * cos(θ(t)) * sin(ϕ(t))
- * z(t) = R * sin(θ(t))
- * 
- * ステップ2: TubeGeometry による太めの立体チューブ (半径 0.042)
- * 
- * ステップ3: 4シーム / 2シーム / 1シーム の初期姿勢 (InitRotation)
- * 4-Seam: a=0.35, Yaw=0°, Pitch=0°, Roll=0° (馬蹄形が正面)
- * 2-Seam: a=0.35, Yaw=90°, Pitch=0°, Roll=0° (縫い目のすき間が正面)
- * 1-Seam: a=0.40, Yaw=45°, Pitch=45°, Roll=0° (頂点がポール寄りに斜め)
- * 
- * 回転方向: 正しいバックスピン（下から上への回転）とトップスピンの向き
+ * 幾何学:
+ * - ユーザー指定の球面パラメータ方程式 (θ = a*sin(2t), ϕ = t)
+ * - 太めの立体チューブ (半径 0.042)
+ * - 4シーム / 2シーム / 1シーム の初期姿勢
  */
 
-// ユーザー指定の数式に従ってシームジオメトリを生成 (太さ 0.042 で強調)
+// ユーザー指定の数式に従ってシームジオメトリを生成
 function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
   const segments = 360;
@@ -43,7 +37,6 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
     points.push(new THREE.Vector3(x, y, z));
   }
 
-  // 芯の曲線を作成し、太めの TubeGeometry で立体化
   const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal');
   const tubeGeo = new THREE.TubeGeometry(curve, 240, 0.042, 10, true);
 
@@ -75,7 +68,7 @@ export const SingleBallCanvas = ({
   tiltDegrees = 45,
   gyroDegrees = 15,
   isPlaying = true,
-  playbackSpeed = 0.04, // 縫い目がじっくり見える超低速
+  playbackSpeed = 0.03, // 超低速・じっくり観察用の速度
   viewAngle = 'catcher',
   title = 'Ball A',
   accentColor = '#3b82f6',
@@ -169,7 +162,7 @@ export const SingleBallCanvas = ({
     // 太めの赤い立体チューブ縫い目
     const tubeGeo = createParametricSeamGeometry(seamType, 1.0);
     const seamMat = new THREE.MeshStandardMaterial({
-      color: 0xdc2626, // 鮮やかな赤
+      color: 0xdc2626,
       roughness: 0.2,
       metalness: 0.1,
     });
@@ -179,29 +172,34 @@ export const SingleBallCanvas = ({
 
     scene.add(ballGroup);
 
-    // 回転軸ベクトルライン（ライムグリーン軸＋矢印＋回転リング）
+    // 回転軸ベクトルライン（Rapsodo Green Axis Line）
+    // 基準スピン軸（Tilt 12:00 = 水平X軸）に合わせたシリンダー
     const spinAxisGroup = new THREE.Group();
     spinAxisGroupRef.current = spinAxisGroup;
 
     const poleGeo = new THREE.CylinderGeometry(0.016, 0.016, 2.8, 12);
+    // Y軸からX軸（水平）へ寝かせる
+    poleGeo.rotateZ(Math.PI / 2);
     const poleMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
     spinAxisGroup.add(new THREE.Mesh(poleGeo, poleMat));
 
     const arrowGeo = new THREE.ConeGeometry(0.06, 0.18, 12);
+    arrowGeo.rotateZ(-Math.PI / 2);
     const arrowMat = new THREE.MeshBasicMaterial({ color: 0x4ade80 });
     const arrowMesh = new THREE.Mesh(arrowGeo, arrowMat);
-    arrowMesh.position.y = 1.4;
+    arrowMesh.position.x = -1.4; // 基準スピンベクトル先端
     spinAxisGroup.add(arrowMesh);
 
+    // 回転方向を示すスピンリング
     const spinRingPoints = new THREE.Path().absarc(0, 0, 0.45, 0, Math.PI * 1.6, false).getPoints(24);
-    const spinRingGeo = new THREE.BufferGeometry().setFromPoints(spinRingPoints.map(p => new THREE.Vector3(p.x, 0, p.y)));
+    const spinRingGeo = new THREE.BufferGeometry().setFromPoints(spinRingPoints.map(p => new THREE.Vector3(0, p.x, p.y)));
     const spinRing = new THREE.Line(spinRingGeo, new THREE.LineBasicMaterial({ color: 0x38bdf8 }));
-    spinRing.position.y = 1.15;
+    spinRing.position.x = -1.15;
     spinAxisGroup.add(spinRing);
 
     scene.add(spinAxisGroup);
 
-    // リサイズ処理
+    // リサイズ
     const handleResize = () => {
       if (!container) return;
       const w = container.clientWidth;
@@ -212,7 +210,7 @@ export const SingleBallCanvas = ({
     };
     window.addEventListener('resize', handleResize);
 
-    // マウスドラッグ操作
+    // マウスドラッグ
     const onMouseDown = (e) => {
       isDraggingRef.current = true;
       prevMousePosRef.current = { x: e.clientX, y: e.clientY };
@@ -286,7 +284,7 @@ export const SingleBallCanvas = ({
     }
   }, [viewAngle]);
 
-  // アニメーションループ: 正しいバックスピン（下から上へ）とトップスピンの物理回転
+  // アニメーションループ: Rapsodo公式の厳密なスピン軸・チルト回転
   useEffect(() => {
     let lastTime = performance.now();
 
@@ -295,8 +293,8 @@ export const SingleBallCanvas = ({
       lastTime = time;
 
       if (isPlaying) {
-        // 回転方向: バックスピン（下から上へ巻き上がる）方向に反転
-        const radPerSec = -(rpm * (2 * Math.PI) / 60) * playbackSpeed;
+        // 自転角の増分
+        const radPerSec = (rpm * (2 * Math.PI) / 60) * playbackSpeed;
         spinAngleRef.current += radPerSec * deltaSec;
       }
 
@@ -307,14 +305,16 @@ export const SingleBallCanvas = ({
         // 1. InitRotation_Matrix: 4/2/1シームの初期姿勢
         const matInit = getInitRotationMatrix(seamType);
 
-        // 2. SpinAnimation_Matrix: 正しい自転回転 (Y軸スピン)
-        const matSpin = new THREE.Matrix4().makeRotationY(spinAngleRef.current);
+        // 2. SpinAnimation_Matrix: 基準スピン軸（横X軸）周りのバックスピン回転
+        // -X軸周りに回転することで、正面(+Z面)が下から上(+Y方向)へ巻き上がるバックスピンになる
+        const matSpin = new THREE.Matrix4().makeRotationX(-spinAngleRef.current);
 
-        // 3. GyroAngle_Matrix: ジャイロ傾斜角
+        // 3. GyroAngle_Matrix: ジャイロ傾斜角 (進行Z軸方向へのチルト)
         const gyroRad = (gyroDegrees * Math.PI) / 180;
-        const matGyro = new THREE.Matrix4().makeRotationZ(gyroRad);
+        const matGyro = new THREE.Matrix4().makeRotationY(gyroRad);
 
-        // 4. AxisTilt_Matrix: 回転軸の向き (時計の針 / 角度)
+        // 4. AxisTilt_Matrix: Rapsodo時計盤チルト (12:00 = 0° バックスピン, 1:30 = 45° シュート回転, 6:00 = 180° トップスピン)
+        // 時計回り回転 (-tiltRad)
         const tiltRad = -(calculatedTiltDeg * Math.PI) / 180;
         const matAxisTilt = new THREE.Matrix4().makeRotationZ(tiltRad);
 
@@ -328,8 +328,12 @@ export const SingleBallCanvas = ({
         ballGroup.matrixAutoUpdate = false;
         ballGroup.matrix.copy(matFinal);
 
+        // 回転軸ラインの同期: AxisTilt * GyroAngle
+        const matAxisOnly = new THREE.Matrix4();
+        matAxisOnly.multiply(matAxisTilt);
+        matAxisOnly.multiply(matGyro);
         spinAxisGroup.matrixAutoUpdate = false;
-        spinAxisGroup.matrix.copy(matAxisTilt);
+        spinAxisGroup.matrix.copy(matAxisOnly);
       }
 
       const camera = cameraRef.current;
