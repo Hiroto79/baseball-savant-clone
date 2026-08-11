@@ -17,10 +17,10 @@ import {
 } from 'lucide-react';
 import { SingleBallCanvas, PITCH_PRESETS } from '../components/RapsodoSeamViewer';
 
-export const SeamSimulator = () => {
+export const SeamSimulator = ({ showHeader = false }) => {
   // Global View & Playback Controls
   const [isPlaying, setIsPlaying] = useState(true);
-  const [playbackSpeed, setPlaybackSpeed] = useState(0.2); // Default slow motion for clean seam inspection
+  const [playbackSpeed, setPlaybackSpeed] = useState(0.25);
   const [viewAngle, setViewAngle] = useState('catcher'); // 'catcher', 'pitcher', 'side', 'top'
 
   // Ball A Settings (Left)
@@ -68,26 +68,21 @@ export const SeamSimulator = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 text-foreground">
+    <div className="space-y-4 max-w-7xl mx-auto text-foreground">
       
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 border border-border shadow-xl">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-500/20 text-blue-400 border border-blue-500/30">
-              Rapsodo 3D Model
-            </span>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-              ⚾ 3D ボール回転 ＆ シームシミュレーター
-            </h1>
-          </div>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            ラプソード解析基準のクリーンな3Dモデルで、4シーム・2シーム・1シームの縫い目の向き、回転軸、ジャイロ角の違いを2球同時にリアルタイム比較します。
-          </p>
+      {/* Control Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-xl bg-card border border-border shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-blue-500/20 text-blue-400 border border-blue-500/30">
+            Rapsodo 3D Model
+          </span>
+          <span className="text-xs sm:text-sm font-bold text-foreground">
+            4シーム・2シーム・1シーム リアルタイム2球比較
+          </span>
         </div>
 
         {/* Global Playback Bar */}
-        <div className="flex flex-wrap items-center gap-2 bg-zinc-900/90 p-2 rounded-xl border border-zinc-800 shrink-0">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setIsPlaying(prev => !prev)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all shadow cursor-pointer ${

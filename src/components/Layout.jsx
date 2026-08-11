@@ -41,12 +41,8 @@ const Layout = ({ children }) => {
                         <span>Rapsodo Analysis</span>
                     </Link>
                     <Link to="/simulator" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
-                        <Activity size={20} />
-                        <span>Trajectory Simulator</span>
-                    </Link>
-                    <Link to="/seam-simulator" className="flex items-center gap-3 px-3 py-2 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 font-bold transition-colors shadow-sm">
                         <Compass size={20} />
-                        <span>3D Seam Simulator</span>
+                        <span>Simulator (3Dシーム&軌道)</span>
                     </Link>
                     <Link to="/blast" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
                         <Activity size={20} />
@@ -131,16 +127,8 @@ const Layout = ({ children }) => {
                                 onClick={() => setIsMobileMenuOpen(false)}
                                 className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
                             >
-                                <Activity size={20} />
-                                <span>Trajectory Simulator</span>
-                            </Link>
-                            <Link
-                                to="/seam-simulator"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                                className="flex items-center gap-3 px-3 py-2 rounded-md bg-blue-500/10 text-blue-400 font-bold hover:bg-blue-500/20 transition-colors"
-                            >
                                 <Compass size={20} />
-                                <span>3D Seam Simulator</span>
+                                <span>Simulator (3Dシーム&軌道)</span>
                             </Link>
                             <Link
                                 to="/blast"
