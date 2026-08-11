@@ -2,92 +2,66 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import * as THREE from 'three';
 
 /**
- * Rapsodo-style 3D Baseball Seam & Spin Visualizer Component
+ * ユーザー指定の球面パラメータ方程式による野球ボールシーム (SeamModel)
  * 
- * 1. ジオメトリ: 本物の野球ボールシーム方程式 (Tennis/Baseball Seam Parametric Equation)
- *    x(t) = a*cos(t) + b*cos(3t)
- *    y(t) = a*sin(t) - b*sin(3t)
- *    z(t) = c*sin(2t)
- *    正規化して球面上にプロット → 完璧な2つの馬蹄形ウイング＆2本平行レール
- * 2. 4シーム / 2シーム / 1シームの初期姿勢（InitRotation_Matrix）
- * 3. 厳密な行列合成: FinalTransform = AxisTilt_Matrix * GyroAngle_Matrix * SpinAnimation_Matrix * InitRotation_Matrix
+ * ステップ1: 球面パラメータ方程式
+ * θ(t) = a * sin(2t)   (緯度方向の上下の波打ち a ≈ 0.35〜0.40 rad)
+ * ϕ(t) = t              (経度方向 t: 0〜2π)
+ * 
+ * 直交座標変換:
+ * x(t) = R * cos(θ(t)) * cos(ϕ(t))
+ * y(t) = R * cos(θ(t)) * sin(ϕ(t))
+ * z(t) = R * sin(θ(t))
+ * 
+ * ステップ2: TubeGeometry による立体化 (芯の曲線に沿ったチューブ)
+ * 
+ * ステップ3: 4シーム / 2シーム / 1シーム の初期姿勢 (InitRotation)
+ * 4-Seam: a=0.35, Yaw=0°, Pitch=0°, Roll=0° (馬蹄形が正面)
+ * 2-Seam: a=0.35, Yaw=90°, Pitch=0°, Roll=0° (縫い目のすき間が正面)
+ * 1-Seam: a=0.40, Yaw=45°, Pitch=45°, Roll=0° (頂点がポール寄りに斜め)
  */
 
-// 正確な野球ボールのシーム曲線を生成する（直交座標パラメトリック方程式）
-function createBaseballSeamGeometry(radius = 1.0) {
+// ユーザー指定の数式に従ってシームジオメトリを生成
+function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
-  const stitches = [];
-  const segments = 240;
-
-  // 本物の野球ボールシーム幾何学パラメータ
-  const a = 0.65;
-  const b = 0.35;
-  const c = 0.62;
+  const segments = 360;
+  // 1-Seam のときは振幅 a をやや深め(0.40)に設定、それ以外は 0.35
+  const a = seamType === '1-seam' ? 0.40 : 0.35;
+  const r = radius * 1.004; // 球面からわずかに盛り上がらせる
 
   for (let i = 0; i <= segments; i++) {
     const t = (i / segments) * Math.PI * 2;
-    const x0 = a * Math.cos(t) + b * Math.cos(3 * t);
-    const y0 = a * Math.sin(t) - b * Math.sin(3 * t);
-    const z0 = c * Math.sin(2 * t);
+    const theta = a * Math.sin(2 * t);
+    const phi = t;
 
-    // 半径に合わせて正規化
-    const len = Math.sqrt(x0 * x0 + y0 * y0 + z0 * z0);
-    const r = radius * 1.004;
-    const x = (x0 / len) * r;
-    const y = (y0 / len) * r;
-    const z = (z0 / len) * r;
+    // 直交座標変換
+    const x = r * Math.cos(theta) * Math.cos(phi);
+    const y = r * Math.cos(theta) * Math.sin(phi);
+    const z = r * Math.sin(theta);
 
-    const pt = new THREE.Vector3(x, y, z);
-    points.push(pt);
-
-    // 赤いステッチの針目（V字ステッチ約108組）
-    if (i % 2 === 0 && i < segments) {
-      const dt = 0.02;
-      const tNext = t + dt;
-      const xN = a * Math.cos(tNext) + b * Math.cos(3 * tNext);
-      const yN = a * Math.sin(tNext) - b * Math.sin(3 * tNext);
-      const zN = c * Math.sin(2 * tNext);
-      const lenN = Math.sqrt(xN * xN + yN * yN + zN * zN);
-      const ptNext = new THREE.Vector3((xN / lenN) * r, (yN / lenN) * r, (zN / lenN) * r);
-
-      const tangent = new THREE.Vector3().subVectors(ptNext, pt).normalize();
-      const normal = pt.clone().normalize();
-      const cross = new THREE.Vector3().crossVectors(tangent, normal).normalize().multiplyScalar(0.045);
-
-      stitches.push(pt.clone().add(cross));
-      stitches.push(pt.clone().sub(cross));
-    }
+    points.push(new THREE.Vector3(x, y, z));
   }
 
+  // 芯の曲線を作成し、TubeGeometry で立体化
   const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal');
-  const tubeGeo = new THREE.TubeGeometry(curve, 180, 0.022, 6, true);
-  const stitchGeo = new THREE.BufferGeometry().setFromPoints(stitches);
+  const tubeGeo = new THREE.TubeGeometry(curve, 240, 0.024, 8, true);
 
-  return { tubeGeo, stitchGeo };
-}
-
-// シームジオメトリのキャッシュ
-let cachedSeamGeo = null;
-function getSeamGeometries() {
-  if (!cachedSeamGeo) {
-    cachedSeamGeo = createBaseballSeamGeometry(1.0);
-  }
-  return cachedSeamGeo;
+  return tubeGeo;
 }
 
 // 4シーム / 2シーム / 1シームの初期回転行列 (InitRotation_Matrix)
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
-    // 2シーム: 2本の平行な縫い目（レール）が正面を向く姿勢 (Y軸90度回転)
+    // 2-Seam: Yaw(Y軸) 90度回転。縫い目のすき間（平行レール）が正面
     m.makeRotationY(Math.PI / 2);
   } else if (seamType === '1-seam') {
-    // 1シーム: 縫い目の頂点（ループの極）が回転軸の近くに配置される姿勢 (X軸45度 + Y軸45度)
+    // 1-Seam: Yaw(Y軸) 45度、Pitch(X軸) 45度。頂点がポール寄りに斜め
     const mX = new THREE.Matrix4().makeRotationX(Math.PI / 4);
     const mY = new THREE.Matrix4().makeRotationY(Math.PI / 4);
     m.multiplyMatrices(mY, mX);
   } else {
-    // 4シーム (デフォルト): 馬蹄形（ウイング）が正面を向く基準姿勢
+    // 4-Seam: (0°, 0°, 0°) 馬蹄形が正面
     m.identity();
   }
   return m;
@@ -99,12 +73,11 @@ export const SingleBallCanvas = ({
   tiltClock = '1:30',
   tiltDegrees = 45,
   gyroDegrees = 15,
-  arm = 'R',
   isPlaying = true,
-  playbackSpeed = 0.25, // 0.1 ~ 0.5 (見やすい回転スピード)
+  playbackSpeed = 0.08, // 超低速・じっくり観察用の速度
   viewAngle = 'catcher',
   title = 'Ball A',
-  accentColor = '#ef4444',
+  accentColor = '#3b82f6',
 }) => {
   const containerRef = useRef(null);
   const animFrameRef = useRef(null);
@@ -129,7 +102,7 @@ export const SingleBallCanvas = ({
     return 45;
   }, [tiltDegrees, tiltClock]);
 
-  // Three.js 初期化 (軽量・高速)
+  // Three.js 初期化
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -137,38 +110,33 @@ export const SingleBallCanvas = ({
     const width = container.clientWidth || 340;
     const height = container.clientHeight || 340;
 
-    // 1. Scene
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     scene.background = new THREE.Color(0x09090b);
 
-    // 2. Camera
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 50);
     camera.position.set(0, 0, 5.0);
     cameraRef.current = camera;
 
-    // 3. Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.15;
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // 4. Lights (スタジオライティング)
+    // ライト
     scene.add(new THREE.AmbientLight(0xffffff, 1.4));
-
     const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.2);
     dirLight1.position.set(3, 4, 5);
     scene.add(dirLight1);
-
     const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.6);
     dirLight2.position.set(-4, -2, -3);
     scene.add(dirLight2);
 
-    // 5. Background Grid / Rapsodo Concentric Rings
+    // ラプソード風 同心円グリッド＆十字線
     const bgGroup = new THREE.Group();
     const ringMat = new THREE.LineBasicMaterial({ color: 0x27272a, transparent: true, opacity: 0.5 });
     for (let r = 0.8; r <= 2.2; r += 0.4) {
@@ -183,50 +151,40 @@ export const SingleBallCanvas = ({
     bgGroup.position.z = -1.2;
     scene.add(bgGroup);
 
-    // 6. Ball Model (White Sphere)
+    // ボールグループ
     const ballGroup = new THREE.Group();
     ballGroupRef.current = ballGroup;
 
-    const ballRadius = 1.0;
-    const sphereGeo = new THREE.SphereGeometry(ballRadius, 32, 32);
+    // 白い球体
+    const sphereGeo = new THREE.SphereGeometry(1.0, 32, 32);
     const sphereMat = new THREE.MeshStandardMaterial({
-      color: 0xf5f5f7,
-      roughness: 0.3,
+      color: 0xf4f4f5,
+      roughness: 0.28,
       metalness: 0.02,
     });
     const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
     ballGroup.add(sphereMesh);
 
-    // 7. Seam Model & Stitches (本物の野球ボール縫い目)
-    const { tubeGeo, stitchGeo } = getSeamGeometries();
-
-    // 赤いメインシームチューブ
+    // ユーザー指定のパラメトリック方程式による赤い立体チューブ縫い目
+    const tubeGeo = createParametricSeamGeometry(seamType, 1.0);
     const seamMat = new THREE.MeshStandardMaterial({
-      color: 0xef4444,
-      roughness: 0.25,
+      color: 0xdc2626, // 鮮やかなラプソードレッド
+      roughness: 0.2,
       metalness: 0.1,
     });
     const seamMesh = new THREE.Mesh(tubeGeo, seamMat);
+    seamMesh.name = 'seamMesh';
     ballGroup.add(seamMesh);
-
-    // 赤いステッチ（縫い針のライン）
-    const stitchMat = new THREE.LineBasicMaterial({
-      color: 0xdc2626,
-      linewidth: 1.5,
-    });
-    const stitchLines = new THREE.LineSegments(stitchGeo, stitchMat);
-    ballGroup.add(stitchLines);
 
     scene.add(ballGroup);
 
-    // 8. Spin Axis Vector Visualizer (Rapsodo Green Axis Line & Ring)
+    // 回転軸ベクトルライン（ライムグリーン軸＋矢印＋回転リング）
     const spinAxisGroup = new THREE.Group();
     spinAxisGroupRef.current = spinAxisGroup;
 
     const poleGeo = new THREE.CylinderGeometry(0.016, 0.016, 2.8, 12);
     const poleMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
-    const poleMesh = new THREE.Mesh(poleGeo, poleMat);
-    spinAxisGroup.add(poleMesh);
+    spinAxisGroup.add(new THREE.Mesh(poleGeo, poleMat));
 
     const arrowGeo = new THREE.ConeGeometry(0.06, 0.18, 12);
     const arrowMat = new THREE.MeshBasicMaterial({ color: 0x4ade80 });
@@ -236,14 +194,13 @@ export const SingleBallCanvas = ({
 
     const spinRingPoints = new THREE.Path().absarc(0, 0, 0.45, 0, Math.PI * 1.6, false).getPoints(24);
     const spinRingGeo = new THREE.BufferGeometry().setFromPoints(spinRingPoints.map(p => new THREE.Vector3(p.x, 0, p.y)));
-    const spinRingMat = new THREE.LineBasicMaterial({ color: 0x38bdf8 });
-    const spinRing = new THREE.Line(spinRingGeo, spinRingMat);
+    const spinRing = new THREE.Line(spinRingGeo, new THREE.LineBasicMaterial({ color: 0x38bdf8 }));
     spinRing.position.y = 1.15;
     spinAxisGroup.add(spinRing);
 
     scene.add(spinAxisGroup);
 
-    // 9. Window Resize
+    // リサイズ処理
     const handleResize = () => {
       if (!container) return;
       const w = container.clientWidth;
@@ -254,7 +211,7 @@ export const SingleBallCanvas = ({
     };
     window.addEventListener('resize', handleResize);
 
-    // 10. Mouse Drag Controls
+    // マウスドラッグ操作
     const onMouseDown = (e) => {
       isDraggingRef.current = true;
       prevMousePosRef.current = { x: e.clientX, y: e.clientY };
@@ -264,7 +221,6 @@ export const SingleBallCanvas = ({
       const dx = e.clientX - prevMousePosRef.current.x;
       const dy = e.clientY - prevMousePosRef.current.y;
       prevMousePosRef.current = { x: e.clientX, y: e.clientY };
-
       orbitAnglesRef.current.theta += dx * 0.01;
       orbitAnglesRef.current.phi = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, orbitAnglesRef.current.phi + dy * 0.01));
     };
@@ -287,7 +243,29 @@ export const SingleBallCanvas = ({
     };
   }, []);
 
-  // Update Camera View Angle
+  // シームタイプの変更時にジオメトリを更新
+  useEffect(() => {
+    const ballGroup = ballGroupRef.current;
+    if (!ballGroup) return;
+
+    const oldSeam = ballGroup.getObjectByName('seamMesh');
+    if (oldSeam) {
+      ballGroup.remove(oldSeam);
+      oldSeam.geometry.dispose();
+    }
+
+    const newTubeGeo = createParametricSeamGeometry(seamType, 1.0);
+    const seamMat = new THREE.MeshStandardMaterial({
+      color: 0xdc2626,
+      roughness: 0.2,
+      metalness: 0.1,
+    });
+    const newSeamMesh = new THREE.Mesh(newTubeGeo, seamMat);
+    newSeamMesh.name = 'seamMesh';
+    ballGroup.add(newSeamMesh);
+  }, [seamType]);
+
+  // 視点切り替え
   useEffect(() => {
     const camera = cameraRef.current;
     if (!camera) return;
@@ -307,7 +285,7 @@ export const SingleBallCanvas = ({
     }
   }, [viewAngle]);
 
-  // Animation Loop: FinalTransform = AxisTilt * GyroAngle * SpinAnimation * InitRotation
+  // アニメーションループ: FinalTransform = AxisTilt * GyroAngle * SpinAnimation * InitRotation
   useEffect(() => {
     let lastTime = performance.now();
 
@@ -316,7 +294,7 @@ export const SingleBallCanvas = ({
       lastTime = time;
 
       if (isPlaying) {
-        // 回転速度の増分
+        // 縫い目をじっくり観察できる自然な超低速回転
         const radPerSec = (rpm * (2 * Math.PI) / 60) * playbackSpeed;
         spinAngleRef.current += radPerSec * deltaSec;
       }
@@ -325,21 +303,21 @@ export const SingleBallCanvas = ({
       const spinAxisGroup = spinAxisGroupRef.current;
 
       if (ballGroup && spinAxisGroup) {
-        // 1. InitRotation_Matrix (4/2/1シーム初期姿勢)
+        // 1. InitRotation_Matrix: 4/2/1シームの初期姿勢
         const matInit = getInitRotationMatrix(seamType);
 
-        // 2. SpinAnimation_Matrix (自転回転)
+        // 2. SpinAnimation_Matrix: 自転回転
         const matSpin = new THREE.Matrix4().makeRotationY(spinAngleRef.current);
 
-        // 3. GyroAngle_Matrix (ジャイロ傾斜)
+        // 3. GyroAngle_Matrix: ジャイロ傾斜角
         const gyroRad = (gyroDegrees * Math.PI) / 180;
         const matGyro = new THREE.Matrix4().makeRotationZ(gyroRad);
 
-        // 4. AxisTilt_Matrix (回転軸チルト)
+        // 4. AxisTilt_Matrix: 回転軸の向き (時計の針 / 角度)
         const tiltRad = -(calculatedTiltDeg * Math.PI) / 180;
         const matAxisTilt = new THREE.Matrix4().makeRotationZ(tiltRad);
 
-        // 5. 行列合成
+        // 5. 行列合成: FinalTransform = AxisTilt * GyroAngle * SpinAnimation * InitRotation
         const matFinal = new THREE.Matrix4();
         matFinal.multiply(matAxisTilt);
         matFinal.multiply(matGyro);
@@ -420,13 +398,13 @@ export const SingleBallCanvas = ({
 };
 
 export const PITCH_PRESETS = [
-  { name: '4-Seam Fastball (4シーム)', seamType: '4-seam', rpm: 2350, tiltClock: '1:15', tiltDegrees: 37.5, gyroDegrees: 10, desc: 'ホップ成分最大の王道直球' },
-  { name: '2-Seam / Sinker (2シーム)', seamType: '2-seam', rpm: 2150, tiltClock: '2:15', tiltDegrees: 67.5, gyroDegrees: 18, desc: '平行レールで横滑り＆沈む' },
-  { name: '1-Seam Gyro Sinker (1シーム)', seamType: '1-seam', rpm: 2100, tiltClock: '2:30', tiltDegrees: 75, gyroDegrees: 35, desc: 'SSW効果を最大化する斜め縫い目' },
-  { name: 'Sweeper (スイーパー)', seamType: '2-seam', rpm: 2600, tiltClock: '9:00', tiltDegrees: 270, gyroDegrees: 30, desc: '強烈な横滑りスイーパー' },
-  { name: 'Gyro Slider (縦スラ/ジャイロ)', seamType: '4-seam', rpm: 2400, tiltClock: '10:30', tiltDegrees: 315, gyroDegrees: 65, desc: 'ライフル回転で急降下' },
-  { name: '12-6 Curveball (ドロップカーブ)', seamType: '4-seam', rpm: 2700, tiltClock: '6:00', tiltDegrees: 180, gyroDegrees: 8, desc: '純粋トップスピン' },
-  { name: 'Circle Changeup (チェンジアップ)', seamType: '2-seam', rpm: 1750, tiltClock: '2:45', tiltDegrees: 82.5, gyroDegrees: 28, desc: '減速＆ブレーキ' },
+  { name: '4-Seam Fastball (4シーム)', seamType: '4-seam', rpm: 2350, tiltClock: '1:15', tiltDegrees: 37.5, gyroDegrees: 10, desc: '馬蹄形が正面' },
+  { name: '2-Seam / Sinker (2シーム)', seamType: '2-seam', rpm: 2150, tiltClock: '2:15', tiltDegrees: 67.5, gyroDegrees: 18, desc: '縫い目のすき間が正面' },
+  { name: '1-Seam Gyro Sinker (1シーム)', seamType: '1-seam', rpm: 2100, tiltClock: '2:30', tiltDegrees: 75, gyroDegrees: 35, desc: '頂点がポール寄りに斜め' },
+  { name: 'Sweeper (スイーパー)', seamType: '2-seam', rpm: 2600, tiltClock: '9:00', tiltDegrees: 270, gyroDegrees: 30, desc: '横滑りスイーパー' },
+  { name: 'Gyro Slider (縦スラ/ジャイロ)', seamType: '4-seam', rpm: 2400, tiltClock: '10:30', tiltDegrees: 315, gyroDegrees: 65, desc: 'ライフル回転' },
+  { name: '12-6 Curveball (ドロップカーブ)', seamType: '4-seam', rpm: 2700, tiltClock: '6:00', tiltDegrees: 180, gyroDegrees: 8, desc: 'トップスピン' },
+  { name: 'Circle Changeup (チェンジアップ)', seamType: '2-seam', rpm: 1750, tiltClock: '2:45', tiltDegrees: 82.5, gyroDegrees: 28, desc: 'ブレーキ回転' },
 ];
 
 export default SingleBallCanvas;
