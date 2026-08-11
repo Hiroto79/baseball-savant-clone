@@ -20,8 +20,10 @@ import { SingleBallCanvas, PITCH_PRESETS } from '../components/RapsodoSeamViewer
 export const SeamSimulator = ({ showHeader = false }) => {
   // Global View & Playback Controls
   const [isPlaying, setIsPlaying] = useState(true);
-  const [playbackSpeed, setPlaybackSpeed] = useState(0.04); // 超低速でじっくり観察
-  const [viewAngle, setViewAngle] = useState('pitcher'); // 'pitcher' (ラプソード基準), 'catcher', 'side', 'top'
+  const [playbackSpeed, setPlaybackSpeed] = useState(0.25);
+  // ラプソードのチルト/ジャイロ表記は「投手が投球した瞬間、投手自身が見る視点」が基準のため、
+  // 既定視点は 'pitcher' にする（'catcher' は反対側から見た鏡像で、回転方向が逆に見えるのは仕様通り）
+  const [viewAngle, setViewAngle] = useState('pitcher'); // 'catcher', 'pitcher', 'side', 'top'
 
   // Ball A Settings (Left)
   const [ballA, setBallA] = useState({
@@ -126,12 +128,19 @@ export const SeamSimulator = ({ showHeader = false }) => {
               className="bg-transparent text-zinc-200 text-[11px] font-bold outline-none cursor-pointer"
             >
               <option value="pitcher">投手視点 (ラプソード基準)</option>
-              <option value="catcher">捕手視点 (本塁側正面)</option>
+              <option value="catcher">捕手視点 (背面から見た鏡像)</option>
               <option value="side">側面視点 (三塁側)</option>
               <option value="top">真上視点 (天頂)</option>
             </select>
           </div>
         </div>
+
+        {viewAngle === 'catcher' && (
+          <div className="flex items-center gap-1.5 text-[10px] text-amber-300/90 mt-1 sm:mt-0">
+            <Info className="w-3 h-3 shrink-0" />
+            <span>捕手視点は投手視点の反対側から見た鏡像のため、回転方向が逆に見えます（仕様通りです）</span>
+          </div>
+        )}
       </div>
 
       {/* Main 2-Ball 3D Comparison Arena */}
