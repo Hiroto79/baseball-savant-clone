@@ -19,42 +19,38 @@ import * as THREE from 'three';
 function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
   const segments = 360;
-  const a = 0.38; // 振幅パラメータ（約22度）
+  const a = seamType === '1-seam' ? 0.40 : 0.35;
+  const r = radius * 1.004;
 
   for (let i = 0; i <= segments; i++) {
     const t = (i / segments) * Math.PI * 2;
-    // 近似球面パラメータ方程式
-    const theta = Math.PI / 2 + a * Math.sin(2 * t);
+    // 球面パラメータ方程式: 赤道(θ=0)から上下に a ラジアン波打つ
+    const theta = a * Math.sin(2 * t);
     const phi = t;
 
-    const x = radius * Math.cos(theta) * Math.cos(phi);
-    const y = radius * Math.cos(theta) * Math.sin(phi);
-    const z = radius * Math.sin(theta);
+    const x = r * Math.cos(theta) * Math.cos(phi);
+    const y = r * Math.cos(theta) * Math.sin(phi);
+    const z = r * Math.sin(theta);
 
     points.push(new THREE.Vector3(x, y, z));
   }
 
   const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal');
-  // 半径 0.042→0.058、断面分割 10→16 で「細い糸」感を解消し立体感を強調
+  // 半径 0.058、断面分割 16 で立体感を強調
   const tubeGeo = new THREE.TubeGeometry(curve, 240, 0.058, 16, true);
 
   return tubeGeo;
 }
 
 // 4シーム / 2シーム / 1シームの初期回転行列 (InitRotation_Matrix)
-// すべて同じ1本の縫い目カーブをY軸でどれだけ回すかだけで表現している。
-// 45°〜120°付近はカーブが自己交差する"8の字"ゾーンになり2シーム/1シームの見分けが
-// つきにくくなるため、実物写真を参考にこのゾーンを避けた角度に調整した。
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
-    // 2-Seam: Yaw(Y軸) 30度。4シームに近い、やや広めの雫型（実物写真で縫い目の占める
-    // 範囲が広めだったことに合わせた）
-    m.makeRotationY(Math.PI / 6);
+    // 2-Seam: Yaw(Y軸) 90度回転。縫い目のすき間（平行レール）が正面
+    m.makeRotationY(Math.PI / 2);
   } else if (seamType === '1-seam') {
-    // 1-Seam: Yaw(Y軸) 55度。2シームよりさらに回し、白革の余白が大きい片側寄りの雫型
-    // （60°を超えると縫い目が自己交差し始めるため、その手前の55°に設定）
-    m.makeRotationY((55 * Math.PI) / 180);
+    // 1-Seam: Yaw(Y軸) 45度
+    m.makeRotationY(Math.PI / 4);
   } else {
     // 4-Seam: (0°, 0°, 0°) 馬蹄形が正面
     m.identity();
