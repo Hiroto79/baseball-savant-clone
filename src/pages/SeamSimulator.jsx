@@ -99,8 +99,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
           <div className="flex items-center gap-1 bg-zinc-950 px-2 py-1 rounded-lg border border-zinc-800 text-[11px]">
             <span className="text-zinc-500 font-bold">回転速度:</span>
             {[
-              { val: 0.08, label: 'ゆっくり' },
-              { val: 0.03, label: '超スロー' }
+              { val: 0.04, label: 'ゆったり' },
+              { val: 0.015, label: '超スロー' },
+              { val: 0.005, label: '極スロー' }
             ].map(s => (
               <button
                 key={s.val}

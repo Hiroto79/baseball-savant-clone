@@ -13,21 +13,22 @@ import * as THREE from 'three';
  * y(t) = R * cos(θ(t)) * sin(ϕ(t))
  * z(t) = R * sin(θ(t))
  * 
- * ステップ2: TubeGeometry による立体化 (芯の曲線に沿ったチューブ)
+ * ステップ2: TubeGeometry による太めの立体チューブ (半径 0.042)
  * 
  * ステップ3: 4シーム / 2シーム / 1シーム の初期姿勢 (InitRotation)
  * 4-Seam: a=0.35, Yaw=0°, Pitch=0°, Roll=0° (馬蹄形が正面)
  * 2-Seam: a=0.35, Yaw=90°, Pitch=0°, Roll=0° (縫い目のすき間が正面)
  * 1-Seam: a=0.40, Yaw=45°, Pitch=45°, Roll=0° (頂点がポール寄りに斜め)
+ * 
+ * 回転方向: 正しいバックスピン（下から上への回転）とトップスピンの向き
  */
 
-// ユーザー指定の数式に従ってシームジオメトリを生成
+// ユーザー指定の数式に従ってシームジオメトリを生成 (太さ 0.042 で強調)
 function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
   const segments = 360;
-  // 1-Seam のときは振幅 a をやや深め(0.40)に設定、それ以外は 0.35
   const a = seamType === '1-seam' ? 0.40 : 0.35;
-  const r = radius * 1.004; // 球面からわずかに盛り上がらせる
+  const r = radius * 1.004;
 
   for (let i = 0; i <= segments; i++) {
     const t = (i / segments) * Math.PI * 2;
@@ -42,9 +43,9 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
     points.push(new THREE.Vector3(x, y, z));
   }
 
-  // 芯の曲線を作成し、TubeGeometry で立体化
+  // 芯の曲線を作成し、太めの TubeGeometry で立体化
   const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal');
-  const tubeGeo = new THREE.TubeGeometry(curve, 240, 0.024, 8, true);
+  const tubeGeo = new THREE.TubeGeometry(curve, 240, 0.042, 10, true);
 
   return tubeGeo;
 }
@@ -74,7 +75,7 @@ export const SingleBallCanvas = ({
   tiltDegrees = 45,
   gyroDegrees = 15,
   isPlaying = true,
-  playbackSpeed = 0.08, // 超低速・じっくり観察用の速度
+  playbackSpeed = 0.04, // 縫い目がじっくり見える超低速
   viewAngle = 'catcher',
   title = 'Ball A',
   accentColor = '#3b82f6',
@@ -165,10 +166,10 @@ export const SingleBallCanvas = ({
     const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
     ballGroup.add(sphereMesh);
 
-    // ユーザー指定のパラメトリック方程式による赤い立体チューブ縫い目
+    // 太めの赤い立体チューブ縫い目
     const tubeGeo = createParametricSeamGeometry(seamType, 1.0);
     const seamMat = new THREE.MeshStandardMaterial({
-      color: 0xdc2626, // 鮮やかなラプソードレッド
+      color: 0xdc2626, // 鮮やかな赤
       roughness: 0.2,
       metalness: 0.1,
     });
@@ -285,7 +286,7 @@ export const SingleBallCanvas = ({
     }
   }, [viewAngle]);
 
-  // アニメーションループ: FinalTransform = AxisTilt * GyroAngle * SpinAnimation * InitRotation
+  // アニメーションループ: 正しいバックスピン（下から上へ）とトップスピンの物理回転
   useEffect(() => {
     let lastTime = performance.now();
 
@@ -294,8 +295,8 @@ export const SingleBallCanvas = ({
       lastTime = time;
 
       if (isPlaying) {
-        // 縫い目をじっくり観察できる自然な超低速回転
-        const radPerSec = (rpm * (2 * Math.PI) / 60) * playbackSpeed;
+        // 回転方向: バックスピン（下から上へ巻き上がる）方向に反転
+        const radPerSec = -(rpm * (2 * Math.PI) / 60) * playbackSpeed;
         spinAngleRef.current += radPerSec * deltaSec;
       }
 
@@ -306,7 +307,7 @@ export const SingleBallCanvas = ({
         // 1. InitRotation_Matrix: 4/2/1シームの初期姿勢
         const matInit = getInitRotationMatrix(seamType);
 
-        // 2. SpinAnimation_Matrix: 自転回転
+        // 2. SpinAnimation_Matrix: 正しい自転回転 (Y軸スピン)
         const matSpin = new THREE.Matrix4().makeRotationY(spinAngleRef.current);
 
         // 3. GyroAngle_Matrix: ジャイロ傾斜角
