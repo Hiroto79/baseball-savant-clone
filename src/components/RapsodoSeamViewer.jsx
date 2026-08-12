@@ -15,12 +15,12 @@ import * as THREE from 'three';
  *   投手の利き腕を選択する必要はなく、符号だけで左右どちらの曲がりも表現できる。
  */
 
-// ユーザー指定の数式に従ってシームジオメトリを生成 (太さ 0.058 に強調・断面16分割で滑らかに)
+// ユーザー指定の数式に従ってシームジオメトリを生成 (屈曲のない滑らかな半円弧)
 function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
   const segments = 360;
-  // alpha=1.02 でお手本写真通りのギュッと近づいた本物の狭いくびれ間隔を完全再現
-  const alpha = 1.02;
+  // alpha=0.60 で屈曲・V字折れ曲がりのない滑らかな半円弧を完全再現
+  const alpha = 0.60;
   const r = radius * 1.004;
 
   for (let i = 0; i <= segments; i++) {
@@ -44,21 +44,17 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
 }
 
 // 4シーム / 2シーム / 1シームの初期回転行列 (InitRotation_Matrix)
-// すべて同じ1本の縫い目カーブをY軸でどれだけ回すかだけで表現している。
-// 45°〜120°付近はカーブが自己交差する"8の字"ゾーンになり2シーム/1シームの見分けが
-// つきにくくなるため、実物写真を参考にこのゾーンを避けた角度に調整した。
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
-    // 2-Seam: Yaw(Y軸) 30度。4シームに近い、やや広めの雫型（実物写真で縫い目の占める範囲が広めだったことに合わせた）
-    m.makeRotationY(Math.PI / 6);
+    // 2-Seam: 屈曲のない滑らかな2本の縦円弧レール (Z軸 45度)
+    m.makeRotationZ(Math.PI / 4);
   } else if (seamType === '1-seam') {
-    // 1-Seam: Yaw(Y軸) 55度。2シームよりさらに回し、白革の余白が大きい片側寄りの雫型
-    // （60°を超えると縫い目が自己交差し始めるため、その手前の55°に設定）
-    m.makeRotationY((55 * Math.PI) / 180);
-  } else {
-    // 4-Seam: (0°, 0°, 0°) 馬蹄形が正面
+    // 1-Seam: ボール中央を1本の縦シームラインが通るワンシーム (Identity)
     m.identity();
+  } else {
+    // 4-Seam: 馬蹄形(Cの字)が正面を向き、1回転で4回通過する王道のフォーシーム (Y軸 90度)
+    m.makeRotationY(Math.PI / 2);
   }
   return m;
 }
