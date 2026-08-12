@@ -56,15 +56,15 @@ const PitchingSimulator = () => {
     };
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6">
+        <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto p-1 sm:p-4 md:p-6">
             
             {/* Top Header & Tab Navigation */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-card border border-border shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-3.5 sm:p-5 rounded-2xl bg-card border border-border shadow-sm">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground flex items-center gap-2.5">
+                    <h1 className="text-lg sm:text-2xl md:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
                         ⚾ {language === 'ja' ? '投球 ＆ シームシミュレーター' : 'Pitch & Seam Simulator'}
                     </h1>
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                    <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground mt-0.5 sm:mt-1 leading-relaxed">
                         {language === 'ja'
                             ? 'ラプソード風の3Dボール縫い目・回転シミュレーションおよび3D弾道軌道を可視化・分析します。'
                             : 'Simulate Rapsodo-style 3D ball seam & spin kinematics and pitch trajectory.'}
@@ -72,29 +72,29 @@ const PitchingSimulator = () => {
                 </div>
 
                 {/* Main Mode Tabs */}
-                <div className="flex items-center gap-2 bg-muted p-1.5 rounded-xl border border-border shrink-0">
+                <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 bg-muted p-1 sm:p-1.5 rounded-xl border border-border shrink-0">
                     <button
                         onClick={() => setActiveTab('seam')}
-                        className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-black text-xs transition-all cursor-pointer ${
+                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg font-black text-[11px] sm:text-xs transition-all cursor-pointer ${
                             activeTab === 'seam'
                                 ? 'bg-blue-600 text-white shadow-md'
                                 : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
                         }`}
                     >
-                        <Compass className="w-4 h-4 text-amber-400" />
-                        <span>3D 縫い目・回転 (Seam & Spin)</span>
+                        <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
+                        <span className="truncate">3D 縫い目・回転</span>
                     </button>
 
                     <button
                         onClick={() => setActiveTab('trajectory')}
-                        className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-black text-xs transition-all cursor-pointer ${
+                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg font-black text-[11px] sm:text-xs transition-all cursor-pointer ${
                             activeTab === 'trajectory'
                                 ? 'bg-blue-600 text-white shadow-md'
                                 : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
                         }`}
                     >
-                        <Activity className="w-4 h-4 text-emerald-400" />
-                        <span>3D 弾道軌道 (Trajectory)</span>
+                        <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" />
+                        <span className="truncate">3D 弾道軌道</span>
                     </button>
                 </div>
             </div>

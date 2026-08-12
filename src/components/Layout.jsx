@@ -154,23 +154,24 @@ const Layout = ({ children }) => {
             {/* Main Content */}
             <main className="flex-1 flex flex-col min-w-0">
 
-                <header className="h-16 border-b border-border bg-card/50 backdrop-blur flex items-center px-4 md:px-6 justify-between sticky top-0 z-10 print:hidden">
-                    <div className="flex items-center gap-3">
+                <header className="h-13 sm:h-14 md:h-16 border-b border-border bg-card/80 backdrop-blur flex items-center px-3 sm:px-4 md:px-6 justify-between sticky top-0 z-20 print:hidden">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
                         <button
-                            className="md:hidden p-2 -ml-2 hover:bg-accent rounded-md"
+                            className="md:hidden p-1.5 -ml-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors cursor-pointer"
                             onClick={() => setIsMobileMenuOpen(true)}
+                            aria-label="Toggle Menu"
                         >
-                            <Menu size={20} />
+                            <Menu size={18} />
                         </button>
-                        <h2 className="text-lg font-semibold">Dashboard</h2>
+                        <h2 className="text-sm sm:text-base md:text-lg font-bold truncate">Dashboard</h2>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                    <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs sm:text-sm font-bold">
                             U
                         </div>
                     </div>
                 </header>
-                <div className="flex-1 p-6 overflow-auto">
+                <div className="flex-1 p-2 sm:p-4 md:p-6 overflow-auto">
                     {children}
                 </div>
 

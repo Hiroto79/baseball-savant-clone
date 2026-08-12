@@ -402,40 +402,40 @@ export const SingleBallCanvas = ({
   }, [seamType, rpm, calculatedTiltDeg, gyroDegrees, isPlaying, playbackSpeed]);
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center select-none overflow-hidden rounded-2xl bg-zinc-950 border border-zinc-800 shadow-2xl">
+    <div className="relative w-full h-full flex flex-col items-center justify-center select-none overflow-hidden rounded-xl sm:rounded-2xl bg-zinc-950 border border-zinc-800 shadow-xl sm:shadow-2xl">
       {/* HUD Info Badges */}
-      <div className="absolute top-3 left-3 z-10 flex items-center gap-2 pointer-events-none">
-        <span className="px-2.5 py-0.5 rounded-md text-xs font-black text-white shadow-md border border-white/20" style={{ backgroundColor: accentColor }}>
+      <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10 flex items-center gap-1 sm:gap-2 pointer-events-none">
+        <span className="px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-black text-white shadow-md border border-white/20" style={{ backgroundColor: accentColor }}>
           {title}
         </span>
-        <span className="px-2 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-750 text-[10px] font-mono font-bold text-zinc-300 backdrop-blur">
+        <span className="px-1.5 sm:px-2 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-750 text-[9px] sm:text-[10px] font-mono font-bold text-zinc-300 backdrop-blur">
           {seamType.toUpperCase()}
         </span>
-        <span className="px-2 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-750 text-[10px] font-bold text-amber-300 backdrop-blur">
+        <span className="px-1.5 sm:px-2 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-750 text-[9px] sm:text-[10px] font-bold text-amber-300 backdrop-blur hidden xs:inline-block">
           {gyroDegrees > 0 ? '右方向ジャイロ ▶' : gyroDegrees < 0 ? '◀ 左方向ジャイロ' : 'ジャイロなし'}
         </span>
       </div>
 
-      <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1 text-[11px] font-mono font-bold text-zinc-300 bg-zinc-900/80 px-2.5 py-1.5 rounded-lg border border-zinc-800 backdrop-blur pointer-events-none">
-        <div className="flex items-center gap-1.5">
+      <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 flex flex-col items-end gap-0.5 sm:gap-1 text-[9px] sm:text-[11px] font-mono font-bold text-zinc-300 bg-zinc-900/85 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border border-zinc-800 backdrop-blur pointer-events-none">
+        <div className="flex items-center gap-1 sm:gap-1.5">
           <span className="text-emerald-400">RPM:</span>
           <span>{rpm}</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5">
           <span className="text-sky-400">Tilt:</span>
           <span>{tiltClock} ({Math.round(calculatedTiltDeg)}°)</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5">
           <span className="text-yellow-400">Gyro:</span>
-          <span>{gyroDegrees > 0 ? `+${gyroDegrees}` : gyroDegrees}° ({Math.round(Math.cos((Math.abs(gyroDegrees) * Math.PI) / 180) * 100)}% 効率)</span>
+          <span>{gyroDegrees > 0 ? `+${gyroDegrees}` : gyroDegrees}° ({Math.round(Math.cos((Math.abs(gyroDegrees) * Math.PI) / 180) * 100)}%)</span>
         </div>
       </div>
 
       {/* 3D Canvas */}
-      <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing min-h-[300px]" />
+      <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing min-h-[240px] sm:min-h-[300px]" />
 
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-zinc-500 pointer-events-none bg-zinc-950/70 px-3 py-0.5 rounded-full border border-zinc-850">
-        🖱️ ドラッグで視点を360°回転 ・ ダブルクリックでプリセット視点に戻る
+      <div className="absolute bottom-1.5 sm:bottom-2 left-1/2 -translate-x-1/2 text-[8px] sm:text-[10px] text-zinc-500 pointer-events-none bg-zinc-950/80 px-2 sm:px-3 py-0.5 rounded-full border border-zinc-800 whitespace-nowrap">
+        🖱️ ドラッグで回転 ・ ダブルクリックで復帰
       </div>
     </div>
   );
