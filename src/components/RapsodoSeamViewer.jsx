@@ -19,8 +19,8 @@ import * as THREE from 'three';
 function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
   const segments = 360;
-  // alpha=0.78 でお手本写真通りの狭いくびれ間隔（中央でしっかり近づく距離感）を完全再現
-  const alpha = 0.78;
+  // alpha=1.02 でお手本写真通りのギュッと近づいた本物の狭いくびれ間隔を完全再現
+  const alpha = 1.02;
   const r = radius * 1.004;
 
   for (let i = 0; i <= segments; i++) {
