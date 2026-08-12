@@ -52,8 +52,8 @@ export function getInitRotationMatrix(seamType = '4-seam') {
     // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢 (Y軸 45度)
     m.makeRotationY(Math.PI / 4);
   } else {
-    // 4-Seam: 縦スピン時に【C → 逆C → C → 逆C】が連続して現れる王道のフォーシーム姿勢 (Y軸 90度)
-    m.makeRotationY(Math.PI / 2);
+    // 4-Seam: 斜めにならず垂直に真っ直ぐ立つCの字・馬蹄形 (C → 逆C → C → 逆C 連続スピン)
+    m.identity();
   }
   return m;
 }
