@@ -15,7 +15,7 @@ import * as THREE from 'three';
  *   投手の利き腕を選択する必要はなく、符号だけで左右どちらの曲がりも表現できる。
  */
 
-// 滑らかで一切屈曲のない球面野球ボール縫合線ジオメトリを生成
+// ユーザー指定の数式に従ってシームジオメトリを生成 (太さ 0.058 に強調・断面16分割で滑らかに)
 function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
   const segments = 360;
@@ -44,17 +44,21 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
 }
 
 // 4シーム / 2シーム / 1シームの初期回転行列 (InitRotation_Matrix)
+// すべて同じ1本の縫い目カーブをY軸でどれだけ回すかだけで表現している。
+// 45°〜120°付近はカーブが自己交差する"8の字"ゾーンになり2シーム/1シームの見分けが
+// つきにくくなるため、実物写真を参考にこのゾーンを避けた角度に調整した。
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
-    // 2-Seam: お手本写真と100%一致する左右2本の狭いくびれ円弧 (Z軸 45度)
-    m.makeRotationZ(Math.PI / 4);
+    // 2-Seam: Yaw(Y軸) 30度。4シームに近い、やや広めの雫型（実物写真で縫い目の占める範囲が広めだったことに合わせた）
+    m.makeRotationY(Math.PI / 6);
   } else if (seamType === '1-seam') {
-    // 1-Seam: ボール中央を1本の縦シームラインが通るワンシーム (Identity)
-    m.identity();
+    // 1-Seam: Yaw(Y軸) 55度。2シームよりさらに回し、白革の余白が大きい片側寄りの雫型
+    // （60°を超えると縫い目が自己交差し始めるため、その手前の55°に設定）
+    m.makeRotationY((55 * Math.PI) / 180);
   } else {
-    // 4-Seam: 馬蹄形(Cの字)が正面を向き、1回転で4回通過する王道のフォーシーム (Y軸 90度)
-    m.makeRotationY(Math.PI / 2);
+    // 4-Seam: (0°, 0°, 0°) 馬蹄形が正面
+    m.identity();
   }
   return m;
 }
@@ -81,6 +85,9 @@ export const SingleBallCanvas = ({
   const spinAngleRef = useRef(0);
 
   // マウスドラッグ自由回転用の制御
+  const isDraggingRef = useRef(false);
+  const prevMousePosRef = useRef({ x: 0, y: 0 });
+  const orbitAnglesRef = useRef({ theta: 0, phi: 0 });
   const viewAngleRef = useRef(viewAngle);
 
   const calculatedTiltDeg = useMemo(() => {
@@ -100,8 +107,8 @@ export const SingleBallCanvas = ({
     const container = containerRef.current;
     if (!container) return;
 
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    const width = container.clientWidth || 300;
+    const height = container.clientHeight || 300;
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
@@ -238,8 +245,58 @@ export const SingleBallCanvas = ({
       camera.lookAt(0, 0, 0);
     };
 
+    const onMouseDown = (e) => {
+      isDraggingRef.current = true;
+      prevMousePosRef.current = { x: e.clientX, y: e.clientY };
+      const cam = cameraRef.current;
+      if (cam) {
+        const r = cam.position.length() || 5.4;
+        orbitAnglesRef.current.theta = Math.atan2(cam.position.x, cam.position.z);
+        orbitAnglesRef.current.phi = Math.asin(Math.max(-1, Math.min(1, cam.position.y / r)));
+      }
+    };
+
+    const onMouseMove = (e) => {
+      if (!isDraggingRef.current) return;
+      const deltaX = e.clientX - prevMousePosRef.current.x;
+      const deltaY = e.clientY - prevMousePosRef.current.y;
+      prevMousePosRef.current = { x: e.clientX, y: e.clientY };
+
+      orbitAnglesRef.current.theta += deltaX * 0.01;
+      orbitAnglesRef.current.phi = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, orbitAnglesRef.current.phi + deltaY * 0.01));
+
+      const r = 5.4;
+      const t = orbitAnglesRef.current.theta;
+      const p = orbitAnglesRef.current.phi;
+
+      camera.position.x = r * Math.sin(t) * Math.cos(p);
+      camera.position.y = r * Math.sin(p);
+      camera.position.z = r * Math.cos(t) * Math.cos(p);
+      camera.lookAt(0, 0, 0);
+    };
+
+    const onMouseUp = () => {
+      isDraggingRef.current = false;
+    };
+
+    const onDoubleClick = () => {
+      orbitAnglesRef.current = { theta: 0, phi: 0 };
+      applyPresetCamera(viewAngleRef.current);
+      spinAngleRef.current = 0;
+    };
+
+    const dom = renderer.domElement;
+    dom.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    dom.addEventListener('dblclick', onDoubleClick);
+
     return () => {
       window.removeEventListener('resize', handleResize);
+      dom.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      dom.removeEventListener('dblclick', onDoubleClick);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       renderer.dispose();
     };
@@ -272,6 +329,8 @@ export const SingleBallCanvas = ({
     viewAngleRef.current = viewAngle;
     const camera = cameraRef.current;
     if (!camera) return;
+
+    orbitAnglesRef.current = { theta: 0, phi: 0 };
 
     if (viewAngle === 'catcher') {
       camera.position.set(0, 0, 5.4);
@@ -309,15 +368,14 @@ export const SingleBallCanvas = ({
         const matInit = getInitRotationMatrix(seamType);
 
         // 2. SpinAnimation_Matrix: 基準スピン軸（横X軸 3:00〜9:00）周りのバックスピン自転
-        //    バックスピンの回転方向自体は投手の左右で変わらないため固定
         const matSpin = new THREE.Matrix4().makeRotationX(-spinAngleRef.current);
 
         // 3. GyroAngle_Matrix: Rapsodo準拠ジャイロ傾斜角（符号付き）
         const gyroRad = (gyroDegrees * Math.PI) / 180;
-        const matGyro = new THREE.Matrix4().makeRotationY(gyroRad);
+        const matGyro = new THREE.Matrix4().makeRotationY(-gyroRad);
 
-        // 4. AxisTilt_Matrix: 投手視点で 12:00=上, 3:00=右, 6:00=下, 9:00=左 となる時計回り回転
-        const tiltRad = (calculatedTiltDeg * Math.PI) / 180;
+        // 4. AxisTilt_Matrix: Rapsodo時計盤チルト (12:00 = 0° バックスピン, 1:30 = 45° シュート回転, 6:00 = ±180° トップスピン)
+        const tiltRad = -(calculatedTiltDeg * Math.PI) / 180;
         const matAxisTilt = new THREE.Matrix4().makeRotationZ(tiltRad);
 
         // 5. 行列合成: FinalTransform = AxisTilt * GyroAngle * SpinAnimation * InitRotation
@@ -363,7 +421,7 @@ export const SingleBallCanvas = ({
           {seamType.toUpperCase()}
         </span>
         <span className="px-1.5 sm:px-2 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-750 text-[9px] sm:text-[10px] font-bold text-amber-300 backdrop-blur hidden xs:inline-block">
-          {gyroDegrees > 0 ? '右方向ジャイロ ▶' : gyroDegrees < 0 ? '◀ 左方向ジャイロ' : 'ジャイロなし'}
+          {gyroDegrees > 0 ? '◀ 左方向ジャイロ' : gyroDegrees < 0 ? '右方向ジャイロ ▶' : 'ジャイロなし'}
         </span>
       </div>
 
@@ -378,12 +436,16 @@ export const SingleBallCanvas = ({
         </div>
         <div className="flex items-center gap-1 sm:gap-1.5">
           <span className="text-yellow-400">Gyro:</span>
-          <span>{gyroDegrees > 0 ? `+${gyroDegrees}` : gyroDegrees}° ({Math.round(Math.cos((Math.abs(gyroDegrees) * Math.PI) / 180) * 100)}%)</span>
+          <span>{gyroDegrees > 0 ? `+${gyroDegrees}` : gyroDegrees}° ({Math.round(Math.cos((Math.abs(gyroDegrees) * Math.PI) / 180) * 100)}% 効率)</span>
         </div>
       </div>
 
       {/* 3D Canvas */}
-      <div ref={containerRef} className="w-full h-full min-h-[240px] sm:min-h-[300px]" />
+      <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing min-h-[240px] sm:min-h-[300px]" />
+
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-zinc-500 pointer-events-none bg-zinc-950/70 px-3 py-0.5 rounded-full border border-zinc-850">
+        🖱️ ドラッグで視点を360°回転 ・ ダブルクリックで視点と自転位相をリセット
+      </div>
     </div>
   );
 };
