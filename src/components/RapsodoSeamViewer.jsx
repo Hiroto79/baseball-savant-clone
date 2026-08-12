@@ -46,14 +46,14 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
-    // 2-Seam: 左右に2本の縦円弧が走るツーシーム姿勢
-    m.makeRotationZ((3 * Math.PI) / 4);
+    // 2-Seam: 左右に2本の縦円弧が走るツーシーム姿勢 (Z軸 45度)
+    m.makeRotationZ(Math.PI / 4);
   } else if (seamType === '1-seam') {
-    // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢
+    // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢 (Y軸 90度)
     m.makeRotationY(Math.PI / 2);
   } else {
-    // 4-Seam: 左側に90度傾けたフォーシーム初期姿勢 (Z軸 45度 / -90度傾斜)
-    m.makeRotationZ(Math.PI / 4);
+    // 4-Seam: 上下に水平な横縫い目が渡る王道のフォーシーム姿勢 (Z軸 135度)
+    m.makeRotationZ((3 * Math.PI) / 4);
   }
   return m;
 }
