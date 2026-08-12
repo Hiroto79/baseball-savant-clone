@@ -24,24 +24,24 @@ export const SeamSimulator = ({ showHeader = false }) => {
   // ラプソードのチルト/ジャイロ表記は「投手が投球した瞬間、投手自身が見る視点」が基準のため既定視点は 'pitcher'
   const [viewAngle, setViewAngle] = useState('pitcher'); // 'catcher', 'pitcher', 'side', 'top'
 
-  // Ball A Settings (Left)
+  // Ball A Settings (Left) - 初期値はすべて真ん中（基準）
   const [ballA, setBallA] = useState({
     name: '4-Seam Fastball',
     seamType: '4-seam',
-    rpm: 2400,
-    tiltClock: '1:15',
-    tiltDegrees: 37.5,
-    gyroDegrees: 10,
+    rpm: 2200,
+    tiltClock: '12:00',
+    tiltDegrees: 0,
+    gyroDegrees: 0,
   });
 
-  // Ball B Settings (Right)
+  // Ball B Settings (Right) - 初期値はすべて真ん中（基準）
   const [ballB, setBallB] = useState({
     name: '2-Seam / Sinker',
     seamType: '2-seam',
-    rpm: 2250,
-    tiltClock: '2:15',
-    tiltDegrees: 67.5,
-    gyroDegrees: 25,
+    rpm: 2200,
+    tiltClock: '12:00',
+    tiltDegrees: 0,
+    gyroDegrees: 0,
   });
 
   // Apply Preset to Ball

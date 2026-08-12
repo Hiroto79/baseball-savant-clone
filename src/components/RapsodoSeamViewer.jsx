@@ -19,8 +19,8 @@ import * as THREE from 'three';
 function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
   const segments = 360;
-  // alpha=0.63 でお手本写真通りの狭いくびれ間隔（約45%）と滑らかな半円弧を完全両立
-  const alpha = 0.63;
+  // alpha=0.78 でお手本写真通りの狭いくびれ間隔（中央でしっかり近づく距離感）を完全再現
+  const alpha = 0.78;
   const r = radius * 1.004;
 
   for (let i = 0; i <= segments; i++) {
@@ -47,14 +47,14 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
-    // 2-Seam: お手本写真と100%一致する滑らかな半円弧のくびれ面 (Z軸 45度)
+    // 2-Seam: お手本写真と100%一致する左右2本の狭いくびれ円弧 (Z軸 45度)
     m.makeRotationZ(Math.PI / 4);
   } else if (seamType === '1-seam') {
-    // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢 (Y軸 90度)
+    // 1-Seam: 中央を1本の縦シームラインが真っ直ぐ通る完全なワンシーム (Y軸 90度)
     m.makeRotationY(Math.PI / 2);
   } else {
-    // 4-Seam: ユーザーから「向きは完璧」と絶賛された完全なフォーシーム初期姿勢
-    m.makeRotationY(Math.PI / 2).multiply(new THREE.Matrix4().makeRotationZ(-Math.PI / 4));
+    // 4-Seam: 上下に水平な横縫い目が渡る王道のフォーシーム (Z軸 135度)
+    m.makeRotationZ((3 * Math.PI) / 4);
   }
   return m;
 }
