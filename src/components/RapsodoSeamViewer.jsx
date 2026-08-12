@@ -50,11 +50,11 @@ export function getInitRotationMatrix(seamType = '4-seam') {
     // 2-Seam: お手本写真と100%一致する左右2本の狭いくびれ円弧 (Z軸 45度)
     m.makeRotationZ(Math.PI / 4);
   } else if (seamType === '1-seam') {
-    // 1-Seam: 中央を1本の縦シームラインが真っ直ぐ通る完全なワンシーム (Y軸 90度)
-    m.makeRotationY(Math.PI / 2);
+    // 1-Seam: ボール中央を1本の縦シームラインが通るワンシーム (Identity)
+    m.identity();
   } else {
-    // 4-Seam: 上下に水平な横縫い目が渡る王道のフォーシーム (Z軸 135度)
-    m.makeRotationZ((3 * Math.PI) / 4);
+    // 4-Seam: 馬蹄形(Cの字)が正面を向き、1回転で4回通過する王道のフォーシーム (Y軸 90度)
+    m.makeRotationY(Math.PI / 2);
   }
   return m;
 }
