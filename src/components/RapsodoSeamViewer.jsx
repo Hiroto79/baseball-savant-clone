@@ -15,19 +15,18 @@ import * as THREE from 'three';
  *   投手の利き腕を選択する必要はなく、符号だけで左右どちらの曲がりも表現できる。
  */
 
-// 実物の硬式野球ボール牛革縫合線パラメータ方程式に従ってシームジオメトリを生成
+// 滑らかな半円（円弧）を描く硬式野球ボールシームジオメトリを生成
 function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
   const segments = 360;
-  // a=0.70 で実物通りの狭いくびれ間隔を再現し、-0.06*sin(6t) で馬蹄形の平坦な広がりを再現
-  const a = 0.70;
-  const b = -0.06;
+  // 屈曲・カクつきのない美しい半円弧を描く黄金比率パラメータ (a = 0.56)
+  const a = 0.56;
   const r = radius * 1.004;
 
   for (let i = 0; i <= segments; i++) {
     const t = (i / segments) * Math.PI * 2;
-    // 実物野球ボールのピーナッツ型革の球面縫合線方程式
-    const theta = a * Math.sin(2 * t) + b * Math.sin(6 * t);
+    // 滑らかな球面大円パラメータ方程式（屈曲・角張りのない自然な半円）
+    const theta = a * Math.sin(2 * t);
     const phi = t;
 
     const x = r * Math.cos(theta) * Math.cos(phi);
@@ -38,7 +37,7 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   }
 
   const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal');
-  // 半径 0.058、断面分割 16 で立体感を強調
+  // 半径 0.058、断面分割 16 で滑らかに立体感を強調
   const tubeGeo = new THREE.TubeGeometry(curve, 240, 0.058, 16, true);
 
   return tubeGeo;
