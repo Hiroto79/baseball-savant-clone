@@ -25,24 +25,24 @@ export const SeamSimulator = ({ showHeader = false }) => {
   // 既定視点は 'pitcher' にする（'catcher' は反対側から見た鏡像で、回転方向が逆に見えるのは仕様通り）
   const [viewAngle, setViewAngle] = useState('pitcher'); // 'catcher', 'pitcher', 'side', 'top'
 
-  // Ball A Settings (Left)
+  // Ball A Settings (Left) - 初期位置基準
   const [ballA, setBallA] = useState({
     name: '4-Seam Fastball',
     seamType: '4-seam',
-    rpm: 2400,
-    tiltClock: '1:15',
-    tiltDegrees: 37.5,
-    gyroDegrees: 10,
+    rpm: 2200,
+    tiltClock: '12:00',
+    tiltDegrees: 0,
+    gyroDegrees: 0,
   });
 
-  // Ball B Settings (Right)
+  // Ball B Settings (Right) - 初期位置基準
   const [ballB, setBallB] = useState({
     name: '2-Seam / Sinker',
     seamType: '2-seam',
-    rpm: 2250,
-    tiltClock: '2:15',
-    tiltDegrees: 67.5,
-    gyroDegrees: 25,
+    rpm: 2200,
+    tiltClock: '12:00',
+    tiltDegrees: 0,
+    gyroDegrees: 0,
   });
 
   // Apply Preset to Ball
@@ -94,6 +94,34 @@ export const SeamSimulator = ({ showHeader = false }) => {
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
             <span>{isPlaying ? '一時停止' : '回転再生'}</span>
+          </button>
+
+          {/* Reset button */}
+          <button
+            onClick={() => {
+              setBallA({
+                name: '4-Seam Fastball',
+                seamType: '4-seam',
+                rpm: 2200,
+                tiltClock: '12:00',
+                tiltDegrees: 0,
+                gyroDegrees: 0,
+              });
+              setBallB({
+                name: '2-Seam / Sinker',
+                seamType: '2-seam',
+                rpm: 2200,
+                tiltClock: '12:00',
+                tiltDegrees: 0,
+                gyroDegrees: 0,
+              });
+              setViewAngle('pitcher');
+            }}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-all cursor-pointer shadow-sm"
+            title="すべての設定を基準初期位置（2200 RPM, 12:00, 0°）にリセット"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+            <span>初期位置に戻す</span>
           </button>
 
           {/* Speed selector */}
@@ -173,18 +201,35 @@ export const SeamSimulator = ({ showHeader = false }) => {
                 <Sparkles className="w-3.5 h-3.5" />
                 球種プリセット
               </span>
-              <select
-                onChange={(e) => {
-                  const p = PITCH_PRESETS.find(x => x.name === e.target.value);
-                  if (p) applyPreset('A', p);
-                }}
-                className="bg-card border border-border text-foreground text-xs font-bold rounded-lg px-2.5 py-1.5 outline-none cursor-pointer"
-              >
-                <option value="">-- プリセットから選ぶ --</option>
-                {PITCH_PRESETS.map(p => (
-                  <option key={p.name} value={p.name}>{p.name}</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-1.5">
+                <select
+                  onChange={(e) => {
+                    const p = PITCH_PRESETS.find(x => x.name === e.target.value);
+                    if (p) applyPreset('A', p);
+                  }}
+                  className="bg-card border border-border text-foreground text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
+                >
+                  <option value="">-- プリセットから選ぶ --</option>
+                  {PITCH_PRESETS.map(p => (
+                    <option key={p.name} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setBallA({
+                    name: '4-Seam Fastball',
+                    seamType: '4-seam',
+                    rpm: 2200,
+                    tiltClock: '12:00',
+                    tiltDegrees: 0,
+                    gyroDegrees: 0,
+                  })}
+                  className="px-2 py-1 text-[11px] font-bold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 flex items-center gap-1 cursor-pointer"
+                  title="Ball A を初期位置（2200 RPM, 12:00, 0°）にリセット"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>初期位置</span>
+                </button>
+              </div>
             </div>
 
             {/* 1. Seam Type Preset (4 / 2 / 1 Seam) */}
@@ -331,18 +376,35 @@ export const SeamSimulator = ({ showHeader = false }) => {
                 <Sparkles className="w-3.5 h-3.5" />
                 球種プリセット
               </span>
-              <select
-                onChange={(e) => {
-                  const p = PITCH_PRESETS.find(x => x.name === e.target.value);
-                  if (p) applyPreset('B', p);
-                }}
-                className="bg-card border border-border text-foreground text-xs font-bold rounded-lg px-2.5 py-1.5 outline-none cursor-pointer"
-              >
-                <option value="">-- プリセットから選ぶ --</option>
-                {PITCH_PRESETS.map(p => (
-                  <option key={p.name} value={p.name}>{p.name}</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-1.5">
+                <select
+                  onChange={(e) => {
+                    const p = PITCH_PRESETS.find(x => x.name === e.target.value);
+                    if (p) applyPreset('B', p);
+                  }}
+                  className="bg-card border border-border text-foreground text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
+                >
+                  <option value="">-- プリセットから選ぶ --</option>
+                  {PITCH_PRESETS.map(p => (
+                    <option key={p.name} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setBallB({
+                    name: '2-Seam / Sinker',
+                    seamType: '2-seam',
+                    rpm: 2200,
+                    tiltClock: '12:00',
+                    tiltDegrees: 0,
+                    gyroDegrees: 0,
+                  })}
+                  className="px-2 py-1 text-[11px] font-bold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 flex items-center gap-1 cursor-pointer"
+                  title="Ball B を初期位置（2200 RPM, 12:00, 0°）にリセット"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>初期位置</span>
+                </button>
+              </div>
             </div>
 
             {/* 1. Seam Type Preset (4 / 2 / 1 Seam) */}
