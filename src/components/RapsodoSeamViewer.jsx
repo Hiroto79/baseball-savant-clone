@@ -52,8 +52,8 @@ export function getInitRotationMatrix(seamType = '4-seam') {
     // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢 (Y軸 45度)
     m.makeRotationY(Math.PI / 4);
   } else {
-    // 4-Seam: 斜めにならず垂直に真っ直ぐ立つCの字・馬蹄形 (C → 逆C → C → 逆C 連続スピン)
-    m.identity();
+    // 4-Seam: 斜めを完全補正し、垂直に真っ直ぐ直立したCの字・馬蹄形 (C → 逆C → C → 逆C 連続スピン)
+    m.makeRotationY(Math.PI / 2).multiply(new THREE.Matrix4().makeRotationZ(-Math.PI / 4));
   }
   return m;
 }
