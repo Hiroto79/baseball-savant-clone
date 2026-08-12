@@ -227,16 +227,16 @@ export const SingleBallCanvas = ({
     };
     window.addEventListener('resize', handleResize);
 
-    // マウスドラッグ
+    // マウス / タッチドラッグ
     const applyPresetCamera = (angle) => {
       if (angle === 'catcher') {
-        camera.position.set(0, 0, 5.0);
+        camera.position.set(0, 0, 5.4);
       } else if (angle === 'pitcher') {
-        camera.position.set(0, 0, -5.0);
+        camera.position.set(0, 0, -5.4);
       } else if (angle === 'side') {
-        camera.position.set(5.0, 0, 0);
+        camera.position.set(5.4, 0, 0);
       } else if (angle === 'top') {
-        camera.position.set(0, 5.0, 0.001);
+        camera.position.set(0, 5.4, 0.001);
       }
       camera.lookAt(0, 0, 0);
     };
@@ -255,7 +255,7 @@ export const SingleBallCanvas = ({
       orbitAnglesRef.current.theta += deltaX * 0.01;
       orbitAnglesRef.current.phi = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, orbitAnglesRef.current.phi + deltaY * 0.01));
 
-      const r = 5.0;
+      const r = 5.4;
       const t = orbitAnglesRef.current.theta;
       const p = orbitAnglesRef.current.phi;
 
@@ -268,17 +268,60 @@ export const SingleBallCanvas = ({
     const onMouseUp = () => {
       isDraggingRef.current = false;
     };
+
+    // スマホのタッチ操作対応
+    let lastTap = 0;
+    const onTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        const now = Date.now();
+        if (now - lastTap < 300) {
+          // ダブルタップ復帰
+          orbitAnglesRef.current = { theta: 0, phi: 0 };
+          applyPresetCamera(viewAngleRef.current);
+        }
+        lastTap = now;
+        isDraggingRef.current = true;
+        prevMousePosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+    };
+
+    const onTouchMove = (e) => {
+      if (!isDraggingRef.current || e.touches.length !== 1) return;
+      const deltaX = e.touches[0].clientX - prevMousePosRef.current.x;
+      const deltaY = e.touches[0].clientY - prevMousePosRef.current.y;
+      prevMousePosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+
+      orbitAnglesRef.current.theta += deltaX * 0.01;
+      orbitAnglesRef.current.phi = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, orbitAnglesRef.current.phi + deltaY * 0.01));
+
+      const r = 5.4;
+      const t = orbitAnglesRef.current.theta;
+      const p = orbitAnglesRef.current.phi;
+
+      camera.position.x = r * Math.sin(t) * Math.cos(p);
+      camera.position.y = r * Math.sin(p);
+      camera.position.z = r * Math.cos(t) * Math.cos(p);
+      camera.lookAt(0, 0, 0);
+    };
+
+    const onTouchEnd = () => {
+      isDraggingRef.current = false;
+    };
+
     // ダブルクリックで、ドラッグ回転を選択中のプリセット視点へ戻す
-    // （ドラッグ後は視点セレクタの表示と実際のカメラ位置がズレたままになるため）
     const onDoubleClick = () => {
       orbitAnglesRef.current = { theta: 0, phi: 0 };
       applyPresetCamera(viewAngleRef.current);
     };
 
     const dom = renderer.domElement;
+    dom.style.touchAction = 'none';
     dom.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
+    dom.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd);
     dom.addEventListener('dblclick', onDoubleClick);
 
     return () => {
@@ -286,6 +329,9 @@ export const SingleBallCanvas = ({
       dom.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      dom.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
       dom.removeEventListener('dblclick', onDoubleClick);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       renderer.dispose();
