@@ -16,7 +16,6 @@ import Feedback from './pages/Feedback';
 import HitterFeedback from './pages/HitterFeedback';
 import PitchingSimulator from './pages/PitchingSimulator';
 import SeamSimulator from './pages/SeamSimulator';
-import CommandTracker from './pages/CommandTracker';
 
 import { SettingsProvider } from './context/SettingsContext';
 import { BlastProvider } from './context/BlastContext';
@@ -80,7 +79,6 @@ function App() {
                     <Route path="/hitter-feedback" element={<HitterFeedback />} /> {/* Added HitterFeedback route */}
                     <Route path="/simulator" element={<PitchingSimulator />} />
                     <Route path="/seam-simulator" element={<SeamSimulator />} />
-                    <Route path="/command" element={<CommandTracker />} />
                     <Route path="/upload" element={<Upload />} />
                     <Route path="/settings" element={<Settings />} />
 

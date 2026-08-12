@@ -5,7 +5,7 @@
 This application is protected by password authentication to safeguard personal player data.
 
 ### Default Password
-The default password is: `baseball2024`
+The default password is: `7911`
 
 ### Changing the Password
 
