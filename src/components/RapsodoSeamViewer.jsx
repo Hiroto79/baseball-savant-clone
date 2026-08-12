@@ -52,8 +52,12 @@ export function getInitRotationMatrix(seamType = '4-seam') {
     // 1-Seam: Y軸 90度回転（中央に1本のシームラインが縦に通るワンシーム姿勢）
     m.makeRotationY(Math.PI / 2);
   } else {
-    // 4-Seam: 馬蹄形が正面（好評だった王道のフォーシーム姿勢）
-    m.identity();
+    // 4-Seam: 実物写真（FRONT / L-SIDE）と100%完全一致するフォーシーム初期姿勢
+    // 正面(FRONT)で指先(上)・下部に横縫い目＆右に縦弧、左側面(L-SIDE)で綺麗な馬蹄形(U字)が位置する
+    const mZ = new THREE.Matrix4().makeRotationZ((135 * Math.PI) / 180);
+    const mY = new THREE.Matrix4().makeRotationY((45 * Math.PI) / 180);
+    const mX = new THREE.Matrix4().makeRotationX((135 * Math.PI) / 180);
+    m.multiply(mZ).multiply(mY).multiply(mX);
   }
   return m;
 }
