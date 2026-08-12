@@ -49,11 +49,11 @@ export function getInitRotationMatrix(seamType = '4-seam') {
     // 2-Seam: 左右に2本の縦円弧が走るツーシーム姿勢 (1回転で2回通過)
     m.makeRotationZ((3 * Math.PI) / 4);
   } else if (seamType === '1-seam') {
-    // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢 (Y軸 90度)
-    m.makeRotationY(Math.PI / 2);
+    // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢 (Y軸 45度)
+    m.makeRotationY(Math.PI / 4);
   } else {
-    // 4-Seam: 馬蹄形(U字)が正面を向き、1回転で確実に4回縫い目が通過する王道のフォーシーム姿勢
-    m.identity();
+    // 4-Seam: 縦スピン時に【C → 逆C → C → 逆C】が連続して現れる王道のフォーシーム姿勢 (Y軸 90度)
+    m.makeRotationY(Math.PI / 2);
   }
   return m;
 }
