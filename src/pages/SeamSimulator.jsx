@@ -141,15 +141,15 @@ export const SeamSimulator = ({ showHeader = false }) => {
         )}
       </div>
 
-      {/* Main 2-Ball 3D Comparison Arena */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+      {/* Main 2-Ball 3D Comparison Arena (スマホ横画面・sm以上で左右2球横並び) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 landscape:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
         
         {/* ========================================================
             BALL A (LEFT)
            ======================================================== */}
-        <div className="flex flex-col gap-3 sm:gap-4 bg-card/80 p-3 sm:p-5 rounded-2xl border border-border shadow-lg">
+        <div className="flex flex-col gap-2.5 sm:gap-4 bg-card/80 p-2.5 sm:p-4 md:p-5 rounded-2xl border border-border shadow-lg">
           {/* 3D Canvas A */}
-          <div className="w-full h-[280px] xs:h-[320px] sm:h-[380px] md:h-[420px]">
+          <div className="w-full h-[260px] xs:h-[290px] landscape:h-[210px] sm:h-[300px] md:h-[360px] lg:h-[420px]">
             <SingleBallCanvas
               seamType={ballA.seamType}
               rpm={ballA.rpm}
@@ -165,10 +165,10 @@ export const SeamSimulator = ({ showHeader = false }) => {
           </div>
 
           {/* Controller Panel A */}
-          <div className="space-y-3 sm:space-y-4 bg-muted/40 p-3 sm:p-4 rounded-xl border border-border/80">
+          <div className="space-y-2.5 sm:space-y-3.5 bg-muted/40 p-2.5 sm:p-3.5 rounded-xl border border-border/80">
             {/* Preset Selector */}
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] sm:text-xs font-black uppercase text-blue-400 flex items-center gap-1">
+              <span className="text-[10px] sm:text-xs font-black uppercase text-blue-400 flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5 shrink-0" />
                 球種プリセット
               </span>
@@ -177,7 +177,7 @@ export const SeamSimulator = ({ showHeader = false }) => {
                   const p = PITCH_PRESETS.find(x => x.name === e.target.value);
                   if (p) applyPreset('A', p);
                 }}
-                className="bg-card border border-border text-foreground text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-2.5 py-1 sm:py-1.5 outline-none cursor-pointer max-w-[170px] sm:max-w-none truncate"
+                className="bg-card border border-border text-foreground text-[10px] sm:text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer max-w-[150px] sm:max-w-none truncate"
               >
                 <option value="">-- プリセットから選ぶ --</option>
                 {PITCH_PRESETS.map(p => (
@@ -188,11 +188,11 @@ export const SeamSimulator = ({ showHeader = false }) => {
 
             {/* 1. Seam Type Preset (4 / 2 / 1 Seam) */}
             <div>
-              <label className="text-[11px] sm:text-xs font-bold text-muted-foreground flex items-center justify-between mb-1.5">
+              <label className="text-[10px] sm:text-xs font-bold text-muted-foreground flex items-center justify-between mb-1">
                 <span>① シームの初期姿勢</span>
                 <span className="text-blue-400 font-mono">{ballA.seamType.toUpperCase()}</span>
               </label>
-              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+              <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
                 {[
                   { id: '4-seam', label: '4シーム', desc: '馬蹄形正面' },
                   { id: '2-seam', label: '2シーム', desc: '2本平行レール' },
@@ -201,14 +201,14 @@ export const SeamSimulator = ({ showHeader = false }) => {
                   <button
                     key={s.id}
                     onClick={() => setBallA(prev => ({ ...prev, seamType: s.id }))}
-                    className={`py-1.5 sm:py-2 px-1 sm:px-2 rounded-lg text-[10px] sm:text-xs font-bold text-center border transition-all cursor-pointer ${
+                    className={`py-1 sm:py-1.5 px-1 rounded-lg text-[10px] sm:text-xs font-bold text-center border transition-all cursor-pointer ${
                       ballA.seamType === s.id
                         ? 'bg-blue-600 text-white border-blue-400 shadow-md scale-[1.02]'
                         : 'bg-card text-muted-foreground border-border hover:bg-accent'
                     }`}
                   >
                     <div>{s.label}</div>
-                    <div className="text-[8px] sm:text-[9px] opacity-75 font-normal truncate">{s.desc}</div>
+                    <div className="text-[8px] opacity-75 font-normal truncate">{s.desc}</div>
                   </button>
                 ))}
               </div>
@@ -216,9 +216,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
 
             {/* 2. RPM Slider */}
             <div>
-              <div className="flex justify-between text-[11px] sm:text-xs font-bold mb-1">
+              <div className="flex justify-between text-[10px] sm:text-xs font-bold mb-0.5">
                 <span className="flex items-center gap-1">
-                  <Gauge className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <Gauge className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400 shrink-0" />
                   回転数 (RPM)
                 </span>
                 <span className="font-mono text-emerald-400">{ballA.rpm} RPM</span>
@@ -241,9 +241,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
 
             {/* 3. Spin Axis (Tilt) */}
             <div>
-              <div className="flex justify-between text-[11px] sm:text-xs font-bold mb-1">
+              <div className="flex justify-between text-[10px] sm:text-xs font-bold mb-0.5">
                 <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-400 shrink-0" />
                   回転軸の向き (Tilt)
                 </span>
                 <span className="font-mono text-sky-400">{ballA.tiltClock} ({Math.round(ballA.tiltDegrees)}°)</span>
@@ -275,9 +275,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
 
             {/* 4. Gyro Angle */}
             <div>
-              <div className="flex justify-between text-[11px] sm:text-xs font-bold mb-1">
+              <div className="flex justify-between text-[10px] sm:text-xs font-bold mb-0.5">
                 <span className="flex items-center gap-1">
-                  <Compass className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
+                  <Compass className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-yellow-400 shrink-0" />
                   ジャイロ角 (効率)
                 </span>
                 <span className="font-mono text-yellow-400">
@@ -305,9 +305,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
         {/* ========================================================
             BALL B (RIGHT)
            ======================================================== */}
-        <div className="flex flex-col gap-3 sm:gap-4 bg-card/80 p-3 sm:p-5 rounded-2xl border border-border shadow-lg">
+        <div className="flex flex-col gap-2.5 sm:gap-4 bg-card/80 p-2.5 sm:p-4 md:p-5 rounded-2xl border border-border shadow-lg">
           {/* 3D Canvas B */}
-          <div className="w-full h-[280px] xs:h-[320px] sm:h-[380px] md:h-[420px]">
+          <div className="w-full h-[260px] xs:h-[290px] landscape:h-[210px] sm:h-[300px] md:h-[360px] lg:h-[420px]">
             <SingleBallCanvas
               seamType={ballB.seamType}
               rpm={ballB.rpm}
@@ -323,10 +323,10 @@ export const SeamSimulator = ({ showHeader = false }) => {
           </div>
 
           {/* Controller Panel B */}
-          <div className="space-y-3 sm:space-y-4 bg-muted/40 p-3 sm:p-4 rounded-xl border border-border/80">
+          <div className="space-y-2.5 sm:space-y-3.5 bg-muted/40 p-2.5 sm:p-3.5 rounded-xl border border-border/80">
             {/* Preset Selector */}
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] sm:text-xs font-black uppercase text-amber-400 flex items-center gap-1">
+              <span className="text-[10px] sm:text-xs font-black uppercase text-amber-400 flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5 shrink-0" />
                 球種プリセット
               </span>
@@ -335,7 +335,7 @@ export const SeamSimulator = ({ showHeader = false }) => {
                   const p = PITCH_PRESETS.find(x => x.name === e.target.value);
                   if (p) applyPreset('B', p);
                 }}
-                className="bg-card border border-border text-foreground text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-2.5 py-1 sm:py-1.5 outline-none cursor-pointer max-w-[170px] sm:max-w-none truncate"
+                className="bg-card border border-border text-foreground text-[10px] sm:text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer max-w-[150px] sm:max-w-none truncate"
               >
                 <option value="">-- プリセットから選ぶ --</option>
                 {PITCH_PRESETS.map(p => (
@@ -346,11 +346,11 @@ export const SeamSimulator = ({ showHeader = false }) => {
 
             {/* 1. Seam Type Preset (4 / 2 / 1 Seam) */}
             <div>
-              <label className="text-[11px] sm:text-xs font-bold text-muted-foreground flex items-center justify-between mb-1.5">
+              <label className="text-[10px] sm:text-xs font-bold text-muted-foreground flex items-center justify-between mb-1">
                 <span>① シームの初期姿勢</span>
                 <span className="text-amber-400 font-mono">{ballB.seamType.toUpperCase()}</span>
               </label>
-              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+              <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
                 {[
                   { id: '4-seam', label: '4シーム', desc: '馬蹄形正面' },
                   { id: '2-seam', label: '2シーム', desc: '2本平行レール' },
@@ -359,14 +359,14 @@ export const SeamSimulator = ({ showHeader = false }) => {
                   <button
                     key={s.id}
                     onClick={() => setBallB(prev => ({ ...prev, seamType: s.id }))}
-                    className={`py-1.5 sm:py-2 px-1 sm:px-2 rounded-lg text-[10px] sm:text-xs font-bold text-center border transition-all cursor-pointer ${
+                    className={`py-1 sm:py-1.5 px-1 rounded-lg text-[10px] sm:text-xs font-bold text-center border transition-all cursor-pointer ${
                       ballB.seamType === s.id
                         ? 'bg-amber-600 text-white border-amber-400 shadow-md scale-[1.02]'
                         : 'bg-card text-muted-foreground border-border hover:bg-accent'
                     }`}
                   >
                     <div>{s.label}</div>
-                    <div className="text-[8px] sm:text-[9px] opacity-75 font-normal truncate">{s.desc}</div>
+                    <div className="text-[8px] opacity-75 font-normal truncate">{s.desc}</div>
                   </button>
                 ))}
               </div>
@@ -374,9 +374,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
 
             {/* 2. RPM Slider */}
             <div>
-              <div className="flex justify-between text-[11px] sm:text-xs font-bold mb-1">
+              <div className="flex justify-between text-[10px] sm:text-xs font-bold mb-0.5">
                 <span className="flex items-center gap-1">
-                  <Gauge className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <Gauge className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400 shrink-0" />
                   回転数 (RPM)
                 </span>
                 <span className="font-mono text-emerald-400">{ballB.rpm} RPM</span>
@@ -399,9 +399,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
 
             {/* 3. Spin Axis (Tilt) */}
             <div>
-              <div className="flex justify-between text-[11px] sm:text-xs font-bold mb-1">
+              <div className="flex justify-between text-[10px] sm:text-xs font-bold mb-0.5">
                 <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-400 shrink-0" />
                   回転軸の向き (Tilt)
                 </span>
                 <span className="font-mono text-sky-400">{ballB.tiltClock} ({Math.round(ballB.tiltDegrees)}°)</span>
@@ -433,9 +433,9 @@ export const SeamSimulator = ({ showHeader = false }) => {
 
             {/* 4. Gyro Angle */}
             <div>
-              <div className="flex justify-between text-[11px] sm:text-xs font-bold mb-1">
+              <div className="flex justify-between text-[10px] sm:text-xs font-bold mb-0.5">
                 <span className="flex items-center gap-1">
-                  <Compass className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
+                  <Compass className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-yellow-400 shrink-0" />
                   ジャイロ角 (効率)
                 </span>
                 <span className="font-mono text-yellow-400">
