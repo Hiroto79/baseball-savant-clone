@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, BarChart3, Settings, Upload, Activity, Menu, X, Trophy, FileText, Users, Compass } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Settings, Upload, Activity, Menu, X, Trophy, FileText, Users, Compass, Crosshair } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Layout = ({ children }) => {
@@ -43,6 +43,10 @@ const Layout = ({ children }) => {
                     <Link to="/simulator" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
                         <Compass size={20} />
                         <span>Simulator (3Dシーム&軌道)</span>
+                    </Link>
+                    <Link to="/command" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
+                        <Crosshair size={20} className="text-rose-400" />
+                        <span className="font-bold text-rose-400">Command Analysis</span>
                     </Link>
                     <Link to="/blast" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
                         <Activity size={20} />
@@ -129,6 +133,14 @@ const Layout = ({ children }) => {
                             >
                                 <Compass size={20} />
                                 <span>Simulator (3Dシーム&軌道)</span>
+                            </Link>
+                            <Link
+                                to="/command"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                            >
+                                <Crosshair size={20} className="text-rose-400" />
+                                <span className="font-bold text-rose-400">Command Analysis</span>
                             </Link>
                             <Link
                                 to="/blast"
