@@ -81,9 +81,6 @@ export const SingleBallCanvas = ({
   const spinAngleRef = useRef(0);
 
   // マウスドラッグ自由回転用の制御
-  const isDraggingRef = useRef(false);
-  const prevMousePosRef = useRef({ x: 0, y: 0 });
-  const orbitAnglesRef = useRef({ theta: 0, phi: 0 });
   const viewAngleRef = useRef(viewAngle);
 
   const calculatedTiltDeg = useMemo(() => {
@@ -227,7 +224,7 @@ export const SingleBallCanvas = ({
     };
     window.addEventListener('resize', handleResize);
 
-    // マウス / タッチドラッグ
+    // 視点切り替えプリセット
     const applyPresetCamera = (angle) => {
       if (angle === 'catcher') {
         camera.position.set(0, 0, 5.4);
@@ -241,98 +238,8 @@ export const SingleBallCanvas = ({
       camera.lookAt(0, 0, 0);
     };
 
-    const onMouseDown = (e) => {
-      isDraggingRef.current = true;
-      prevMousePosRef.current = { x: e.clientX, y: e.clientY };
-    };
-
-    const onMouseMove = (e) => {
-      if (!isDraggingRef.current) return;
-      const deltaX = e.clientX - prevMousePosRef.current.x;
-      const deltaY = e.clientY - prevMousePosRef.current.y;
-      prevMousePosRef.current = { x: e.clientX, y: e.clientY };
-
-      orbitAnglesRef.current.theta += deltaX * 0.01;
-      orbitAnglesRef.current.phi = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, orbitAnglesRef.current.phi + deltaY * 0.01));
-
-      const r = 5.4;
-      const t = orbitAnglesRef.current.theta;
-      const p = orbitAnglesRef.current.phi;
-
-      camera.position.x = r * Math.sin(t) * Math.cos(p);
-      camera.position.y = r * Math.sin(p);
-      camera.position.z = r * Math.cos(t) * Math.cos(p);
-      camera.lookAt(0, 0, 0);
-    };
-
-    const onMouseUp = () => {
-      isDraggingRef.current = false;
-    };
-
-    // スマホのタッチ操作対応
-    let lastTap = 0;
-    const onTouchStart = (e) => {
-      if (e.touches.length === 1) {
-        const now = Date.now();
-        if (now - lastTap < 300) {
-          // ダブルタップ復帰
-          orbitAnglesRef.current = { theta: 0, phi: 0 };
-          applyPresetCamera(viewAngleRef.current);
-        }
-        lastTap = now;
-        isDraggingRef.current = true;
-        prevMousePosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      }
-    };
-
-    const onTouchMove = (e) => {
-      if (!isDraggingRef.current || e.touches.length !== 1) return;
-      const deltaX = e.touches[0].clientX - prevMousePosRef.current.x;
-      const deltaY = e.touches[0].clientY - prevMousePosRef.current.y;
-      prevMousePosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-
-      orbitAnglesRef.current.theta += deltaX * 0.01;
-      orbitAnglesRef.current.phi = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, orbitAnglesRef.current.phi + deltaY * 0.01));
-
-      const r = 5.4;
-      const t = orbitAnglesRef.current.theta;
-      const p = orbitAnglesRef.current.phi;
-
-      camera.position.x = r * Math.sin(t) * Math.cos(p);
-      camera.position.y = r * Math.sin(p);
-      camera.position.z = r * Math.cos(t) * Math.cos(p);
-      camera.lookAt(0, 0, 0);
-    };
-
-    const onTouchEnd = () => {
-      isDraggingRef.current = false;
-    };
-
-    // ダブルクリックで、ドラッグ回転を選択中のプリセット視点へ戻す
-    const onDoubleClick = () => {
-      orbitAnglesRef.current = { theta: 0, phi: 0 };
-      applyPresetCamera(viewAngleRef.current);
-    };
-
-    const dom = renderer.domElement;
-    dom.style.touchAction = 'none';
-    dom.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    dom.addEventListener('touchstart', onTouchStart, { passive: true });
-    window.addEventListener('touchmove', onTouchMove, { passive: true });
-    window.addEventListener('touchend', onTouchEnd);
-    dom.addEventListener('dblclick', onDoubleClick);
-
     return () => {
       window.removeEventListener('resize', handleResize);
-      dom.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      dom.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
-      dom.removeEventListener('dblclick', onDoubleClick);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       renderer.dispose();
     };
@@ -366,20 +273,17 @@ export const SingleBallCanvas = ({
     const camera = cameraRef.current;
     if (!camera) return;
 
-    // ドラッグで自由回転させた後にプリセット視点へ戻すため、軌道角度もリセットする
-    orbitAnglesRef.current = { theta: 0, phi: 0 };
-
     if (viewAngle === 'catcher') {
-      camera.position.set(0, 0, 5.0);
+      camera.position.set(0, 0, 5.4);
       camera.lookAt(0, 0, 0);
     } else if (viewAngle === 'pitcher') {
-      camera.position.set(0, 0, -5.0);
+      camera.position.set(0, 0, -5.4);
       camera.lookAt(0, 0, 0);
     } else if (viewAngle === 'side') {
-      camera.position.set(5.0, 0, 0);
+      camera.position.set(5.4, 0, 0);
       camera.lookAt(0, 0, 0);
     } else if (viewAngle === 'top') {
-      camera.position.set(0, 5.0, 0.001);
+      camera.position.set(0, 5.4, 0.001);
       camera.lookAt(0, 0, 0);
     }
   }, [viewAngle]);
@@ -479,11 +383,7 @@ export const SingleBallCanvas = ({
       </div>
 
       {/* 3D Canvas */}
-      <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing min-h-[240px] sm:min-h-[300px]" />
-
-      <div className="absolute bottom-1.5 sm:bottom-2 left-1/2 -translate-x-1/2 text-[8px] sm:text-[10px] text-zinc-500 pointer-events-none bg-zinc-950/80 px-2 sm:px-3 py-0.5 rounded-full border border-zinc-800 whitespace-nowrap">
-        🖱️ ドラッグで回転 ・ ダブルクリックで復帰
-      </div>
+      <div ref={containerRef} className="w-full h-full min-h-[240px] sm:min-h-[300px]" />
     </div>
   );
 };
