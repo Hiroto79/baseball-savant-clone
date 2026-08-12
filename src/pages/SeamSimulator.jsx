@@ -148,8 +148,8 @@ export const SeamSimulator = ({ showHeader = false }) => {
             BALL A (LEFT)
            ======================================================== */}
         <div className="flex flex-col gap-2.5 sm:gap-4 bg-card/80 p-2.5 sm:p-4 md:p-5 rounded-2xl border border-border shadow-lg">
-          {/* 3D Canvas A */}
-          <div className="w-full h-[260px] xs:h-[290px] landscape:h-[210px] sm:h-[300px] md:h-[360px] lg:h-[420px]">
+          {/* 3D Canvas */}
+          <div className="w-full h-[340px] xs:h-[380px] landscape:h-[260px] sm:h-[420px] md:h-[480px] lg:h-[540px]">
             <SingleBallCanvas
               seamType={ballA.seamType}
               rpm={ballA.rpm}
@@ -307,7 +307,7 @@ export const SeamSimulator = ({ showHeader = false }) => {
            ======================================================== */}
         <div className="flex flex-col gap-2.5 sm:gap-4 bg-card/80 p-2.5 sm:p-4 md:p-5 rounded-2xl border border-border shadow-lg">
           {/* 3D Canvas B */}
-          <div className="w-full h-[260px] xs:h-[290px] landscape:h-[210px] sm:h-[300px] md:h-[360px] lg:h-[420px]">
+          <div className="w-full h-[340px] xs:h-[380px] landscape:h-[260px] sm:h-[420px] md:h-[480px] lg:h-[540px]">
             <SingleBallCanvas
               seamType={ballB.seamType}
               rpm={ballB.rpm}

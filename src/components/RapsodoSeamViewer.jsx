@@ -15,24 +15,23 @@ import * as THREE from 'three';
  *   投手の利き腕を選択する必要はなく、符号だけで左右どちらの曲がりも表現できる。
  */
 
-// 本物の硬式野球ボール縫合線パラメータ方程式 (Gilbert Seam Equation)
+// 滑らかで一切屈曲のない球面野球ボール縫合線ジオメトリを生成
 function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
   const segments = 360;
-  // c=0.38 で最も近づく時のくびれ間隔を実物イラスト通りに完全再現
-  const c = 0.38;
+  // alpha=0.63 でお手本写真通りの狭いくびれ間隔（約45%）と滑らかな半円弧を完全両立
+  const alpha = 0.63;
   const r = radius * 1.004;
 
   for (let i = 0; i <= segments; i++) {
     const t = (i / segments) * Math.PI * 2;
-    const rawX = Math.cos(t) - c * Math.cos(3 * t);
-    const rawY = Math.sin(t) + c * Math.sin(3 * t);
-    const rawZ = 2 * Math.sqrt(c) * Math.sin(2 * t);
-    const norm = Math.sqrt(rawX * rawX + rawY * rawY + rawZ * rawZ);
+    // 屈曲・角張りのない純粋な球面大円補間方程式
+    const theta = alpha * Math.sin(2 * t);
+    const phi = t;
 
-    const x = (rawX / norm) * r;
-    const y = (rawY / norm) * r;
-    const z = (rawZ / norm) * r;
+    const x = r * Math.cos(theta) * Math.cos(phi);
+    const y = r * Math.cos(theta) * Math.sin(phi);
+    const z = r * Math.sin(theta);
 
     points.push(new THREE.Vector3(x, y, z));
   }
@@ -48,7 +47,7 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
-    // 2-Seam: イラストと100%一致する最も縫い目が近づくくびれ面 (Z軸 45度)
+    // 2-Seam: お手本写真と100%一致する滑らかな半円弧のくびれ面 (Z軸 45度)
     m.makeRotationZ(Math.PI / 4);
   } else if (seamType === '1-seam') {
     // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢 (Y軸 90度)
@@ -110,17 +109,17 @@ export const SingleBallCanvas = ({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
     if (viewAngle === 'catcher') {
-      camera.position.set(0, 0, 5.0);
+      camera.position.set(0, 0, 5.4);
     } else if (viewAngle === 'pitcher') {
-      camera.position.set(0, 0, -5.0);
+      camera.position.set(0, 0, -5.4);
     } else if (viewAngle === 'side') {
-      camera.position.set(5.0, 0, 0);
+      camera.position.set(5.4, 0, 0);
     } else if (viewAngle === 'top') {
-      camera.position.set(0, 5.0, 0.001);
+      camera.position.set(0, 5.4, 0.001);
     } else {
-      camera.position.set(0, 0, -5.0);
+      camera.position.set(0, 0, -5.4);
     }
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
