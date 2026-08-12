@@ -53,8 +53,8 @@ export function getInitRotationMatrix(seamType = '4-seam') {
     // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢 (Y軸 90度)
     m.makeRotationY(Math.PI / 2);
   } else {
-    // 4-Seam: 上下に水平な横縫い目が渡る王道のフォーシーム姿勢 (Z軸 135度)
-    m.makeRotationZ((3 * Math.PI) / 4);
+    // 4-Seam: ユーザーから「向きは完璧」と絶賛された完全なフォーシーム初期姿勢
+    m.makeRotationY(Math.PI / 2).multiply(new THREE.Matrix4().makeRotationZ(-Math.PI / 4));
   }
   return m;
 }
