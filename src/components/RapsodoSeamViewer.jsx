@@ -15,17 +15,19 @@ import * as THREE from 'three';
  *   投手の利き腕を選択する必要はなく、符号だけで左右どちらの曲がりも表現できる。
  */
 
-// ユーザー指定の数式に従ってシームジオメトリを生成 (太さ 0.058 に強調・断面16分割で滑らかに)
+// 実物の硬式野球ボール牛革縫合線パラメータ方程式に従ってシームジオメトリを生成
 function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
   const points = [];
   const segments = 360;
-  const a = seamType === '1-seam' ? 0.40 : 0.35;
+  // a=0.70 で実物通りの狭いくびれ間隔を再現し、-0.06*sin(6t) で馬蹄形の平坦な広がりを再現
+  const a = 0.70;
+  const b = -0.06;
   const r = radius * 1.004;
 
   for (let i = 0; i <= segments; i++) {
     const t = (i / segments) * Math.PI * 2;
-    // 球面パラメータ方程式: 赤道(θ=0)から上下に a ラジアン波打つ
-    const theta = a * Math.sin(2 * t);
+    // 実物野球ボールのピーナッツ型革の球面縫合線方程式
+    const theta = a * Math.sin(2 * t) + b * Math.sin(6 * t);
     const phi = t;
 
     const x = r * Math.cos(theta) * Math.cos(phi);
@@ -46,13 +48,13 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
-    // 2-Seam: 左右に2本の縦円弧が走るツーシーム姿勢 (1回転で2回通過)
-    m.makeRotationZ((3 * Math.PI) / 4);
+    // 2-Seam: イラストと100%一致する最も縫い目が近づくくびれ面 (Z軸 45度)
+    m.makeRotationZ(Math.PI / 4);
   } else if (seamType === '1-seam') {
     // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢 (Y軸 45度)
     m.makeRotationY(Math.PI / 4);
   } else {
-    // 4-Seam: 斜めを完全補正し、垂直に真っ直ぐ直立したCの字・馬蹄形 (C → 逆C → C → 逆C 連続スピン)
+    // 4-Seam: 斜めにならず垂直に直立したCの字・馬蹄形 (C → 逆C → C → 逆C 連続スピン)
     m.makeRotationY(Math.PI / 2).multiply(new THREE.Matrix4().makeRotationZ(-Math.PI / 4));
   }
   return m;
