@@ -46,18 +46,14 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
 export function getInitRotationMatrix(seamType = '4-seam') {
   const m = new THREE.Matrix4();
   if (seamType === '2-seam') {
-    // 2-Seam: Z軸 135度回転（実物写真・図解通りのツーシーム姿勢）
-    m.makeRotationZ((3 * Math.PI) / 4);
+    // 2-Seam: 実物写真3枚目と100%一致。左右に2本の美しい縦の円弧が並び、中央に縦長の白革（1回転で2回空気を切る）
+    m.makeRotationZ(Math.PI / 4);
   } else if (seamType === '1-seam') {
-    // 1-Seam: Y軸 90度回転（中央に1本のシームラインが縦に通るワンシーム姿勢）
+    // 1-Seam: 中央に1本のシームラインが縦に通るワンシーム姿勢
     m.makeRotationY(Math.PI / 2);
   } else {
-    // 4-Seam: 実物写真（FRONT / L-SIDE）と100%完全一致するフォーシーム初期姿勢
-    // 正面(FRONT)で指先(上)・下部に横縫い目＆右に縦弧、左側面(L-SIDE)で綺麗な馬蹄形(U字)が位置する
-    const mZ = new THREE.Matrix4().makeRotationZ((135 * Math.PI) / 180);
-    const mY = new THREE.Matrix4().makeRotationY((45 * Math.PI) / 180);
-    const mX = new THREE.Matrix4().makeRotationX((135 * Math.PI) / 180);
-    m.multiply(mZ).multiply(mY).multiply(mX);
+    // 4-Seam: 実物写真1枚目と100%一致。上下（指先と下部）に水平な横縫い目が渡る王道のフォーシーム（1回転で4回空気を切る）
+    m.makeRotationZ((3 * Math.PI) / 4);
   }
   return m;
 }
