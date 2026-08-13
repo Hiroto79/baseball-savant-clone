@@ -114,10 +114,8 @@ export function getInitRotationMatrix(seamType = '4-seam') {
     // 2-Seam: 屈曲のない滑らかな2本の縦円弧レール (Z軸 45度)
     m.makeRotationZ(Math.PI / 4);
   } else if (seamType === '1-seam') {
-    // 1-Seam: 実写握り写真通り、ボール中央を1本の縦シームラインが真っ直ぐ通り、上下が左右に丸まる姿勢 (Y 90度 + Z 45度)
-    const mY = new THREE.Matrix4().makeRotationY(Math.PI / 2);
-    const mZ = new THREE.Matrix4().makeRotationZ(Math.PI / 4);
-    m.multiplyMatrices(mZ, mY);
+    // 1-Seam: 1本の縦シームラインが中央(X=0)を真っ直ぐ通り、1回転で1度だけ通過する完全垂直ワンシーム姿勢
+    m.makeRotationZ(Math.PI / 4);
   } else {
     // 4-Seam: 馬蹄形(Cの字)が正面を向き、1回転で4回通過する王道のフォーシーム (Y軸 90度)
     m.makeRotationY(Math.PI / 2);
