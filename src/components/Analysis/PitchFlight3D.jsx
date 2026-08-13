@@ -1,14 +1,16 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
-import { Play, Pause, RotateCcw, Activity } from 'lucide-react';
+import { Play, Pause, RotateCcw, Activity, Spline } from 'lucide-react';
 
 /**
  * Rapsodo 3D Diamond 仕様 3D Pitch Flight & Trajectory Simulator
  * 
- * 強化内容:
+ * 強化・修正内容:
+ * - 左右反転の解消（2Dコース指定の左右と3D空間の左右が完全一致）
+ * - バッテン線（対角線）を完全排除した美しい3Dストライクゾーン矩形フレーム
+ * - 軌道ライン表示（ON/OFF）トグル機能
  * - 着弾点（ホームベース上）でボールが静止し、設定されたスピン軸・RPMで3D自転を継続
- * - バッテン線・着弾丸マークを排除し、洗練された3Dストライクゾーンと自転ボールを表示
- * - 正しい右打者 / 左打者目線（右打者: 一塁側から投手を見る / 左打者: 三塁側から投手を見る）
+ * - 正しい右打者 / 左打者目線
  * - 画面右下に「MOVIMIENTO (BREAK CHART) / 変化量チャート」を常時オーバーレイ表示
  */
 
@@ -116,7 +118,8 @@ export const PitchFlight3D = ({
   onSelectPitch,
   showSpinlessGlobal = true,
   showForcesGlobal = true,
-  cameraView = 'CATCHER', // 'CATCHER' | 'BATTER_R' | 'BATTER_L' | 'PITCHER' | 'FOLLOW' | 'SIDE'
+  showTrajLinesGlobal = true,
+  cameraView = 'CATCHER', // 'CATCHER' | 'BATTER_R' | 'BATTER_L' | 'PITCHER' | 'SIDE'
   onCameraChange,
   playbackSpeed = 0.5,
 }) => {
@@ -137,7 +140,7 @@ export const PitchFlight3D = ({
   const prevMousePosRef = useRef({ x: 0, y: 0 });
   const orbitAnglesRef = useRef({ theta: 0, phi: 0 });
 
-  // 物理計算: 各球種の軌道点を計算
+  // 物理計算: 各球種の軌道点を計算 (左右の反転を解消)
   const pitchTrajectories = useMemo(() => {
     return pitches.map(p => {
       const v_kmh = p.velocity || 145;
@@ -145,15 +148,16 @@ export const PitchFlight3D = ({
       const dist = 16.8; // Release to Plate (m)
       const flightTime = dist / v_ms; // 秒 (約0.4s)
 
-      const startX = p.releasePos?.x ?? -0.45;
+      // 捕手視点基準: 2D指定の左右と3D空間の左右を一致させるため -X 反転を適用
+      const startX = -(p.releasePos?.x ?? -0.45);
       const startY = p.releasePos?.y ?? 16.8;
       const startZ = p.releasePos?.z ?? 1.85;
 
-      const targetX = (p.targetLocation?.x ?? 0) / 100; // cm -> m
+      const targetX = -((p.targetLocation?.x ?? 0) / 100); // cm -> m (反転解消)
       const targetZ = (p.targetLocation?.z ?? 75) / 100; // cm -> m
 
       // 変化量 (cm -> m)
-      const hb_m = (p.hb ?? 0) / 100;
+      const hb_m = -((p.hb ?? 0) / 100);
       const vb_m = (p.vb ?? 0) / 100;
 
       // 加速度
@@ -271,20 +275,25 @@ export const PitchFlight3D = ({
     homeMesh.position.set(0, 0.02, 0);
     scene.add(homeMesh);
 
-    // 🎯 3D ストライクゾーンフレーム (幅43cm, 高さ0.5m~1.05m / バッテン線なしの洗練された矩形)
+    // 🎯 3D ストライクゾーンフレーム (幅43cm, 高さ0.50m~1.05m / バッテン線なしの純粋な外枠＋グリッド)
     const szWidth = 0.43;
     const szBottom = 0.50;
     const szTop = 1.05;
     const szHeight = szTop - szBottom;
 
-    // 外枠ボックス
-    const szGeo = new THREE.BoxGeometry(szWidth, szHeight, 0.01);
-    const szMat = new THREE.MeshBasicMaterial({ color: 0xef4444, wireframe: true, transparent: true, opacity: 0.65 });
-    const szMesh = new THREE.Mesh(szGeo, szMat);
-    szMesh.position.set(0, szBottom + szHeight / 2, 0);
-    scene.add(szMesh);
+    // 外枠ラインループ（BoxGeometryの対角ワイヤーフレームは使わず、純粋な4辺ラインを描画）
+    const borderPoints = [
+      new THREE.Vector3(-szWidth / 2, szBottom, 0),
+      new THREE.Vector3(szWidth / 2, szBottom, 0),
+      new THREE.Vector3(szWidth / 2, szTop, 0),
+      new THREE.Vector3(-szWidth / 2, szTop, 0),
+    ];
+    const borderGeo = new THREE.BufferGeometry().setFromPoints(borderPoints);
+    const borderMat = new THREE.LineBasicMaterial({ color: 0xef4444, linewidth: 2 });
+    const borderLoop = new THREE.LineLoop(borderGeo, borderMat);
+    scene.add(borderLoop);
 
-    // 3x3 グリッドライン（バッテン線は入れず、綺麗な縦2本・横2本の罫線のみ）
+    // 3x3 グリッドライン（縦2本・横2本のみ。バッテン線なし）
     const gridMat = new THREE.LineBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.35 });
     const gridPoints = [
       // 縦2本
@@ -312,7 +321,7 @@ export const PitchFlight3D = ({
     trajectoryGroup.name = 'trajectories';
     scene.add(trajectoryGroup);
 
-    // カメラ位置初期設定 (右打者・左打者の位置を正確に修正)
+    // カメラ位置初期設定
     const updateCameraPos = (view) => {
       if (!camera) return;
       if (view === 'BATTER_R') {
@@ -352,7 +361,6 @@ export const PitchFlight3D = ({
 
     // マウスドラッグ
     const onMouseDown = (e) => {
-      if (cameraView === 'FOLLOW') return;
       isDraggingRef.current = true;
       prevMousePosRef.current = { x: e.clientX, y: e.clientY };
     };
@@ -388,11 +396,9 @@ export const PitchFlight3D = ({
     if (!camera) return;
 
     if (cameraView === 'BATTER_R') {
-      // 右打者視点 (右打席: 捕手から見て左 X = -0.75m)
       camera.position.set(-0.75, 1.65, -0.2);
       camera.lookAt(0, 1.2, 16.8);
     } else if (cameraView === 'BATTER_L') {
-      // 左打者視点 (左打席: 捕手から見て右 X = +0.75m)
       camera.position.set(0.75, 1.65, -0.2);
       camera.lookAt(0, 1.2, 16.8);
     } else if (cameraView === 'CATCHER') {
@@ -422,18 +428,20 @@ export const PitchFlight3D = ({
       const pColor = new THREE.Color(pt.color || '#3b82f6');
 
       // 1. 軌道ライン (Ribbon Trail)
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(pt.actualPoints);
-      const lineMat = new THREE.LineBasicMaterial({ color: pColor, linewidth: 3 });
-      const line = new THREE.Line(lineGeo, lineMat);
-      trajGroup.add(line);
+      if (showTrajLinesGlobal) {
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(pt.actualPoints);
+        const lineMat = new THREE.LineBasicMaterial({ color: pColor, linewidth: 3 });
+        const line = new THREE.Line(lineGeo, lineMat);
+        trajGroup.add(line);
 
-      // 2. ゴースト無回転軌道ライン (点線・半透明)
-      if (showSpinlessGlobal && pt.showGhost !== false) {
-        const ghostLineGeo = new THREE.BufferGeometry().setFromPoints(pt.ghostPoints);
-        const ghostLineMat = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 0.3, gapSize: 0.2, transparent: true, opacity: 0.6 });
-        const ghostLine = new THREE.Line(ghostLineGeo, ghostLineMat);
-        ghostLine.computeLineDistances();
-        trajGroup.add(ghostLine);
+        // 2. ゴースト無回転軌道ライン (点線・半透明)
+        if (showSpinlessGlobal && pt.showGhost !== false) {
+          const ghostLineGeo = new THREE.BufferGeometry().setFromPoints(pt.ghostPoints);
+          const ghostLineMat = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 0.3, gapSize: 0.2, transparent: true, opacity: 0.6 });
+          const ghostLine = new THREE.Line(ghostLineGeo, ghostLineMat);
+          ghostLine.computeLineDistances();
+          trajGroup.add(ghostLine);
+        }
       }
 
       // 3. 実飛翔ボール (PBRレザー ＋ 108本ステッチ)
@@ -457,7 +465,7 @@ export const PitchFlight3D = ({
         trajGroup.add(arrowHelper);
       }
     });
-  }, [pitchTrajectories, showSpinlessGlobal, showForcesGlobal]);
+  }, [pitchTrajectories, showSpinlessGlobal, showForcesGlobal, showTrajLinesGlobal]);
 
   // アニメーションループ (飛翔 ＆ 常時自転)
   useEffect(() => {
@@ -517,12 +525,6 @@ export const PitchFlight3D = ({
 
               if (forceArrow) {
                 forceArrow.position.copy(currentPos);
-              }
-
-              // 追尾カメラ
-              if (cameraView === 'FOLLOW' && (pt.id === selectedPitchId || idx === 0)) {
-                camera.position.set(currentPos.x, currentPos.y + 0.35, currentPos.z - 1.2);
-                camera.lookAt(currentPos.x, currentPos.y, currentPos.z + 5);
               }
             }
 
@@ -633,7 +635,7 @@ export const PitchFlight3D = ({
               // Scale: -60cm ~ +60cm -> 0% ~ 100%
               const cx = 50;
               const cy = 50;
-              const px = 50 + ((p.hb || 0) / 60) * 42;
+              const px = 50 - ((p.hb || 0) / 60) * 42; // ARM/GLOVE座標
               const py = 50 - ((p.vb || 0) / 60) * 42;
 
               return (
@@ -664,7 +666,7 @@ export const PitchFlight3D = ({
 
           {/* Pitch Labels on Chart */}
           {pitches.map(p => {
-            const px = 50 + ((p.hb || 0) / 60) * 42;
+            const px = 50 - ((p.hb || 0) / 60) * 42;
             const py = 50 - ((p.vb || 0) / 60) * 42;
             return (
               <span

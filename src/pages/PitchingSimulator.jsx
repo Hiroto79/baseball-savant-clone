@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Compass, Activity, Sparkles, Layers, Plus, Trash2, Ghost, Wind, Crosshair } from 'lucide-react';
+import { Compass, Activity, Sparkles, Layers, Plus, Trash2, Ghost, Wind, Crosshair, Spline } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 import SeamSimulator from './SeamSimulator';
 import PitchFlight3D from '../components/Analysis/PitchFlight3D';
@@ -19,7 +19,7 @@ const INITIAL_PITCHES = [
     hb: 22, // cm (シュート成分)
     vb: 45, // cm (ホップ成分)
     releasePos: { x: -0.45, y: 16.8, z: 1.85 },
-    targetLocation: { x: -10, z: 92 }, // インハイ (cm)
+    targetLocation: { x: -10, z: 90 }, // インハイ (cm)
   },
   {
     id: 'pitch_2',
@@ -34,7 +34,7 @@ const INITIAL_PITCHES = [
     hb: -32, // cm (グローブ側へスライド)
     vb: 8, // cm (重力で大きく落下)
     releasePos: { x: -0.45, y: 16.8, z: 1.82 },
-    targetLocation: { x: 16, z: 58 }, // アウトロー (cm)
+    targetLocation: { x: 14, z: 60 }, // アウトロー (cm)
   },
 ];
 
@@ -65,6 +65,7 @@ const PitchingSimulator = () => {
   // グローバルトグル
   const [showSpinless, setShowSpinless] = useState(true);
   const [showForces, setShowForces] = useState(true);
+  const [showTrajLines, setShowTrajLines] = useState(true);
   const [cameraView, setCameraView] = useState('CATCHER');
   const [playbackSpeed, setPlaybackSpeed] = useState(0.4);
 
@@ -82,7 +83,7 @@ const PitchingSimulator = () => {
       id: `pitch_${Date.now()}`,
       color: newColor,
       releasePos: { x: -0.45, y: 16.8, z: 1.85 },
-      targetLocation: { x: Math.round((Math.random() - 0.5) * 30), z: Math.round(60 + Math.random() * 30) },
+      targetLocation: { x: Math.round((Math.random() - 0.5) * 24), z: Math.round(65 + Math.random() * 25) },
     };
     setPitches([...pitches, newPitch]);
     setSelectedPitchId(newPitch.id);
@@ -103,6 +104,20 @@ const PitchingSimulator = () => {
     setPitches(prev => prev.map(p => (p.id === selectedPitchId ? { ...p, ...updates } : p)));
   };
 
+  // 選択球種のリリースポジション更新
+  const updateActiveReleasePos = (key, val) => {
+    setPitches(prev => prev.map(p => {
+      if (p.id !== selectedPitchId) return p;
+      return {
+        ...p,
+        releasePos: {
+          ...p.releasePos,
+          [key]: val
+        }
+      };
+    }));
+  };
+
   // テンプレートから球種を適用
   const handleApplyTemplate = (templateName) => {
     const t = PITCH_TEMPLATES.find(x => x.name === templateName);
@@ -120,7 +135,7 @@ const PitchingSimulator = () => {
     });
   };
 
-  // 長方形ストライクゾーンクリックでコース指定 (X: -30~30cm, Z: 40~110cm)
+  // 長方形ストライクゾーンクリックでコース指定 (X: -26~26cm, Z: 45~110cm)
   const handleZoneClick = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -130,9 +145,9 @@ const PitchingSimulator = () => {
     const normX = Math.max(0, Math.min(1, clickX / rect.width));
     const normY = Math.max(0, Math.min(1, clickY / rect.height));
 
-    // cm変換 (ゾーン表示枠: -30cm ~ +30cm, ゾーン高: 40cm ~ 115cm)
-    const targetX = Math.round((normX - 0.5) * 60);
-    const targetZ = Math.round(115 - normY * 75);
+    // cm変換 (ゾーン表示枠: -28cm ~ +28cm, ゾーン高: 45cm ~ 110cm)
+    const targetX = Math.round((normX - 0.5) * 56);
+    const targetZ = Math.round(110 - normY * 65);
 
     updateActivePitch({
       targetLocation: { x: targetX, z: targetZ }
@@ -142,10 +157,10 @@ const PitchingSimulator = () => {
   // クイックコースプリセット
   const applyQuickCourse = (preset) => {
     let x = 0, z = 75;
-    if (preset === 'IN_HIGH') { x = -14; z = 95; }
-    else if (preset === 'OUT_HIGH') { x = 14; z = 95; }
-    else if (preset === 'IN_LOW') { x = -14; z = 55; }
-    else if (preset === 'OUT_LOW') { x = 14; z = 55; }
+    if (preset === 'IN_HIGH') { x = -12; z = 92; }
+    else if (preset === 'OUT_HIGH') { x = 12; z = 92; }
+    else if (preset === 'IN_LOW') { x = -12; z = 58; }
+    else if (preset === 'OUT_LOW') { x = 12; z = 58; }
     else if (preset === 'CENTER') { x = 0; z = 75; }
     updateActivePitch({ targetLocation: { x, z } });
   };
@@ -258,6 +273,19 @@ const PitchingSimulator = () => {
             {/* Global Visual Toggles */}
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setShowTrajLines(!showTrajLines)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                  showTrajLines
+                    ? 'bg-blue-950/80 border-blue-500 text-blue-300'
+                    : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:text-zinc-300'
+                }`}
+                title="投球軌道ラインの表示・非表示を切り替え"
+              >
+                <Spline className="w-3.5 h-3.5 text-blue-400" />
+                <span>軌道ライン</span>
+              </button>
+
+              <button
                 onClick={() => setShowSpinless(!showSpinless)}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                   showSpinless
@@ -296,6 +324,7 @@ const PitchingSimulator = () => {
                 onSelectPitch={setSelectedPitchId}
                 showSpinlessGlobal={showSpinless}
                 showForcesGlobal={showForces}
+                showTrajLinesGlobal={showTrajLines}
                 cameraView={cameraView}
                 onCameraChange={setCameraView}
                 playbackSpeed={playbackSpeed}
@@ -305,7 +334,7 @@ const PitchingSimulator = () => {
             {/* Controls & Strike Zone Target Picker (4 Columns) */}
             <div className="lg:col-span-4 space-y-4">
               
-              {/* 🎯 1. 正統派長方形ストライクゾーン（狙い撃ち・コース指定） */}
+              {/* 🎯 1. 正統派プロポーション・ストライクゾーン（狙い撃ち・コース指定） */}
               <div className="bg-zinc-900/90 border border-zinc-800 p-4 rounded-2xl shadow-lg space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-black text-xs sm:text-sm text-zinc-200 flex items-center gap-1.5">
@@ -317,15 +346,15 @@ const PitchingSimulator = () => {
                   </span>
                 </div>
 
-                {/* 2D Clean Rectangular Strike Zone Map */}
+                {/* 2D Clean Rectangular Strike Zone Map (適切な縦横比率 4:5) */}
                 <div
                   onClick={handleZoneClick}
-                  className="relative w-full max-w-[260px] mx-auto aspect-[3/4] bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden cursor-crosshair flex items-center justify-center shadow-inner hover:border-zinc-700 transition-all p-3"
+                  className="relative w-full max-w-[240px] mx-auto aspect-[4/5] bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden cursor-crosshair flex items-center justify-center shadow-inner hover:border-zinc-700 transition-all p-3"
                 >
                   {/* Outer Ball Zone Margin */}
                   <div className="absolute inset-2 border border-dashed border-zinc-800/80 rounded pointer-events-none" />
 
-                  {/* 3x3 Official Vertical Strike Zone (長方形 43cm x 60cm 比率) */}
+                  {/* 3x3 Official Vertical Strike Zone (自然な比率のストライクゾーン枠) */}
                   <div className="relative w-4/5 h-4/5 border-2 border-red-500/80 bg-red-500/5 grid grid-cols-3 grid-rows-3 rounded pointer-events-none shadow-[0_0_15px_rgba(239,68,68,0.15)]">
                     {[...Array(9)].map((_, i) => (
                       <div key={i} className="border border-red-500/25 flex items-center justify-center text-[9px] text-red-500/20 font-mono font-bold">
@@ -340,10 +369,10 @@ const PitchingSimulator = () => {
                   {/* All Pitch Target Pins */}
                   {pitches.map(p => {
                     const isCur = p.id === selectedPitchId;
-                    // X: -30 ~ +30 -> 0% ~ 100%
-                    const leftPct = ((p.targetLocation?.x || 0) + 30) / 60 * 100;
-                    // Z: 40 ~ 115 -> 100% ~ 0%
-                    const topPct = (115 - (p.targetLocation?.z || 75)) / 75 * 100;
+                    // X: -28 ~ +28 -> 0% ~ 100%
+                    const leftPct = ((p.targetLocation?.x || 0) + 28) / 56 * 100;
+                    // Z: 45 ~ 110 -> 100% ~ 0%
+                    const topPct = (110 - (p.targetLocation?.z || 75)) / 65 * 100;
 
                     return (
                       <div
@@ -475,6 +504,43 @@ const PitchingSimulator = () => {
                         value={activePitch.hb}
                         onChange={(e) => updateActivePitch({ hb: parseFloat(e.target.value) })}
                         className="w-full accent-purple-500 h-1.5 bg-zinc-800 rounded cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 💡 リリース位置情報 (高さ & 横位置) */}
+                  <div className="grid grid-cols-2 gap-3 pt-1 border-t border-zinc-800/80">
+                    <div>
+                      <div className="flex justify-between text-[11px] text-zinc-400 mb-0.5">
+                        <span>リリース高さ</span>
+                        <span className="font-mono font-bold text-sky-400">{(activePitch.releasePos?.z ?? 1.85).toFixed(2)} m</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1.40"
+                        max="2.20"
+                        step="0.02"
+                        value={activePitch.releasePos?.z ?? 1.85}
+                        onChange={(e) => updateActiveReleasePos('z', parseFloat(e.target.value))}
+                        className="w-full accent-sky-500 h-1.5 bg-zinc-800 rounded cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[11px] text-zinc-400 mb-0.5">
+                        <span>リリース横位置</span>
+                        <span className="font-mono font-bold text-cyan-400">
+                          {(activePitch.releasePos?.x ?? -0.45) < 0 ? `右 ${(activePitch.releasePos?.x ?? -0.45).toFixed(2)}m` : `左 +${(activePitch.releasePos?.x ?? 0.45).toFixed(2)}m`}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-0.90"
+                        max="0.90"
+                        step="0.02"
+                        value={activePitch.releasePos?.x ?? -0.45}
+                        onChange={(e) => updateActiveReleasePos('x', parseFloat(e.target.value))}
+                        className="w-full accent-cyan-500 h-1.5 bg-zinc-800 rounded cursor-pointer"
                       />
                     </div>
                   </div>
