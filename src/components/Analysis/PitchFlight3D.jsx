@@ -5,10 +5,9 @@ import { Play, Pause, RotateCcw } from 'lucide-react';
 /**
  * Rapsodo 3D Diamond 仕様 3D Pitch Flight & Trajectory Simulator
  * 
- * 物理・弾道力学の完全再現:
- * - 利き腕（右投 / 左投）に連動した完全無欠の放球・空力軌道
- *   - 右投手（RHP）: 一塁側（X = -0.45m）から放球。スライダーは三塁側（右打者アウトロー）へ鋭く曲がり落ち、直球・シンカーは一塁側（インコース）へホップ＆シュート。
- *   - 左投手（LHP）: 三塁側（X = +0.45m）から放球。スライダーは一塁側へ曲がり、直球は三塁側へ曲がる。
+ * 物理・弾道力学の完全整合:
+ * - 右投手（RHP）: 投手視点で右腕（+0.45m）から放球。スライダーは左方向（グローブ側/アウトロー）へ鋭く曲がり落ちる。捕手視点では左側から右側へ曲がる。
+ * - 左投手（LHP）: 投手視点で左腕（-0.45m）から放球。スライダーは右方向へ曲がる。
  * - 視線方向への自由なドリーズーム（マウスホイール/ピンチで前後移動）
  * - 青いグリッド線なしの落ち着いたリアルスタジアムフロア
  */
@@ -145,7 +144,7 @@ export const PitchFlight3D = ({
   const isDraggingRef = useRef(false);
   const prevMousePosRef = useRef({ x: 0, y: 0 });
 
-  // 物理計算: 100% 正確な座標系と空力加速度
+  // 物理計算: 正しい左右座標系と空力加速度
   const pitchTrajectories = useMemo(() => {
     return pitches.map(p => {
       const v_kmh = p.velocity || 145;
@@ -153,25 +152,25 @@ export const PitchFlight3D = ({
       const dist = 16.8; // Release to Plate (m)
       const flightTime = dist / v_ms; // 秒
 
-      // 1. リリース位置 (右投手は一塁側 X=-0.45m, 左投手は三塁側 X=+0.45m)
-      const defaultRelX = pitcherHand === 'R' ? -0.45 : 0.45;
+      // 1. リリース位置 (右投手は右腕 +0.45m, 左投手は左腕 -0.45m)
+      const defaultRelX = pitcherHand === 'R' ? 0.45 : -0.45;
       const startX = p.releasePos?.x ?? defaultRelX;
       const startY = p.releasePos?.y ?? 16.8;
       const startZ = p.releasePos?.z ?? 1.85;
 
-      // 2. 目標着弾位置 (2Dストライクゾーン -14cm=インコース/一塁側, +14cm=アウトコース/三塁側)
-      const targetX = (p.targetLocation?.x ?? 0) / 100;
+      // 2. 目標着弾位置 (2Dストライクゾーン: 左=-14cm/インコース, 右=+14cm/アウトコース)
+      // 投手視点では左=-X, 右=+X となるため符号反転
+      const targetX = -((p.targetLocation?.x ?? 0) / 100);
       const targetZ = (p.targetLocation?.z ?? 75) / 100;
 
-      // 3. 空力変化量 (HB: +22cm=シュート/アーム側への加速, -32cm=スライダー/グローブ側への加速)
+      // 3. 空力変化量 (HB: +22cm=シュート/右腕側, -32cm=スライダー/左グラブ側)
       const hb_m = (p.hb ?? 0) / 100;
       const vb_m = (p.vb ?? 0) / 100;
 
       const g = 9.80665;
-      // 右投手: HB<0(スライダー) -> +X(三塁側/アウトロー)へ加速、HB>0(シュート) -> -X(一塁側/インハイ)へ加速
-      // 左投手: HB<0(スライダー) -> -X(一塁側)へ加速、HB>0(シュート) -> +X(三塁側)へ加速
-      const handSign = pitcherHand === 'R' ? -1 : 1;
-      const ax = (2 * (handSign * hb_m)) / (flightTime * flightTime);
+      // 右投手: HB<0(スライダー) -> -X(左グラブ側/アウトロー)へ加速、HB>0(シュート) -> +X(右腕側/インハイ)へ加速
+      const handMult = pitcherHand === 'R' ? 1 : -1;
+      const ax = (2 * (handMult * hb_m)) / (flightTime * flightTime);
       const az_mag = (2 * vb_m) / (flightTime * flightTime); // ホップ揚力
 
       // 4. 初速計算
@@ -217,10 +216,10 @@ export const PitchFlight3D = ({
   const applyCameraPreset = (view, cam) => {
     if (!cam) return;
     if (view === 'BATTER_R') {
-      cam.position.set(0.75, 1.65, -0.2);
+      cam.position.set(-0.75, 1.65, -0.2);
       cam.lookAt(0, 1.2, 16.8);
     } else if (view === 'BATTER_L') {
-      cam.position.set(-0.75, 1.65, -0.2);
+      cam.position.set(0.75, 1.65, -0.2);
       cam.lookAt(0, 1.2, 16.8);
     } else if (view === 'CATCHER') {
       cam.position.set(0, 1.1, -2.8);

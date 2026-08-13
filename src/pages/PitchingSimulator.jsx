@@ -18,7 +18,7 @@ const INITIAL_PITCHES = [
     gyroDegrees: 8,
     hb: 22, // cm (シュート・アーム側成分)
     vb: 45, // cm (ホップ成分)
-    releasePos: { x: -0.45, y: 16.8, z: 1.85 },
+    releasePos: { x: 0.45, y: 16.8, z: 1.85 },
     targetLocation: { x: -10, z: 92 }, // インハイ (cm)
   },
   {
@@ -33,7 +33,7 @@ const INITIAL_PITCHES = [
     gyroDegrees: 48,
     hb: -32, // cm (グローブ側へ大きくスライド)
     vb: 8, // cm (鋭く落下)
-    releasePos: { x: -0.45, y: 16.8, z: 1.82 },
+    releasePos: { x: 0.45, y: 16.8, z: 1.82 },
     targetLocation: { x: 14, z: 58 }, // アウトロー (cm)
   },
 ];
@@ -77,7 +77,7 @@ const PitchingSimulator = () => {
   // 利き腕切り替えハンドラ
   const handlePitcherHandChange = (hand) => {
     setPitcherHand(hand);
-    const defaultRelX = hand === 'R' ? -0.45 : 0.45;
+    const defaultRelX = hand === 'R' ? 0.45 : -0.45;
     setPitches(prev => prev.map(p => ({
       ...p,
       releasePos: {
@@ -93,7 +93,7 @@ const PitchingSimulator = () => {
     const nextIdx = pitches.length;
     const template = PITCH_TEMPLATES[nextIdx % PITCH_TEMPLATES.length];
     const newColor = COLOR_PALETTE[nextIdx % COLOR_PALETTE.length];
-    const defaultRelX = pitcherHand === 'R' ? -0.45 : 0.45;
+    const defaultRelX = pitcherHand === 'R' ? 0.45 : -0.45;
     const newPitch = {
       ...template,
       id: `pitch_${Date.now()}`,
@@ -197,32 +197,34 @@ const PitchingSimulator = () => {
 
         {/* Main Mode Tabs & Pitcher Hand Switcher */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Pitcher Hand Toggle */}
-          <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
-            <span className="text-[10px] font-black text-zinc-400 px-1.5 flex items-center gap-1">
-              <User className="w-3 h-3 text-blue-400" /> 投手:
-            </span>
-            <button
-              onClick={() => handlePitcherHandChange('R')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                pitcherHand === 'R'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              右投げ (RHP)
-            </button>
-            <button
-              onClick={() => handlePitcherHandChange('L')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                pitcherHand === 'L'
-                  ? 'bg-red-600 text-white shadow'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              左投げ (LHP)
-            </button>
-          </div>
+          {/* Pitcher Hand Toggle (3D弾道軌道タブでのみ表示) */}
+          {activeTab === 'trajectory' && (
+            <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+              <span className="text-[10px] font-black text-zinc-400 px-1.5 flex items-center gap-1">
+                <User className="w-3 h-3 text-blue-400" /> 投手:
+              </span>
+              <button
+                onClick={() => handlePitcherHandChange('R')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                  pitcherHand === 'R'
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                右投げ (RHP)
+              </button>
+              <button
+                onClick={() => handlePitcherHandChange('L')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                  pitcherHand === 'L'
+                    ? 'bg-red-600 text-white shadow'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                左投げ (LHP)
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 bg-muted p-1 rounded-xl border border-border shrink-0">
             <button
@@ -678,9 +680,9 @@ const PitchingSimulator = () => {
                       <div className="flex justify-between text-[11px] text-zinc-400 mb-0.5">
                         <span>リリース横位置</span>
                         <span className="font-mono font-bold text-cyan-400">
-                          {(activePitch.releasePos?.x ?? (pitcherHand === 'R' ? -0.45 : 0.45)) < 0
-                            ? `右腕一塁側 ${(Math.abs(activePitch.releasePos?.x ?? -0.45)).toFixed(2)}m`
-                            : `左腕三塁側 ${(Math.abs(activePitch.releasePos?.x ?? 0.45)).toFixed(2)}m`}
+                          {(activePitch.releasePos?.x ?? (pitcherHand === 'R' ? 0.45 : -0.45)) > 0
+                            ? `右腕一塁側 +${(Math.abs(activePitch.releasePos?.x ?? 0.45)).toFixed(2)}m`
+                            : `左腕三塁側 -${(Math.abs(activePitch.releasePos?.x ?? -0.45)).toFixed(2)}m`}
                         </span>
                       </div>
                       <input
@@ -688,7 +690,7 @@ const PitchingSimulator = () => {
                         min="-0.90"
                         max="0.90"
                         step="0.02"
-                        value={activePitch.releasePos?.x ?? (pitcherHand === 'R' ? -0.45 : 0.45)}
+                        value={activePitch.releasePos?.x ?? (pitcherHand === 'R' ? 0.45 : -0.45)}
                         onChange={(e) => updateActiveReleasePos('x', parseFloat(e.target.value))}
                         className="w-full accent-cyan-500 h-1.5 bg-zinc-800 rounded cursor-pointer"
                       />
