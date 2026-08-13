@@ -7,25 +7,16 @@ import * as THREE from 'three';
  * 【Rapsodo 3D Diamond 仕様の超リアル描画アップグレード版】
  * - 本物の硬式球の革テクスチャ（PBR微細バンプ・ラフネスマップ）
  * - 108本の立体V字ステッチ（赤い縫い糸）＆ 立体シームリッジ
- * - スタジオ3点ライティング ＋ リムライト（回転時のシーム立体感を極大化）
- *
- * ラプソード公式のスピン軸＆ジャイロ定義（符号統一版・投手左右の選択は不要）:
- * - チルト (Tilt / 時計の針): 12:00 (0°) を基準（バックスピン）とし、時計回りが正の角度。
- *   1:15〜1:30 (右投直球相当): バックスピン＋シュート方向。
- * - ジャイロ角度 (Gyro Degree, 符号付き -90°〜+90°):
- *   0° = ジャイロ成分なし（純粋な縦回転）
- *   + (プラス) = 左方向へ曲がる回転（右投手の基本的なスライダー/カット系の入り方）
- *   - (マイナス) = 右方向へ曲がる回転（逆ジャイロ / スクリューボール的な入り方）
- *   |90°| で完全なライフルスピン（弾丸渦巻き回転、スピン効率0%）。
- *   投手の利き腕を選択する必要はなく、符号だけで左右どちらの曲がりも表現できる。
+ * - スタジオ3点ライティング ＋ リムライト
+ * - 4シーム・2シーム・1シームの完全正確な初期姿勢行列
+ * - リセット時に確実に初期回転角（spinAngle=0）へ戻す resetTrigger 対応
  */
 
-// プロシージャル硬式球レザーテクスチャ生成（軽量・外部ダウンロード遅延ゼロ）
+// プロシージャル硬式球レザーテクスチャ生成
 function createProceduralLeatherTextures() {
   const width = 1024;
   const height = 512;
 
-  // 1. レザーバンプマップ（微細な革シボ・毛穴・凹凸）
   const bumpCanvas = document.createElement('canvas');
   bumpCanvas.width = width;
   bumpCanvas.height = height;
@@ -35,11 +26,9 @@ function createProceduralLeatherTextures() {
     const imgData = bumpCtx.createImageData(width, height);
     const data = imgData.data;
 
-    // 擬似パーリンノイズ風の多層セルラーグレイン
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const idx = (y * width + x) * 4;
-        // 微細なレザーグレイン
         const n1 = Math.sin(x * 0.45) * Math.cos(y * 0.45);
         const n2 = Math.sin(x * 0.9 + y * 0.6) * Math.cos(y * 0.9 - x * 0.6);
         const n3 = (Math.random() - 0.5) * 0.4;
@@ -58,28 +47,23 @@ function createProceduralLeatherTextures() {
   const bumpTexture = new THREE.CanvasTexture(bumpCanvas);
   bumpTexture.wrapS = THREE.RepeatWrapping;
   bumpTexture.wrapT = THREE.ClampToEdgeWrapping;
-  bumpTexture.generateMipmaps = true;
 
-  // 2. ラフネステクスチャ（革の反射率の自然なムラ）
   const roughCanvas = document.createElement('canvas');
   roughCanvas.width = width;
   roughCanvas.height = height;
   const roughCtx = roughCanvas.getContext('2d');
-
   if (roughCtx) {
     const imgData = roughCtx.createImageData(width, height);
     const data = imgData.data;
-
     for (let i = 0; i < data.length; i += 4) {
-      const baseRough = 160 + (Math.random() - 0.5) * 35;
-      data[i] = baseRough;
-      data[i + 1] = baseRough;
-      data[i + 2] = baseRough;
+      const v = Math.floor(155 + (Math.random() - 0.5) * 40);
+      data[i] = v;
+      data[i + 1] = v;
+      data[i + 2] = v;
       data[i + 3] = 255;
     }
     roughCtx.putImageData(imgData, 0, 0);
   }
-
   const roughTexture = new THREE.CanvasTexture(roughCanvas);
   roughTexture.wrapS = THREE.RepeatWrapping;
   roughTexture.wrapT = THREE.ClampToEdgeWrapping;
@@ -87,14 +71,13 @@ function createProceduralLeatherTextures() {
   return { bumpTexture, roughTexture };
 }
 
-// ユーザー指定の数式に従ってシーム基準曲線を生成
-function getSeamCurvePoints(radius = 1.0, segments = 360) {
-  const points = [];
+// 本物の硬式球の縫い目シーム3D曲線（球面上パラメータ方程式）
+function getSeamCurvePoints(r = 1.0, count = 360) {
   const alpha = 0.60;
-  const r = radius * 1.002;
+  const points = [];
 
-  for (let i = 0; i <= segments; i++) {
-    const t = (i / segments) * Math.PI * 2;
+  for (let i = 0; i <= count; i++) {
+    const t = (i / count) * Math.PI * 2;
     const theta = alpha * Math.sin(2 * t);
     const phi = t;
 
@@ -114,7 +97,7 @@ export function getInitRotationMatrix(seamType = '4-seam') {
     // 2-Seam: 屈曲のない滑らかな2本の縦円弧レール (Z軸 45度)
     m.makeRotationZ(Math.PI / 4);
   } else if (seamType === '1-seam') {
-    // 1-Seam: 1本の縦シームラインが中央(X=0)を通り、12:00の純粋な縦回転で垂直に1本通る姿勢 (Z 45度 * X 90度)
+    // 1-Seam: 1本の縦シームラインが中央(X=0)を通り、12:00の純粋な縦回転で垂直に1本通る姿勢
     const mZ = new THREE.Matrix4().makeRotationZ(Math.PI / 4);
     const mX = new THREE.Matrix4().makeRotationX(Math.PI / 2);
     m.multiplyMatrices(mZ, mX);
@@ -133,23 +116,22 @@ function createRealisticBaseballSeams(seamType = '4-seam', radius = 1.0) {
   const curvePoints = getSeamCurvePoints(radius, 360);
   const curve = new THREE.CatmullRomCurve3(curvePoints, true, 'centripetal');
 
-  // 1. シーム溝・革合わせ目の立体リッジ（深みのある濃赤レザーウェルト）
+  // 1. シーム溝・革合わせ目の立体リッジ
   const seamTubeGeo = new THREE.TubeGeometry(curve, 300, 0.024, 12, true);
   const seamRidgeMat = new THREE.MeshStandardMaterial({
-    color: 0x991b1b, // ディープクリムゾン
+    color: 0x991b1b,
     roughness: 0.50,
     metalness: 0.02,
   });
   const seamRidgeMesh = new THREE.Mesh(seamTubeGeo, seamRidgeMat);
   group.add(seamRidgeMesh);
 
-  // 2. 本物の硬式球と同じ108組（計216本）の立体V字赤ステッチ（赤い縫い糸）
+  // 2. 108組（計216本）の立体V字赤ステッチ
   const stitchCount = 108;
   const stitchRadius = 0.009;
-  const stitchWidth = 0.054; // シーム中心からのステッチ幅
-  const stitchLength = 0.022; // 進行方向の斜め傾斜幅
+  const stitchWidth = 0.054;
+  const stitchLength = 0.022;
 
-  // ステッチの頂点・インデックス配列を結合して1つのBufferGeometryにマージ（描画負荷を最小化）
   const cylinderGeo = new THREE.CylinderGeometry(stitchRadius, stitchRadius, 1, 6, 1, true);
   const posAttr = cylinderGeo.attributes.position;
   const normalAttr = cylinderGeo.attributes.normal;
@@ -172,7 +154,6 @@ function createRealisticBaseballSeams(seamType = '4-seam', radius = 1.0) {
     const radialNormal = pt.clone().normalize();
     const binormal = new THREE.Vector3().crossVectors(radialNormal, tangent).normalize();
 
-    // V字の左右ステッチ位置（外側からシーム中央に向かって斜めに食い込む本物の縫い方）
     const leftOuter = pt.clone()
       .addScaledVector(binormal, stitchWidth)
       .addScaledVector(tangent, -stitchLength)
@@ -191,9 +172,7 @@ function createRealisticBaseballSeams(seamType = '4-seam', radius = 1.0) {
       .addScaledVector(binormal, -0.008)
       .addScaledVector(radialNormal, 0.008);
 
-    // 左ステッチシリンダーの配置行列
     addStitchSegment(leftOuter, leftInner, stitchIndex++);
-    // 右ステッチシリンダーの配置行列
     addStitchSegment(rightOuter, rightInner, stitchIndex++);
   }
 
@@ -243,7 +222,7 @@ function createRealisticBaseballSeams(seamType = '4-seam', radius = 1.0) {
   mergedStitchesGeo.setIndex(new THREE.BufferAttribute(mergedIndices, 1));
 
   const stitchMat = new THREE.MeshStandardMaterial({
-    color: 0xdc2626, // 鮮やかなレッドステッチ（回転時の視認性を向上）
+    color: 0xdc2626,
     roughness: 0.38,
     metalness: 0.05,
   });
@@ -258,12 +237,13 @@ export const SingleBallCanvas = ({
   rpm = 2200,
   tiltClock = '1:30',
   tiltDegrees = 45,
-  gyroDegrees = 15, // 符号付き: + = 左方向へ曲がる（基本）, - = 右方向へ曲がる（逆ジャイロ）
+  gyroDegrees = 15,
   isPlaying = true,
-  playbackSpeed = 0.03, // 超低速・じっくり観察用の速度
+  playbackSpeed = 0.03,
   viewAngle = 'pitcher',
   title = 'Ball',
   accentColor = '#3b82f6',
+  resetKey = 0,
 }) => {
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
@@ -273,6 +253,11 @@ export const SingleBallCanvas = ({
   const spinAxisGroupRef = useRef(null);
   const animFrameRef = useRef(null);
   const spinAngleRef = useRef(0);
+
+  // リセットトリガーで自転角をゼロ（初期位置）に戻す
+  useEffect(() => {
+    spinAngleRef.current = 0;
+  }, [resetKey]);
 
   // マウスドラッグ自由回転用の制御
   const isDraggingRef = useRef(false);
@@ -326,34 +311,29 @@ export const SingleBallCanvas = ({
     container.replaceChildren(renderer.domElement);
     rendererRef.current = renderer;
 
-    // 💡 Rapsodo Diamond仕様 スタジオ3点ライティング & リムライト
-    // 1. 環境光（自然な光の反射）
+    // 💡 スタジオ3点ライティング & リムライト
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x1e293b, 1.1);
     scene.add(hemiLight);
 
-    // 2. キーライト（太陽光・主光: 暖色ホワイト）
     const keyLight = new THREE.DirectionalLight(0xfffaed, 2.3);
     keyLight.position.set(4, 6, 6);
     scene.add(keyLight);
 
-    // 3. フィルライト（影を和らげる補助光: 爽快なスカイブルー）
     const fillLight = new THREE.DirectionalLight(0x93c5fd, 1.1);
     fillLight.position.set(-5, -2, -3);
     scene.add(fillLight);
 
-    // 4. リムライト（背後からの逆光: ボール輪郭＆シームの立体エッジを強調）
     const rimLight = new THREE.DirectionalLight(0xffffff, 3.2);
     rimLight.position.set(-3, 4, -6);
     scene.add(rimLight);
 
-    // 背景の同心円グリッド（ラプソード風レーダーサークル）
+    // 背景同心円グリッド
     const gridGroup = new THREE.Group();
     [1.3, 1.7, 2.1].forEach(r => {
       const ringGeo = new THREE.RingGeometry(r, r + 0.015, 64);
       const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide, transparent: true, opacity: 0.25 }));
       gridGroup.add(ring);
     });
-    // 十字線
     const crossMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.3 });
     const crossPoints = [
       new THREE.Vector3(-2.2, 0, 0), new THREE.Vector3(2.2, 0, 0),
@@ -368,11 +348,11 @@ export const SingleBallCanvas = ({
     const ballGroup = new THREE.Group();
     ballGroupRef.current = ballGroup;
 
-    // ⚾ PBR硬式球リアルレザー球体本体
+    // ⚾ PBR硬式球リアルレザー球体
     const { bumpTexture, roughTexture } = createProceduralLeatherTextures();
     const sphereGeo = new THREE.SphereGeometry(0.995, 64, 64);
     const sphereMat = new THREE.MeshStandardMaterial({
-      color: 0xfafaf9, // 天然硬式球のリアルなオフホワイト
+      color: 0xfafaf9,
       roughness: 0.62,
       metalness: 0.02,
       bumpMap: bumpTexture,
@@ -392,13 +372,11 @@ export const SingleBallCanvas = ({
     const spinAxisGroup = new THREE.Group();
     spinAxisGroupRef.current = spinAxisGroup;
 
-    // 軸棒
     const poleGeo = new THREE.CylinderGeometry(0.02, 0.02, 3.2, 16);
     poleGeo.rotateZ(Math.PI / 2);
     const poleMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
     spinAxisGroup.add(new THREE.Mesh(poleGeo, poleMat));
 
-    // 基準姿勢は常に 9:00 (-X方向) の矢印に固定。左右の曲がりはジャイロ角の符号で表現する
     const arrowGeo = new THREE.ConeGeometry(0.06, 0.18, 12);
     arrowGeo.rotateZ(-Math.PI / 2);
     const arrowMat = new THREE.MeshBasicMaterial({ color: 0x4ade80 });
@@ -406,7 +384,6 @@ export const SingleBallCanvas = ({
     arrowMesh.position.x = -1.4;
     spinAxisGroup.add(arrowMesh);
 
-    // 回転方向を示すスピンリング
     const spinRingPoints = new THREE.Path().absarc(0, 0, 0.45, 0, Math.PI * 1.6, false).getPoints(24);
     const spinRingGeo = new THREE.BufferGeometry().setFromPoints(spinRingPoints.map(p => new THREE.Vector3(0, p.x, p.y)));
     const spinRing = new THREE.Line(spinRingGeo, new THREE.LineBasicMaterial({ color: 0x38bdf8 }));
@@ -426,7 +403,6 @@ export const SingleBallCanvas = ({
     };
     window.addEventListener('resize', handleResize);
 
-    // 視点切り替えプリセット
     const applyPresetCamera = (angle) => {
       if (angle === 'catcher') {
         camera.position.set(0, 0, 5.4);
@@ -470,9 +446,7 @@ export const SingleBallCanvas = ({
       camera.lookAt(0, 0, 0);
     };
 
-    const onMouseUp = () => {
-      isDraggingRef.current = false;
-    };
+    const onMouseUp = () => { isDraggingRef.current = false; };
 
     const onDoubleClick = () => {
       orbitAnglesRef.current = { theta: 0, phi: 0 };
@@ -561,7 +535,7 @@ export const SingleBallCanvas = ({
         const gyroRad = (gyroDegrees * Math.PI) / 180;
         const matGyro = new THREE.Matrix4().makeRotationY(gyroRad);
 
-        // 4. AxisTilt_Matrix: 投手視点で 12:00=上, 3:00=右, 6:00=下, 9:00=左 となる時計回り回転
+        // 4. AxisTilt_Matrix: 投手視点で 12:00=上, 3:00=右, 6:00=下, 9:00=左
         const tiltRad = (calculatedTiltDeg * Math.PI) / 180;
         const matAxisTilt = new THREE.Matrix4().makeRotationZ(tiltRad);
 
@@ -595,56 +569,33 @@ export const SingleBallCanvas = ({
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [seamType, rpm, calculatedTiltDeg, gyroDegrees, isPlaying, playbackSpeed]);
+  }, [isPlaying, rpm, playbackSpeed, calculatedTiltDeg, gyroDegrees, seamType]);
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center select-none overflow-hidden rounded-xl sm:rounded-2xl bg-zinc-950 border border-zinc-800 shadow-xl sm:shadow-2xl">
-      {/* HUD Info Badges */}
-      <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10 flex items-center gap-1 sm:gap-2 pointer-events-none">
-        <span className="px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-black text-white shadow-md border border-white/20" style={{ backgroundColor: accentColor }}>
-          {title}
-        </span>
-        <span className="px-1.5 sm:px-2 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-750 text-[9px] sm:text-[10px] font-mono font-bold text-zinc-300 backdrop-blur">
-          {seamType.toUpperCase()}
-        </span>
-        <span className="px-1.5 sm:px-2 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-750 text-[9px] sm:text-[10px] font-bold text-amber-300 backdrop-blur hidden xs:inline-block">
-          {gyroDegrees > 0 ? '◀ 左方向ジャイロ' : gyroDegrees < 0 ? '右方向ジャイロ ▶' : 'ジャイロなし'}
-        </span>
-      </div>
-
-      <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 flex flex-col items-end gap-0.5 sm:gap-1 text-[9px] sm:text-[11px] font-mono font-bold text-zinc-300 bg-zinc-900/85 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border border-zinc-800 backdrop-blur pointer-events-none">
-        <div className="flex items-center gap-1 sm:gap-1.5">
-          <span className="text-emerald-400">RPM:</span>
-          <span>{rpm}</span>
-        </div>
-        <div className="flex items-center gap-1 sm:gap-1.5">
-          <span className="text-sky-400">Tilt:</span>
-          <span>{tiltClock} ({Math.round(calculatedTiltDeg)}°)</span>
-        </div>
-        <div className="flex items-center gap-1 sm:gap-1.5">
-          <span className="text-yellow-400">Gyro:</span>
-          <span>{gyroDegrees > 0 ? `+${gyroDegrees}` : gyroDegrees}° ({Math.round(Math.cos((Math.abs(gyroDegrees) * Math.PI) / 180) * 100)}% 効率)</span>
-        </div>
+    <div className="relative w-full h-full flex flex-col items-center justify-center bg-zinc-950/80 rounded-xl overflow-hidden border border-zinc-800 shadow-inner">
+      {/* Title badge */}
+      <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-black/60 px-2 py-0.5 rounded-md border border-zinc-800 backdrop-blur pointer-events-none">
+        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accentColor }} />
+        <span className="text-[11px] font-black tracking-wider text-zinc-200">{title}</span>
+        <span className="text-[9px] font-mono text-zinc-400">({seamType.toUpperCase()})</span>
       </div>
 
       {/* 3D Canvas */}
-      <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing min-h-[240px] sm:min-h-[300px]" />
-
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-zinc-500 pointer-events-none bg-zinc-950/70 px-3 py-0.5 rounded-full border border-zinc-850">
-        🖱️ ドラッグで視点を360°回転 ・ ダブルクリックで視点と自転位相をリセット
-      </div>
+      <div ref={containerRef} className="w-full h-full min-h-[280px] cursor-grab active:cursor-grabbing" />
     </div>
   );
 };
 
 export const PITCH_PRESETS = [
-  { name: '4-Seam Fastball (4シーム)', seamType: '4-seam', rpm: 2350, tiltClock: '1:15', tiltDegrees: 37.5, gyroDegrees: 10, desc: '馬蹄形が正面' },
-  { name: '2-Seam / Sinker (2シーム)', seamType: '2-seam', rpm: 2150, tiltClock: '2:15', tiltDegrees: 67.5, gyroDegrees: 18, desc: '馬蹄形に近い広めの回転' },
-  { name: '1-Seam Gyro Sinker (1シーム)', seamType: '1-seam', rpm: 2100, tiltClock: '2:30', tiltDegrees: 75, gyroDegrees: 35, desc: '片側寄りで余白が広い雫型' },
-  { name: 'Sweeper (スイーパー)', seamType: '2-seam', rpm: 2600, tiltClock: '9:00', tiltDegrees: -90, gyroDegrees: 30, desc: '横滑りスイーパー' },
-  { name: 'Gyro Slider (縦スラ/ジャイロ)', seamType: '4-seam', rpm: 2400, tiltClock: '10:30', tiltDegrees: -45, gyroDegrees: 65, desc: 'ライフル回転' },
-  { name: '12-6 Curveball (ドロップカーブ)', seamType: '4-seam', rpm: 2700, tiltClock: '6:00', tiltDegrees: 180, gyroDegrees: 8, desc: 'トップスピン' },
-  { name: 'Circle Changeup (チェンジアップ)', seamType: '2-seam', rpm: 1750, tiltClock: '2:45', tiltDegrees: 82.5, gyroDegrees: 28, desc: 'ブレーキ回転' },
+  { name: '4-Seam (直球 1:15)', seamType: '4-seam', rpm: 2350, tiltClock: '1:15', tiltDegrees: 37.5, gyroDegrees: 8 },
+  { name: '2-Seam / Sinker (2:15)', seamType: '2-seam', rpm: 2200, tiltClock: '2:15', tiltDegrees: 67.5, gyroDegrees: 18 },
+  { name: '1-Seam Sinker (2:30)', seamType: '1-seam', rpm: 2150, tiltClock: '2:30', tiltDegrees: 75, gyroDegrees: 30 },
+  { name: 'Cutter (11:45)', seamType: '4-seam', rpm: 2450, tiltClock: '11:45', tiltDegrees: -7.5, gyroDegrees: 25 },
+  { name: 'Slider (10:30)', seamType: '4-seam', rpm: 2550, tiltClock: '10:30', tiltDegrees: -45, gyroDegrees: 48 },
+  { name: 'Sweeper (9:00)', seamType: '2-seam', rpm: 2700, tiltClock: '9:00', tiltDegrees: -90, gyroDegrees: 25 },
+  { name: 'Curveball (6:30)', seamType: '4-seam', rpm: 2750, tiltClock: '6:30', tiltDegrees: 195, gyroDegrees: 12 },
+  { name: 'Changeup (2:45)', seamType: '2-seam', rpm: 1750, tiltClock: '2:45', tiltDegrees: 82.5, gyroDegrees: 28 },
+  { name: 'Gyro Slider (純ジャイロ)', seamType: '4-seam', rpm: 2400, tiltClock: '12:00', tiltDegrees: 0, gyroDegrees: 85 },
 ];
 
 export default SingleBallCanvas;
