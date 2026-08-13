@@ -358,15 +358,15 @@ const PitchingSimulator = () => {
                     {/* Labels */}
                     <span className="absolute top-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-zinc-500">RISE (+)</span>
                     <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-zinc-500">DROP (-)</span>
-                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[8px] font-black text-zinc-500">ARM</span>
-                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] font-black text-zinc-500">GLOVE</span>
+                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[8px] font-black text-zinc-500">- HB (-)</span>
+                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] font-black text-zinc-500">+ HB (+)</span>
 
                     {/* Vector Lines */}
                     <svg className="absolute inset-0 w-full h-full pointer-events-none">
                       {pitches.map(p => {
                         const cx = 50;
                         const cy = 50;
-                        const px = 50 - ((p.hb || 0) / 60) * 42;
+                        const px = 50 + ((p.hb || 0) / 60) * 42;
                         const py = 50 - ((p.vb || 0) / 60) * 42;
                         return (
                           <g key={p.id}>
@@ -394,7 +394,7 @@ const PitchingSimulator = () => {
 
                     {/* Dots Labels */}
                     {pitches.map(p => {
-                      const px = 50 - ((p.hb || 0) / 60) * 42;
+                      const px = 50 + ((p.hb || 0) / 60) * 42;
                       const py = 50 - ((p.vb || 0) / 60) * 42;
                       return (
                         <span

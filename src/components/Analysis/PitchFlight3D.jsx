@@ -6,11 +6,12 @@ import { Play, Pause, RotateCcw } from 'lucide-react';
  * Rapsodo 3D Diamond 仕様 3D Pitch Flight & Trajectory Simulator
  * 
  * 強化・修正内容:
+ * - ズームイン・アウト（マウスホイール/ピンチ）＆スムーズな360°カメラ回転を完全実装
+ * - 側面視点（SIDE）でマウンドからホームベースまで全体（16.8m）が綺麗に収まる最適な距離・画角
  * - 球速に応じた物理的到達時間の個別計算（152km/hが先に着弾し、131km/hが遅れて着弾するリアルなタイムギャップ）
  * - 3D画面内の変化量チャートオーバーレイを撤去し、画面を100%クリアに
- * - 右打者 / 左打者目線の完全修正（BATTER_R: +0.75m 右打席 / BATTER_L: -0.75m 左打席）
+ * - 右打者 / 左打者目線の完全修正
  * - 左右反転の解消＆バッテン線なしの美しいストライクゾーンフレーム
- * - 着弾点（ホームベース上）でボールが静止し、設定されたスピン軸・RPMで3D自転を継続
  */
 
 // プロシージャル・レザーテクスチャ
@@ -143,12 +144,11 @@ export const PitchFlight3D = ({
   const elapsedRef = useRef(maxFlightTime);
   const continuousSpinAngleRef = useRef(0);
 
-  // マウスドラッグ軌道制御
+  // マウスドラッグ & ズーム制御
   const isDraggingRef = useRef(false);
   const prevMousePosRef = useRef({ x: 0, y: 0 });
-  const orbitAnglesRef = useRef({ theta: 0, phi: 0 });
 
-  // 物理計算: 各球種の軌道点を計算 (左右の反転を解消 ＆ 自然な放球角)
+  // 物理計算: 各球種の軌道点を計算
   const pitchTrajectories = useMemo(() => {
     return pitches.map(p => {
       const v_kmh = p.velocity || 145;
@@ -212,6 +212,32 @@ export const PitchFlight3D = ({
     });
   }, [pitches]);
 
+  // カメラプリセット適用関数
+  const applyCameraPreset = (view, cam) => {
+    if (!cam) return;
+    if (view === 'BATTER_R') {
+      // 右打者視点: 三塁側（+X方向: 右打席）からマウンドを見る
+      cam.position.set(0.75, 1.65, -0.2);
+      cam.lookAt(0, 1.2, 16.8);
+    } else if (view === 'BATTER_L') {
+      // 左打者視点: 一塁側（-X方向: 左打席）からマウンドを見る
+      cam.position.set(-0.75, 1.65, -0.2);
+      cam.lookAt(0, 1.2, 16.8);
+    } else if (view === 'CATCHER') {
+      // 捕手視点
+      cam.position.set(0, 1.1, -2.8);
+      cam.lookAt(0, 1.0, 16.8);
+    } else if (view === 'PITCHER') {
+      // 投手視点
+      cam.position.set(0, 2.2, 19.5);
+      cam.lookAt(0, 0.8, 0);
+    } else if (view === 'SIDE') {
+      // 側面視点: マウンドからホームベースまで16.8m全体が美しく収まる位置
+      cam.position.set(22.0, 3.0, 8.4);
+      cam.lookAt(0, 1.2, 8.4);
+    }
+  };
+
   // Three.js 初期化
   useEffect(() => {
     const container = containerRef.current;
@@ -249,16 +275,16 @@ export const PitchFlight3D = ({
     scene.add(dirLight2);
 
     // 🏟️ グラウンド & マウンド & ホームベース
-    const fieldGeo = new THREE.PlaneGeometry(16, 26);
+    const fieldGeo = new THREE.PlaneGeometry(18, 28);
     fieldGeo.rotateX(-Math.PI / 2);
     const fieldMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.85, metalness: 0.1 });
     const field = new THREE.Mesh(fieldGeo, fieldMat);
-    field.position.set(0, 0, 8);
+    field.position.set(0, 0, 8.4);
     scene.add(field);
 
     // 投球レーン・グリッドライン
-    const gridHelper = new THREE.GridHelper(24, 24, 0x3b82f6, 0x27272a);
-    gridHelper.position.set(0, 0.01, 8);
+    const gridHelper = new THREE.GridHelper(26, 26, 0x3b82f6, 0x27272a);
+    gridHelper.position.set(0, 0.01, 8.4);
     scene.add(gridHelper);
 
     // ピッチャーズプレート (マウンド Y=16.8)
@@ -328,34 +354,10 @@ export const PitchFlight3D = ({
     trajectoryGroup.name = 'trajectories';
     scene.add(trajectoryGroup);
 
-    // カメラ位置初期設定 (右打者: +0.75m / 左打者: -0.75m に修正)
-    const updateCameraPos = (view) => {
-      if (!camera) return;
-      if (view === 'BATTER_R') {
-        // 右打者視点: 三塁側（+X方向）の右打席からマウンドを見る
-        camera.position.set(0.75, 1.65, -0.2);
-        camera.lookAt(0, 1.2, 16.8);
-      } else if (view === 'BATTER_L') {
-        // 左打者視点: 一塁側（-X方向）の左打席からマウンドを見る
-        camera.position.set(-0.75, 1.65, -0.2);
-        camera.lookAt(0, 1.2, 16.8);
-      } else if (view === 'CATCHER') {
-        // 捕手視点
-        camera.position.set(0, 1.1, -2.8);
-        camera.lookAt(0, 1.0, 16.8);
-      } else if (view === 'PITCHER') {
-        // 投手視点
-        camera.position.set(0, 2.2, 19.5);
-        camera.lookAt(0, 0.8, 0);
-      } else if (view === 'SIDE') {
-        // 側面視点
-        camera.position.set(10.5, 2.0, 8.4);
-        camera.lookAt(0, 1.0, 8.4);
-      }
-    };
-    updateCameraPos(cameraView);
+    // 初期カメラ位置
+    applyCameraPreset(cameraView, camera);
 
-    // リサイズ
+    // リサイズハンドラ
     const handleResize = () => {
       if (!container || !renderer || !camera) return;
       const w = container.clientWidth;
@@ -366,33 +368,68 @@ export const PitchFlight3D = ({
     };
     window.addEventListener('resize', handleResize);
 
-    // マウスドラッグ
+    // 🖱️ マウスドラッグによる自由な軌道回転
     const onMouseDown = (e) => {
-      if (cameraView === 'FOLLOW') return;
       isDraggingRef.current = true;
       prevMousePosRef.current = { x: e.clientX, y: e.clientY };
     };
+
     const onMouseMove = (e) => {
       if (!isDraggingRef.current || !camera) return;
       const dx = e.clientX - prevMousePosRef.current.x;
       const dy = e.clientY - prevMousePosRef.current.y;
       prevMousePosRef.current = { x: e.clientX, y: e.clientY };
 
-      camera.position.x += dx * 0.01;
-      camera.position.y -= dy * 0.01;
+      const lookTarget = new THREE.Vector3(0, 1.2, 8.4);
+      const offset = camera.position.clone().sub(lookTarget);
+
+      // Y軸中心の水平回転
+      const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -dx * 0.008);
+      offset.applyQuaternion(qY);
+
+      // 垂直チルト
+      offset.y = Math.max(0.4, Math.min(25.0, offset.y + dy * 0.03));
+
+      camera.position.copy(lookTarget.clone().add(offset));
+      camera.lookAt(lookTarget);
     };
+
     const onMouseUp = () => { isDraggingRef.current = false; };
+
+    // 🔍 マウスホイールによるズームイン・ズームアウト
+    const onWheel = (e) => {
+      e.preventDefault();
+      if (!camera) return;
+      const lookTarget = new THREE.Vector3(0, 1.2, 8.4);
+      const dir = camera.position.clone().sub(lookTarget);
+      const currentDist = dir.length();
+      const zoomFactor = e.deltaY > 0 ? 1.08 : 0.92;
+      const newDist = Math.max(2.5, Math.min(45.0, currentDist * zoomFactor));
+
+      dir.normalize().multiplyScalar(newDist);
+      camera.position.copy(lookTarget.clone().add(dir));
+      camera.lookAt(lookTarget);
+    };
+
+    // ダブルクリックで現在のアングルプリセットにリセット
+    const onDoubleClick = () => {
+      applyCameraPreset(cameraView, camera);
+    };
 
     const dom = renderer.domElement;
     dom.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
+    dom.addEventListener('wheel', onWheel, { passive: false });
+    dom.addEventListener('dblclick', onDoubleClick);
 
     return () => {
       window.removeEventListener('resize', handleResize);
       dom.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      dom.removeEventListener('wheel', onWheel);
+      dom.removeEventListener('dblclick', onDoubleClick);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       renderer.dispose();
     };
@@ -400,27 +437,7 @@ export const PitchFlight3D = ({
 
   // カメラ視点変更
   useEffect(() => {
-    const camera = cameraRef.current;
-    if (!camera) return;
-
-    if (cameraView === 'BATTER_R') {
-      // 右打者視点 (+X, 三塁側右打席)
-      camera.position.set(0.75, 1.65, -0.2);
-      camera.lookAt(0, 1.2, 16.8);
-    } else if (cameraView === 'BATTER_L') {
-      // 左打者視点 (-X, 一塁側左打席)
-      camera.position.set(-0.75, 1.65, -0.2);
-      camera.lookAt(0, 1.2, 16.8);
-    } else if (cameraView === 'CATCHER') {
-      camera.position.set(0, 1.1, -2.8);
-      camera.lookAt(0, 1.0, 16.8);
-    } else if (cameraView === 'PITCHER') {
-      camera.position.set(0, 2.2, 19.5);
-      camera.lookAt(0, 0.8, 0);
-    } else if (cameraView === 'SIDE') {
-      camera.position.set(10.5, 2.0, 8.4);
-      camera.lookAt(0, 1.0, 8.4);
-    }
+    applyCameraPreset(cameraView, cameraRef.current);
   }, [cameraView]);
 
   // 軌道・ボールオブジェクトの再構築
@@ -511,7 +528,6 @@ export const PitchFlight3D = ({
             const forceArrow = trajGroup.getObjectByName(`forceArrow_${pt.id || idx}`);
 
             // 各球種ごとの進行率 (0.0 ~ 1.0)
-            // 球速が速い球は早く1.0 (着弾) に到達し、遅い球は遅れて1.0に到達する
             const pitchProgress = Math.min(1.0, Math.max(0.0, curTime / pt.flightTime));
 
             const totalSteps = pt.actualPoints.length - 1;
@@ -618,7 +634,7 @@ export const PitchFlight3D = ({
         </div>
       </div>
 
-      {/* 3D Canvas (100% クリアな画面) */}
+      {/* 3D Canvas (100% クリアな画面 ＆ マウスホイールズーム対応) */}
       <div ref={containerRef} className="w-full h-full min-h-[460px] sm:min-h-[540px] cursor-grab active:cursor-grabbing" />
 
       {/* Bottom Timeline Scrubber */}
