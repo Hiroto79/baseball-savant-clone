@@ -5,14 +5,12 @@ import { Play, Pause, RotateCcw } from 'lucide-react';
 /**
  * Rapsodo 3D Diamond 仕様 3D Pitch Flight & Trajectory Simulator
  * 
- * 強化・修正内容:
+ * 物理・座標系の完全整合:
+ * - 右投手（RHP）: リリース位置は一塁側（X = -0.45m）
+ * - スライダー（HB = -32cm）: マウンドから一塁側で投げ出され、打者手前で三塁側（+X方向 / 右打者アウトロー）へ鋭く曲がり落ちる
+ * - フォーシーム（HB = +22cm, VB = +45cm）: マウンドから一塁側で投げ出され、シュート成分（-X方向）とホップ（上向き揚力）でインハイへ突き刺さる
+ * - 2Dストライクゾーン（-X = 左/インコース, +X = 右/アウトコース）と3D空間（-X = 一塁側, +X = 三塁側）が100%一致
  * - ズームイン・アウト（マウスホイール/ピンチ）＆スムーズな360°カメラ回転
- * - ピッチトンネル＆空力曲がり弾道の精密物理計算（初速の直線から後半にかけて急激に変化する「キレのある変化」を視覚化）
- * - 側面視点（SIDE）でマウンドからホームベースまで16.8m全体が美しく収まる最適な距離
- * - 球速に応じた物理的到達時間の個別計算（152km/hが先に着弾し、131km/hが遅れて着弾するタイムギャップ）
- * - 3D画面内の変化量チャートオーバーレイを撤去し、画面を100%クリアに
- * - 右打者 / 左打者目線の完全修正
- * - 左右反転の解消＆バッテン線なしの美しいストライクゾーンフレーム
  */
 
 // プロシージャル・レザーテクスチャ
@@ -148,61 +146,55 @@ export const PitchFlight3D = ({
   const isDraggingRef = useRef(false);
   const prevMousePosRef = useRef({ x: 0, y: 0 });
 
-  // 物理計算: ピッチトンネル ＆ 空力加速度カーブ
+  // 物理計算: 100% 正確な座標系と空力加速度
   const pitchTrajectories = useMemo(() => {
     return pitches.map(p => {
       const v_kmh = p.velocity || 145;
       const v_ms = v_kmh / 3.6; // m/s
       const dist = 16.8; // Release to Plate (m)
-      const flightTime = dist / v_ms; // 各球種固有のフライト時間 (秒)
+      const flightTime = dist / v_ms; // 秒
 
-      // 捕手視点基準
-      const startX = -(p.releasePos?.x ?? -0.45);
+      // 1. リリース位置 (右投手は一塁側 X=-0.45m, 左投手は三塁側 X=+0.45m)
+      const startX = p.releasePos?.x ?? -0.45;
       const startY = p.releasePos?.y ?? 16.8;
       const startZ = p.releasePos?.z ?? 1.85;
 
-      const targetX = -((p.targetLocation?.x ?? 0) / 100); // cm -> m
-      const targetZ = (p.targetLocation?.z ?? 75) / 100; // cm -> m
+      // 2. 目標着弾位置 (2Dストライクゾーン -14cm=インコース/一塁側, +14cm=アウトコース/三塁側)
+      const targetX = (p.targetLocation?.x ?? 0) / 100;
+      const targetZ = (p.targetLocation?.z ?? 75) / 100;
 
-      // 変化量 (cm -> m)
-      const hb_m = -((p.hb ?? 0) / 100);
+      // 3. 空力変化量 (HB: +22cm=シュート/一塁側への加速, -32cm=スライダー/三塁側への加速)
+      const hb_m = (p.hb ?? 0) / 100;
       const vb_m = (p.vb ?? 0) / 100;
 
-      // 加速度 (空力マグナス + SSW)
       const g = 9.80665;
-      const ax = (2 * hb_m) / (flightTime * flightTime);
-      const az_mag = (2 * vb_m) / (flightTime * flightTime);
+      // スライダー(HB<0)なら ax > 0 (+X方向/三塁側へ加速)、シュート(HB>0)なら ax < 0 (-X方向/一塁側へ加速)
+      const ax = (2 * (-hb_m)) / (flightTime * flightTime);
+      const az_mag = (2 * vb_m) / (flightTime * flightTime); // ホップ揚力
 
-      // 初速計算 (放球時点の初速ベクトル)
+      // 4. 初速計算 (放球時点の初速ベクトル)
       const vx0 = (targetX - startX - 0.5 * ax * flightTime * flightTime) / flightTime;
       const vy0 = -dist / flightTime;
       const vz0 = (targetZ - startZ - 0.5 * (az_mag - g) * flightTime * flightTime) / flightTime;
 
-      // 軌道点配列 (N=60)
+      // 5. 軌道点配列 (N=60)
       const steps = 60;
       const actualPoints = [];
       const ghostPoints = [];
-      const tunnelLinePoints = []; // 放球初速ベクトルの直進基準線（ピッチトンネル基準）
 
       for (let i = 0; i <= steps; i++) {
         const t = (i / steps) * flightTime;
-        // 実空力軌道 (後半にかけて 0.5 * a * t^2 で急激に曲がる)
+        // 実空力軌道
         const x = startX + vx0 * t + 0.5 * ax * t * t;
         const y = startY + vy0 * t;
         const z = startZ + vz0 * t + 0.5 * (az_mag - g) * t * t;
         actualPoints.push(new THREE.Vector3(x, z, y));
 
-        // ゴースト無回転軌道 (ax=0, az_mag=0, 重力のみ)
+        // ゴースト無回転軌道
         const gx = startX + vx0 * t;
         const gy = startY + vy0 * t;
         const gz = startZ + vz0 * t + 0.5 * (-g) * t * t;
         ghostPoints.push(new THREE.Vector3(gx, gz, gy));
-
-        // 初速方向の直進基準線
-        const tx = startX + vx0 * t;
-        const ty = startY + vy0 * t;
-        const tz = startZ + vz0 * t;
-        tunnelLinePoints.push(new THREE.Vector3(tx, tz, ty));
       }
 
       return {
@@ -210,7 +202,6 @@ export const PitchFlight3D = ({
         flightTime,
         actualPoints,
         ghostPoints,
-        tunnelLinePoints,
         startPos: new THREE.Vector3(startX, startZ, startY),
         targetPos: new THREE.Vector3(targetX, targetZ, 0),
         ax,
@@ -224,18 +215,23 @@ export const PitchFlight3D = ({
   const applyCameraPreset = (view, cam) => {
     if (!cam) return;
     if (view === 'BATTER_R') {
+      // 右打者視点: 三塁側（+X方向: 右打席）からマウンドを見る
       cam.position.set(0.75, 1.65, -0.2);
       cam.lookAt(0, 1.2, 16.8);
     } else if (view === 'BATTER_L') {
+      // 左打者視点: 一塁側（-X方向: 左打席）からマウンドを見る
       cam.position.set(-0.75, 1.65, -0.2);
       cam.lookAt(0, 1.2, 16.8);
     } else if (view === 'CATCHER') {
+      // 捕手視点
       cam.position.set(0, 1.1, -2.8);
       cam.lookAt(0, 1.0, 16.8);
     } else if (view === 'PITCHER') {
+      // 投手視点
       cam.position.set(0, 2.2, 19.5);
       cam.lookAt(0, 0.8, 0);
     } else if (view === 'SIDE') {
+      // 側面視点: 16.8m全体が美しく収まる位置
       cam.position.set(22.0, 3.0, 8.4);
       cam.lookAt(0, 1.2, 8.4);
     }

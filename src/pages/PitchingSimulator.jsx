@@ -523,26 +523,6 @@ const PitchingSimulator = () => {
                     </button>
                   ))}
                 </div>
-
-                {/* Pitch Tunnel Auto-Align Button */}
-                <button
-                  onClick={() => {
-                    // 全球種を同一の腕の振り（ピッチトンネル）から投げ出し、変化量の違いだけでコースを分かれさせる
-                    setPitches(prev => prev.map(p => {
-                      const naturalX = Math.round(((p.hb || 0) / 30) * 14);
-                      const naturalZ = Math.round(75 + ((p.vb || 0) / 45) * 16);
-                      return {
-                        ...p,
-                        targetLocation: { x: naturalX, z: naturalZ }
-                      };
-                    }));
-                  }}
-                  className="w-full py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 text-[11px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                  title="全球種を同じ初速ベクトル（ピッチトンネル）から投げ出し、空力による自然な曲がり変化を比較します"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                  <span>🎯 ピッチトンネル揃え（同一初速から急変化）</span>
-                </button>
               </div>
 
               {/* ⚙️ 2. 選択球種のパラメータ設定 */}
