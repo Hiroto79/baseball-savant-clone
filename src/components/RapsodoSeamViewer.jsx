@@ -3,6 +3,11 @@ import * as THREE from 'three';
 
 /**
  * Rapsodo Pitching 準拠の 3D Baseball Seam & Spin Visualizer Component
+ * 
+ * 【Rapsodo 3D Diamond 仕様の超リアル描画アップグレード版】
+ * - 本物の硬式球の革テクスチャ（PBR微細バンプ・ラフネスマップ）
+ * - 108本の立体V字ステッチ（赤い縫い糸）＆ 立体シームリッジ
+ * - スタジオ3点ライティング ＋ リムライト（回転時のシーム立体感を極大化）
  *
  * ラプソード公式のスピン軸＆ジャイロ定義（符号統一版・投手左右の選択は不要）:
  * - チルト (Tilt / 時計の針): 12:00 (0°) を基準（バックスピン）とし、時計回りが正の角度。
@@ -15,17 +20,81 @@ import * as THREE from 'three';
  *   投手の利き腕を選択する必要はなく、符号だけで左右どちらの曲がりも表現できる。
  */
 
-// ユーザー指定の数式に従ってシームジオメトリを生成 (屈曲のない滑らかな半円弧)
-function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
+// プロシージャル硬式球レザーテクスチャ生成（軽量・外部ダウンロード遅延ゼロ）
+function createProceduralLeatherTextures() {
+  const width = 1024;
+  const height = 512;
+
+  // 1. レザーバンプマップ（微細な革シボ・毛穴・凹凸）
+  const bumpCanvas = document.createElement('canvas');
+  bumpCanvas.width = width;
+  bumpCanvas.height = height;
+  const bumpCtx = bumpCanvas.getContext('2d');
+
+  if (bumpCtx) {
+    const imgData = bumpCtx.createImageData(width, height);
+    const data = imgData.data;
+
+    // 擬似パーリンノイズ風の多層セルラーグレイン
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        // 微細なレザーグレイン
+        const n1 = Math.sin(x * 0.45) * Math.cos(y * 0.45);
+        const n2 = Math.sin(x * 0.9 + y * 0.6) * Math.cos(y * 0.9 - x * 0.6);
+        const n3 = (Math.random() - 0.5) * 0.4;
+        const val = Math.floor(128 + (n1 * 0.35 + n2 * 0.25 + n3) * 50);
+        const clamped = Math.max(0, Math.min(255, val));
+
+        data[idx] = clamped;
+        data[idx + 1] = clamped;
+        data[idx + 2] = clamped;
+        data[idx + 3] = 255;
+      }
+    }
+    bumpCtx.putImageData(imgData, 0, 0);
+  }
+
+  const bumpTexture = new THREE.CanvasTexture(bumpCanvas);
+  bumpTexture.wrapS = THREE.RepeatWrapping;
+  bumpTexture.wrapT = THREE.ClampToEdgeWrapping;
+  bumpTexture.generateMipmaps = true;
+
+  // 2. ラフネステクスチャ（革の反射率の自然なムラ）
+  const roughCanvas = document.createElement('canvas');
+  roughCanvas.width = width;
+  roughCanvas.height = height;
+  const roughCtx = roughCanvas.getContext('2d');
+
+  if (roughCtx) {
+    const imgData = roughCtx.createImageData(width, height);
+    const data = imgData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const baseRough = 160 + (Math.random() - 0.5) * 35;
+      data[i] = baseRough;
+      data[i + 1] = baseRough;
+      data[i + 2] = baseRough;
+      data[i + 3] = 255;
+    }
+    roughCtx.putImageData(imgData, 0, 0);
+  }
+
+  const roughTexture = new THREE.CanvasTexture(roughCanvas);
+  roughTexture.wrapS = THREE.RepeatWrapping;
+  roughTexture.wrapT = THREE.ClampToEdgeWrapping;
+
+  return { bumpTexture, roughTexture };
+}
+
+// ユーザー指定の数式に従ってシーム基準曲線を生成
+function getSeamCurvePoints(radius = 1.0, segments = 360) {
   const points = [];
-  const segments = 360;
-  // alpha=0.60 で屈曲・V字折れ曲がりのない滑らかな半円弧を完全再現
   const alpha = 0.60;
-  const r = radius * 1.004;
+  const r = radius * 1.002;
 
   for (let i = 0; i <= segments; i++) {
     const t = (i / segments) * Math.PI * 2;
-    // 屈曲・角張りのない純粋な球面大円補間方程式
     const theta = alpha * Math.sin(2 * t);
     const phi = t;
 
@@ -35,12 +104,7 @@ function createParametricSeamGeometry(seamType = '4-seam', radius = 1.0) {
 
     points.push(new THREE.Vector3(x, y, z));
   }
-
-  const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal');
-  // 半径 0.058、断面分割 16 で滑らかに立体感を強調
-  const tubeGeo = new THREE.TubeGeometry(curve, 240, 0.058, 16, true);
-
-  return tubeGeo;
+  return points;
 }
 
 // 4シーム / 2シーム / 1シームの初期回転行列 (InitRotation_Matrix)
@@ -59,6 +123,134 @@ export function getInitRotationMatrix(seamType = '4-seam') {
     m.makeRotationY(Math.PI / 2);
   }
   return m;
+}
+
+// 本物の硬式球の108本立体V字ステッチ＆シームリッジ複合ジオメトリを生成
+function createRealisticBaseballSeams(seamType = '4-seam', radius = 1.0) {
+  const group = new THREE.Group();
+  group.name = 'seamCompositeGroup';
+
+  const curvePoints = getSeamCurvePoints(radius, 360);
+  const curve = new THREE.CatmullRomCurve3(curvePoints, true, 'centripetal');
+
+  // 1. シーム溝・革合わせ目の立体リッジ（深みのある濃赤レザーウェルト）
+  const seamTubeGeo = new THREE.TubeGeometry(curve, 300, 0.024, 12, true);
+  const seamRidgeMat = new THREE.MeshStandardMaterial({
+    color: 0x991b1b, // ディープクリムゾン
+    roughness: 0.50,
+    metalness: 0.02,
+  });
+  const seamRidgeMesh = new THREE.Mesh(seamTubeGeo, seamRidgeMat);
+  group.add(seamRidgeMesh);
+
+  // 2. 本物の硬式球と同じ108組（計216本）の立体V字赤ステッチ（赤い縫い糸）
+  const stitchCount = 108;
+  const stitchRadius = 0.009;
+  const stitchWidth = 0.054; // シーム中心からのステッチ幅
+  const stitchLength = 0.022; // 進行方向の斜め傾斜幅
+
+  // ステッチの頂点・インデックス配列を結合して1つのBufferGeometryにマージ（描画負荷を最小化）
+  const cylinderGeo = new THREE.CylinderGeometry(stitchRadius, stitchRadius, 1, 6, 1, true);
+  const posAttr = cylinderGeo.attributes.position;
+  const normalAttr = cylinderGeo.attributes.normal;
+  const indexAttr = cylinderGeo.index;
+
+  const totalStitches = stitchCount * 2;
+  const vertsPerCyl = posAttr.count;
+  const indicesPerCyl = indexAttr.count;
+
+  const mergedPositions = new Float32Array(totalStitches * vertsPerCyl * 3);
+  const mergedNormals = new Float32Array(totalStitches * vertsPerCyl * 3);
+  const mergedIndices = new Uint32Array(totalStitches * indicesPerCyl);
+
+  let stitchIndex = 0;
+
+  for (let i = 0; i < stitchCount; i++) {
+    const u = i / stitchCount;
+    const pt = curve.getPointAt(u);
+    const tangent = curve.getTangentAt(u).normalize();
+    const radialNormal = pt.clone().normalize();
+    const binormal = new THREE.Vector3().crossVectors(radialNormal, tangent).normalize();
+
+    // V字の左右ステッチ位置（外側からシーム中央に向かって斜めに食い込む本物の縫い方）
+    const leftOuter = pt.clone()
+      .addScaledVector(binormal, stitchWidth)
+      .addScaledVector(tangent, -stitchLength)
+      .addScaledVector(radialNormal, 0.001);
+
+    const leftInner = pt.clone()
+      .addScaledVector(binormal, 0.008)
+      .addScaledVector(radialNormal, 0.008);
+
+    const rightOuter = pt.clone()
+      .addScaledVector(binormal, -stitchWidth)
+      .addScaledVector(tangent, -stitchLength)
+      .addScaledVector(radialNormal, 0.001);
+
+    const rightInner = pt.clone()
+      .addScaledVector(binormal, -0.008)
+      .addScaledVector(radialNormal, 0.008);
+
+    // 左ステッチシリンダーの配置行列
+    addStitchSegment(leftOuter, leftInner, stitchIndex++);
+    // 右ステッチシリンダーの配置行列
+    addStitchSegment(rightOuter, rightInner, stitchIndex++);
+  }
+
+  function addStitchSegment(startPt, endPt, idx) {
+    const vOffset = idx * vertsPerCyl;
+    const iOffset = idx * indicesPerCyl;
+
+    const dir = new THREE.Vector3().subVectors(endPt, startPt);
+    const length = dir.length();
+    const mid = new THREE.Vector3().addVectors(startPt, endPt).multiplyScalar(0.5);
+
+    const rotMatrix = new THREE.Matrix4();
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    const targetDir = dir.clone().normalize();
+    const quat = new THREE.Quaternion().setFromUnitVectors(yAxis, targetDir);
+    rotMatrix.makeRotationFromQuaternion(quat);
+
+    const tempV = new THREE.Vector3();
+    const tempN = new THREE.Vector3();
+
+    for (let j = 0; j < vertsPerCyl; j++) {
+      tempV.set(posAttr.getX(j), posAttr.getY(j) * length, posAttr.getZ(j));
+      tempV.applyMatrix4(rotMatrix);
+      tempV.add(mid);
+
+      tempN.set(normalAttr.getX(j), normalAttr.getY(j), normalAttr.getZ(j));
+      tempN.applyMatrix4(rotMatrix);
+
+      const pIdx = (vOffset + j) * 3;
+      mergedPositions[pIdx] = tempV.x;
+      mergedPositions[pIdx + 1] = tempV.y;
+      mergedPositions[pIdx + 2] = tempV.z;
+
+      mergedNormals[pIdx] = tempN.x;
+      mergedNormals[pIdx + 1] = tempN.y;
+      mergedNormals[pIdx + 2] = tempN.z;
+    }
+
+    for (let j = 0; j < indicesPerCyl; j++) {
+      mergedIndices[iOffset + j] = vOffset + indexAttr.getX(j);
+    }
+  }
+
+  const mergedStitchesGeo = new THREE.BufferGeometry();
+  mergedStitchesGeo.setAttribute('position', new THREE.BufferAttribute(mergedPositions, 3));
+  mergedStitchesGeo.setAttribute('normal', new THREE.BufferAttribute(mergedNormals, 3));
+  mergedStitchesGeo.setIndex(new THREE.BufferAttribute(mergedIndices, 1));
+
+  const stitchMat = new THREE.MeshStandardMaterial({
+    color: 0xdc2626, // 鮮やかなレッドステッチ（回転時の視認性を向上）
+    roughness: 0.38,
+    metalness: 0.05,
+  });
+  const stitchesMesh = new THREE.Mesh(mergedStitchesGeo, stitchMat);
+  group.add(stitchesMesh);
+
+  return group;
 }
 
 export const SingleBallCanvas = ({
@@ -130,21 +322,29 @@ export const SingleBallCanvas = ({
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.15;
     container.replaceChildren(renderer.domElement);
     rendererRef.current = renderer;
 
-    // ライト
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
-    scene.add(ambientLight);
+    // 💡 Rapsodo Diamond仕様 スタジオ3点ライティング & リムライト
+    // 1. 環境光（自然な光の反射）
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x1e293b, 1.1);
+    scene.add(hemiLight);
 
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
-    dirLight1.position.set(5, 8, 5);
-    scene.add(dirLight1);
+    // 2. キーライト（太陽光・主光: 暖色ホワイト）
+    const keyLight = new THREE.DirectionalLight(0xfffaed, 2.3);
+    keyLight.position.set(4, 6, 6);
+    scene.add(keyLight);
 
-    const dirLight2 = new THREE.DirectionalLight(0x90b0ff, 1.0);
-    dirLight2.position.set(-5, -5, -5);
-    scene.add(dirLight2);
+    // 3. フィルライト（影を和らげる補助光: 爽快なスカイブルー）
+    const fillLight = new THREE.DirectionalLight(0x93c5fd, 1.1);
+    fillLight.position.set(-5, -2, -3);
+    scene.add(fillLight);
+
+    // 4. リムライト（背後からの逆光: ボール輪郭＆シームの立体エッジを強調）
+    const rimLight = new THREE.DirectionalLight(0xffffff, 3.2);
+    rimLight.position.set(-3, 4, -6);
+    scene.add(rimLight);
 
     // 背景の同心円グリッド（ラプソード風レーダーサークル）
     const gridGroup = new THREE.Group();
@@ -168,26 +368,23 @@ export const SingleBallCanvas = ({
     const ballGroup = new THREE.Group();
     ballGroupRef.current = ballGroup;
 
-    // 白球本体
-    const sphereGeo = new THREE.SphereGeometry(0.99, 64, 64);
+    // ⚾ PBR硬式球リアルレザー球体本体
+    const { bumpTexture, roughTexture } = createProceduralLeatherTextures();
+    const sphereGeo = new THREE.SphereGeometry(0.995, 64, 64);
     const sphereMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      roughness: 0.35,
-      metalness: 0.05,
+      color: 0xfafaf9, // 天然硬式球のリアルなオフホワイト
+      roughness: 0.62,
+      metalness: 0.02,
+      bumpMap: bumpTexture,
+      bumpScale: 0.006,
+      roughnessMap: roughTexture,
     });
     const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
     ballGroup.add(sphereMesh);
 
-    // 太めの赤い立体チューブ縫い目
-    const tubeGeo = createParametricSeamGeometry(seamType, 1.0);
-    const seamMat = new THREE.MeshStandardMaterial({
-      color: 0xb91c1c,
-      roughness: 0.55,
-      metalness: 0,
-    });
-    const seamMesh = new THREE.Mesh(tubeGeo, seamMat);
-    seamMesh.name = 'seamMesh';
-    ballGroup.add(seamMesh);
+    // ⚾ 108本立体V字ステッチ ＆ シームリッジ
+    const realisticSeams = createRealisticBaseballSeams(seamType, 1.0);
+    ballGroup.add(realisticSeams);
 
     scene.add(ballGroup);
 
@@ -305,21 +502,13 @@ export const SingleBallCanvas = ({
     const ballGroup = ballGroupRef.current;
     if (!ballGroup) return;
 
-    const oldSeam = ballGroup.getObjectByName('seamMesh');
-    if (oldSeam) {
-      ballGroup.remove(oldSeam);
-      oldSeam.geometry.dispose();
+    const oldSeams = ballGroup.getObjectByName('seamCompositeGroup');
+    if (oldSeams) {
+      ballGroup.remove(oldSeams);
     }
 
-    const newTubeGeo = createParametricSeamGeometry(seamType, 1.0);
-    const seamMat = new THREE.MeshStandardMaterial({
-      color: 0xb91c1c,
-      roughness: 0.55,
-      metalness: 0,
-    });
-    const newSeamMesh = new THREE.Mesh(newTubeGeo, seamMat);
-    newSeamMesh.name = 'seamMesh';
-    ballGroup.add(newSeamMesh);
+    const newRealisticSeams = createRealisticBaseballSeams(seamType, 1.0);
+    ballGroup.add(newRealisticSeams);
   }, [seamType]);
 
   // 視点切り替え
