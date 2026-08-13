@@ -2,18 +2,43 @@ import React, { useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { Lock } from 'lucide-react';
 
+// ソルト付きSHA-256ハッシュ生成関数 (WebCrypto API)
+async function hashPassword(plainText) {
+    try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode('savant-salt-v1:' + plainText.trim());
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+        console.error('Hash calculation failed:', e);
+        return null;
+    }
+}
+
+// 許可ハッシュ値リスト（平文パスワードはJSバンドルに一切含めない）
+const ALLOWED_PASSWORD_HASHES = new Set([
+    import.meta.env.VITE_ACCESS_PASSWORD_HASH,
+    '8a1e49e6552386f2dada72eca60cea6f45699936f2213428770e9feb950caac3', // 7911
+    '881cc0f7524a729264aeeebb59e404e28f871951ba43dcd96d68da5247d37933', // baseball2024
+].filter(Boolean));
+
 const Login = ({ onLogin }) => {
     const { language } = useSettings();
     const [password, setPassword] = useState('');
     const [error, setError] = useState(false);
+    const [isVerifying, setIsVerifying] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!password || isVerifying) return;
 
-        // Simple hash check - in production, use proper hashing
-        const correctPassword = import.meta.env.VITE_ACCESS_PASSWORD || 'baseball2024';
+        setIsVerifying(true);
+        setError(false);
 
-        if (password === correctPassword) {
+        const inputHash = await hashPassword(password);
+
+        if (inputHash && ALLOWED_PASSWORD_HASHES.has(inputHash)) {
             try {
                 sessionStorage.setItem('authenticated', 'true');
             } catch (error) {
@@ -24,6 +49,7 @@ const Login = ({ onLogin }) => {
             setError(true);
             setPassword('');
         }
+        setIsVerifying(false);
     };
 
     return (
@@ -72,9 +98,12 @@ const Login = ({ onLogin }) => {
 
                     <button
                         type="submit"
-                        className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                        disabled={isVerifying}
+                        className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors disabled:opacity-50"
                     >
-                        {language === 'ja' ? 'ログイン' : 'Login'}
+                        {isVerifying
+                            ? (language === 'ja' ? '認証中...' : 'Verifying...')
+                            : (language === 'ja' ? 'ログイン' : 'Login')}
                     </button>
                 </form>
 
