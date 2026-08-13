@@ -5,11 +5,13 @@ import { Play, Pause, RotateCcw } from 'lucide-react';
 /**
  * Rapsodo 3D Diamond 仕様 3D Pitch Flight & Trajectory Simulator
  * 
- * 物理・弾道力学の完全整合:
- * - 右投手（RHP）: 投手視点で右腕（+0.45m）から放球。スライダー(HB<0)は左方向（アウトロー）へ曲がり落ち、直球(HB>0)は右方向（インハイ）へホップ＆シュート。
- * - 左投手（LHP）: 投手視点で左腕（-0.45m）から放球。スライダー(HB>0)は右方向（一塁側低め）へ曲がり、直球(HB<0)は左方向へシュート。
- * - 視線方向への自由なドリーズーム（マウスホイール/ピンチで前後移動）
- * - 青いグリッド線なしの落ち着いたリアルスタジアムフロア
+ * 強化・完全安定化:
+ * - プロ仕様の3Dオービット＆パン＆ズーム操作:
+ *   - 左ドラッグ: 360°自由回転（上下・左右）
+ *   - 右ドラッグ / Shift+ドラッグ: 上下左右の平行移動（パン）
+ *   - マウスホイール / ピンチ: スムーズなズームイン・ズームアウト
+ *   - 各プリセット視点に応じた自然な回転中心（捕手/打者視点ではホームベース周辺、側面視点ではレーン中央）
+ * - 物理・弾道力学の完全整合（右投/左投両対応）
  */
 
 // プロシージャル・レザーテクスチャ
@@ -124,6 +126,9 @@ export const PitchFlight3D = ({
   const cameraRef = useRef(null);
   const animFrameRef = useRef(null);
 
+  // カメラ注視点（ターゲット）
+  const cameraTargetRef = useRef(new THREE.Vector3(0, 0.85, 0.8));
+
   // 各球種の最大到達時間 (秒)
   const maxFlightTime = useMemo(() => {
     if (!pitches.length) return 0.45;
@@ -142,9 +147,10 @@ export const PitchFlight3D = ({
 
   // マウスドラッグ & ズーム制御
   const isDraggingRef = useRef(false);
+  const dragModeRef = useRef('orbit'); // 'orbit' | 'pan'
   const prevMousePosRef = useRef({ x: 0, y: 0 });
 
-  // 物理計算: 完全対称な座標系と空力加速度
+  // 物理計算: 正しい左右座標系と空力加速度
   const pitchTrajectories = useMemo(() => {
     return pitches.map(p => {
       const v_kmh = p.velocity || 145;
@@ -159,17 +165,16 @@ export const PitchFlight3D = ({
       const startZ = p.releasePos?.z ?? 1.85;
 
       // 2. 目標着弾位置 (2Dストライクゾーン: 左=-14cm/インコース, 右=+14cm/アウトコース)
-      // 投手視点では左=-X, 右=+X となるため符号反転
       const targetX = -((p.targetLocation?.x ?? 0) / 100);
       const targetZ = (p.targetLocation?.z ?? 75) / 100;
 
-      // 3. 空力変化量 (HB: +は投手視点右向き加速、-は投手視点左向き加速)
+      // 3. 空力変化量 (HB)
       const hb_m = (p.hb ?? 0) / 100;
       const vb_m = (p.vb ?? 0) / 100;
 
       const g = 9.80665;
       const ax = (2 * hb_m) / (flightTime * flightTime);
-      const az_mag = (2 * vb_m) / (flightTime * flightTime); // ホップ揚力
+      const az_mag = (2 * vb_m) / (flightTime * flightTime);
 
       // 4. 初速計算
       const vx0 = (targetX - startX - 0.5 * ax * flightTime * flightTime) / flightTime;
@@ -215,19 +220,24 @@ export const PitchFlight3D = ({
     if (!cam) return;
     if (view === 'BATTER_R') {
       cam.position.set(-0.75, 1.65, -0.2);
-      cam.lookAt(0, 1.2, 16.8);
+      cameraTargetRef.current.set(0, 1.0, 8.4);
+      cam.lookAt(cameraTargetRef.current);
     } else if (view === 'BATTER_L') {
       cam.position.set(0.75, 1.65, -0.2);
-      cam.lookAt(0, 1.2, 16.8);
+      cameraTargetRef.current.set(0, 1.0, 8.4);
+      cam.lookAt(cameraTargetRef.current);
     } else if (view === 'CATCHER') {
       cam.position.set(0, 1.1, -2.8);
-      cam.lookAt(0, 1.0, 16.8);
+      cameraTargetRef.current.set(0, 0.85, 0.8);
+      cam.lookAt(cameraTargetRef.current);
     } else if (view === 'PITCHER') {
       cam.position.set(0, 2.2, 19.5);
-      cam.lookAt(0, 0.8, 0);
+      cameraTargetRef.current.set(0, 0.8, 0);
+      cam.lookAt(cameraTargetRef.current);
     } else if (view === 'SIDE') {
       cam.position.set(22.0, 3.0, 8.4);
-      cam.lookAt(0, 1.2, 8.4);
+      cameraTargetRef.current.set(0, 1.2, 8.4);
+      cam.lookAt(cameraTargetRef.current);
     }
   };
 
@@ -350,8 +360,10 @@ export const PitchFlight3D = ({
     };
     window.addEventListener('resize', handleResize);
 
+    // 🖱️ 高機能マウス操作 (左ドラッグ=360°回転, 右ドラッグ/Shift=パン移動)
     const onMouseDown = (e) => {
       isDraggingRef.current = true;
+      dragModeRef.current = (e.button === 2 || e.shiftKey) ? 'pan' : 'orbit';
       prevMousePosRef.current = { x: e.clientX, y: e.clientY };
     };
 
@@ -361,34 +373,64 @@ export const PitchFlight3D = ({
       const dy = e.clientY - prevMousePosRef.current.y;
       prevMousePosRef.current = { x: e.clientX, y: e.clientY };
 
-      const lookTarget = new THREE.Vector3(0, 1.2, 8.4);
-      const offset = camera.position.clone().sub(lookTarget);
+      const target = cameraTargetRef.current;
 
-      const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -dx * 0.008);
-      offset.applyQuaternion(qY);
+      if (dragModeRef.current === 'pan') {
+        // 平行移動 (Pan)
+        const dist = camera.position.distanceTo(target);
+        const panSpeed = 0.0018 * Math.max(1.0, dist);
+        const right = new THREE.Vector3();
+        const up = new THREE.Vector3();
+        camera.matrixWorld.extractBasis(right, up, new THREE.Vector3());
 
-      offset.y = Math.max(0.4, Math.min(25.0, offset.y + dy * 0.03));
+        const panOffset = right.clone().multiplyScalar(-dx * panSpeed).add(up.clone().multiplyScalar(dy * panSpeed));
+        camera.position.add(panOffset);
+        target.add(panOffset);
+        camera.lookAt(target);
+      } else {
+        // 自由回転 (Orbit Around Target)
+        const offset = camera.position.clone().sub(target);
+        const radius = offset.length();
 
-      camera.position.copy(lookTarget.clone().add(offset));
-      camera.lookAt(lookTarget);
+        let theta = Math.atan2(offset.x, offset.z);
+        let phi = Math.acos(Math.max(-1, Math.min(1, offset.y / Math.max(0.001, radius))));
+
+        theta -= dx * 0.007;
+        phi = Math.max(0.08, Math.min(Math.PI - 0.08, phi - dy * 0.007));
+
+        offset.x = radius * Math.sin(phi) * Math.sin(theta);
+        offset.y = radius * Math.cos(phi);
+        offset.z = radius * Math.sin(phi) * Math.cos(theta);
+
+        camera.position.copy(target.clone().add(offset));
+        camera.lookAt(target);
+      }
     };
 
     const onMouseUp = () => { isDraggingRef.current = false; };
 
-    // 🔍 視線方向に前進/後退（ドリーズーム）
+    // 🔍 視線方向に前進/後退（ズームイン/ズームアウト）
     const onWheel = (e) => {
       e.preventDefault();
       if (!camera) return;
 
-      const forward = new THREE.Vector3();
-      camera.getWorldDirection(forward);
+      const target = cameraTargetRef.current;
+      const offset = camera.position.clone().sub(target);
+      const dist = offset.length();
+      const zoomFactor = e.deltaY > 0 ? 1.08 : 0.92;
+      const newDist = Math.max(0.8, Math.min(45.0, dist * zoomFactor));
 
-      const moveStep = e.deltaY < 0 ? 0.7 : -0.7;
-      camera.position.addScaledVector(forward, moveStep);
+      offset.normalize().multiplyScalar(newDist);
+      camera.position.copy(target.clone().add(offset));
+      camera.lookAt(target);
     };
 
     const onDoubleClick = () => {
       applyCameraPreset(cameraView, camera);
+    };
+
+    const onContextMenu = (e) => {
+      e.preventDefault(); // 右クリックメニュー抑止
     };
 
     const dom = renderer.domElement;
@@ -397,6 +439,7 @@ export const PitchFlight3D = ({
     window.addEventListener('mouseup', onMouseUp);
     dom.addEventListener('wheel', onWheel, { passive: false });
     dom.addEventListener('dblclick', onDoubleClick);
+    dom.addEventListener('contextmenu', onContextMenu);
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -405,6 +448,7 @@ export const PitchFlight3D = ({
       window.removeEventListener('mouseup', onMouseUp);
       dom.removeEventListener('wheel', onWheel);
       dom.removeEventListener('dblclick', onDoubleClick);
+      dom.removeEventListener('contextmenu', onContextMenu);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       renderer.dispose();
     };
