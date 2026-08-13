@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Compass, Activity, Sparkles, Layers, Plus, Trash2, Ghost, Wind, Crosshair, Spline } from 'lucide-react';
+import { Compass, Activity, Sparkles, Layers, Plus, Trash2, Ghost, Wind, Crosshair, Spline, TrendingUp } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 import SeamSimulator from './SeamSimulator';
 import PitchFlight3D from '../components/Analysis/PitchFlight3D';
@@ -67,7 +67,7 @@ const PitchingSimulator = () => {
   const [showForces, setShowForces] = useState(true);
   const [showTrajLines, setShowTrajLines] = useState(true);
   const [cameraView, setCameraView] = useState('CATCHER');
-  const [playbackSpeed, setPlaybackSpeed] = useState(0.4);
+  const [playbackSpeed, setPlaybackSpeed] = useState(0.5);
 
   // 選択中の球種オブジェクト
   const activePitch = pitches.find(p => p.id === selectedPitchId) || pitches[0];
@@ -176,8 +176,8 @@ const PitchingSimulator = () => {
           </h1>
           <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground mt-0.5 sm:mt-1 leading-relaxed">
             {language === 'ja'
-              ? 'Rapsodo 3D Diamond 仕様: リアル自転飛翔・無回転ゴースト比較・変化量チャート・直感長方形ゾーンコース指定。'
-              : 'Rapsodo 3D Diamond grade: Real spinning flight, spinless ghost ball, break chart, and rectangular strike zone target picker.'}
+              ? 'Rapsodo 3D Diamond 仕様: 球速差による物理着弾遅延・無回転ゴースト比較・変化量チャート・直感長方形ゾーンコース指定。'
+              : 'Rapsodo 3D Diamond grade: Velocity-based flight arrival times, spinless ghost ball, break chart, and rectangular strike zone picker.'}
           </p>
         </div>
 
@@ -316,23 +316,132 @@ const PitchingSimulator = () => {
           {/* Main 3D Canvas & Controls Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
-            {/* 3D Flight Viewport (8 Columns) */}
-            <div className="lg:col-span-8 min-h-[460px] sm:min-h-[540px]">
-              <PitchFlight3D
-                pitches={pitches}
-                selectedPitchId={selectedPitchId}
-                onSelectPitch={setSelectedPitchId}
-                showSpinlessGlobal={showSpinless}
-                showForcesGlobal={showForces}
-                showTrajLinesGlobal={showTrajLines}
-                cameraView={cameraView}
-                onCameraChange={setCameraView}
-                playbackSpeed={playbackSpeed}
-              />
+            {/* Left: 3D Flight Viewport & Break Chart Below (7 Columns) */}
+            <div className="lg:col-span-7 space-y-4">
+              {/* 3D Canvas */}
+              <div className="min-h-[460px] sm:min-h-[520px]">
+                <PitchFlight3D
+                  pitches={pitches}
+                  selectedPitchId={selectedPitchId}
+                  showSpinlessGlobal={showSpinless}
+                  showForcesGlobal={showForces}
+                  showTrajLinesGlobal={showTrajLines}
+                  cameraView={cameraView}
+                  onCameraChange={setCameraView}
+                  playbackSpeed={playbackSpeed}
+                />
+              </div>
+
+              {/* 📊 3D映像の下に独立配置された「MOVIMIENTO (BREAK CHART) / 変化量チャート」 */}
+              <div className="bg-zinc-900/90 border border-zinc-800 p-4 rounded-2xl shadow-lg">
+                <div className="flex items-center justify-between mb-3 border-b border-zinc-800/80 pb-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-sky-400" />
+                    <h3 className="font-black text-xs sm:text-sm text-zinc-200">
+                      MOVIMIENTO (BREAK CHART) / 変化量チャート
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-400">
+                    捕手視点 (HB vs VB cm)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                  
+                  {/* 2D Break Scatter Plot (5 Columns) */}
+                  <div className="sm:col-span-5 max-w-[220px] mx-auto w-full aspect-square bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden relative flex items-center justify-center shadow-inner">
+                    {/* Grid axes */}
+                    <div className="absolute w-full h-[1px] bg-zinc-700/60" />
+                    <div className="absolute h-full w-[1px] bg-zinc-700/60" />
+                    <div className="absolute inset-3 border border-dashed border-zinc-800/80 rounded pointer-events-none" />
+
+                    {/* Labels */}
+                    <span className="absolute top-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-zinc-500">RISE (+)</span>
+                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-zinc-500">DROP (-)</span>
+                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[8px] font-black text-zinc-500">ARM</span>
+                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] font-black text-zinc-500">GLOVE</span>
+
+                    {/* Vector Lines */}
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                      {pitches.map(p => {
+                        const cx = 50;
+                        const cy = 50;
+                        const px = 50 - ((p.hb || 0) / 60) * 42;
+                        const py = 50 - ((p.vb || 0) / 60) * 42;
+                        return (
+                          <g key={p.id}>
+                            <line
+                              x1={`${cx}%`}
+                              y1={`${cy}%`}
+                              x2={`${px}%`}
+                              y2={`${py}%`}
+                              stroke={p.color}
+                              strokeWidth="2.5"
+                              strokeOpacity="0.9"
+                            />
+                            <circle
+                              cx={`${px}%`}
+                              cy={`${py}%`}
+                              r="4.5"
+                              fill={p.color}
+                              stroke="#ffffff"
+                              strokeWidth="1.5"
+                            />
+                          </g>
+                        );
+                      })}
+                    </svg>
+
+                    {/* Dots Labels */}
+                    {pitches.map(p => {
+                      const px = 50 - ((p.hb || 0) / 60) * 42;
+                      const py = 50 - ((p.vb || 0) / 60) * 42;
+                      return (
+                        <span
+                          key={p.id}
+                          className="absolute text-[8px] font-black text-white px-1 py-0.2 rounded bg-black/90 shadow -translate-x-1/2 -translate-y-3.5 pointer-events-none border border-white/20"
+                          style={{ left: `${px}%`, top: `${py}%` }}
+                        >
+                          {p.name.split(' ')[0]}
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {/* Summary Metric Table (7 Columns) */}
+                  <div className="sm:col-span-7 space-y-1.5">
+                    <div className="grid grid-cols-5 text-[10px] font-black text-zinc-400 border-b border-zinc-800 pb-1">
+                      <span className="col-span-2">球種</span>
+                      <span className="text-right">球速</span>
+                      <span className="text-right">縦(VB)</span>
+                      <span className="text-right">横(HB)</span>
+                    </div>
+
+                    {pitches.map(p => (
+                      <div
+                        key={p.id}
+                        onClick={() => setSelectedPitchId(p.id)}
+                        className={`grid grid-cols-5 text-xs font-mono font-bold p-1.5 rounded-lg cursor-pointer transition-all ${
+                          p.id === selectedPitchId ? 'bg-zinc-800 text-white border border-white/20' : 'text-zinc-300 hover:bg-zinc-800/50'
+                        }`}
+                      >
+                        <span className="col-span-2 flex items-center gap-1.5 truncate">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                          <span className="font-sans font-black truncate">{p.name.split(' ')[0]}</span>
+                        </span>
+                        <span className="text-right text-blue-400">{p.velocity}k</span>
+                        <span className="text-right text-amber-400">{p.vb > 0 ? `+${p.vb}` : p.vb}cm</span>
+                        <span className="text-right text-purple-400">{p.hb > 0 ? `+${p.hb}` : p.hb}cm</span>
+                      </div>
+                    ))}
+                  </div>
+
+                </div>
+              </div>
             </div>
 
-            {/* Controls & Strike Zone Target Picker (4 Columns) */}
-            <div className="lg:col-span-4 space-y-4">
+            {/* Right: Controls & Strike Zone Target Picker (5 Columns) */}
+            <div className="lg:col-span-5 space-y-4">
               
               {/* 🎯 1. 正統派プロポーション・ストライクゾーン（狙い撃ち・コース指定） */}
               <div className="bg-zinc-900/90 border border-zinc-800 p-4 rounded-2xl shadow-lg space-y-3">
@@ -508,7 +617,7 @@ const PitchingSimulator = () => {
                     </div>
                   </div>
 
-                  {/* 💡 リリース位置情報 (高さ & 横位置) */}
+                  {/* リリース位置情報 (高さ & 横位置) */}
                   <div className="grid grid-cols-2 gap-3 pt-1 border-t border-zinc-800/80">
                     <div>
                       <div className="flex justify-between text-[11px] text-zinc-400 mb-0.5">

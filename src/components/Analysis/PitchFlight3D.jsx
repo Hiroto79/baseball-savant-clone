@@ -1,17 +1,16 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
-import { Play, Pause, RotateCcw, Activity, Spline } from 'lucide-react';
+import { Play, Pause, RotateCcw } from 'lucide-react';
 
 /**
  * Rapsodo 3D Diamond 仕様 3D Pitch Flight & Trajectory Simulator
  * 
  * 強化・修正内容:
- * - 左右反転の解消（2Dコース指定の左右と3D空間の左右が完全一致）
- * - バッテン線（対角線）を完全排除した美しい3Dストライクゾーン矩形フレーム
- * - 軌道ライン表示（ON/OFF）トグル機能
+ * - 球速に応じた物理的到達時間の個別計算（152km/hが先に着弾し、131km/hが遅れて着弾するリアルなタイムギャップ）
+ * - 3D画面内の変化量チャートオーバーレイを撤去し、画面を100%クリアに
+ * - 右打者 / 左打者目線の完全修正（BATTER_R: +0.75m 右打席 / BATTER_L: -0.75m 左打席）
+ * - 左右反転の解消＆バッテン線なしの美しいストライクゾーンフレーム
  * - 着弾点（ホームベース上）でボールが静止し、設定されたスピン軸・RPMで3D自転を継続
- * - 正しい右打者 / 左打者目線
- * - 画面右下に「MOVIMIENTO (BREAK CHART) / 変化量チャート」を常時オーバーレイ表示
  */
 
 // プロシージャル・レザーテクスチャ
@@ -115,7 +114,6 @@ function createGhostBallMesh(radius = 0.037) {
 export const PitchFlight3D = ({
   pitches = [],
   selectedPitchId,
-  onSelectPitch,
   showSpinlessGlobal = true,
   showForcesGlobal = true,
   showTrajLinesGlobal = true,
@@ -129,10 +127,20 @@ export const PitchFlight3D = ({
   const cameraRef = useRef(null);
   const animFrameRef = useRef(null);
 
-  // 自動ループ再生はオフ。デフォルトは着弾位置 (progress=1.0) でボールが自転待機
+  // 各球種の最大到達時間 (秒)
+  const maxFlightTime = useMemo(() => {
+    if (!pitches.length) return 0.45;
+    const times = pitches.map(p => {
+      const v_ms = (p.velocity || 145) / 3.6;
+      return 16.8 / v_ms;
+    });
+    return Math.max(...times);
+  }, [pitches]);
+
+  // アニメーション再生制御（物理秒数で管理）
   const [isPlaying, setIsPlaying] = useState(false);
-  const [flightProgress, setFlightProgress] = useState(1.0); // 0.0 = 放球, 1.0 = 着弾
-  const progressRef = useRef(1.0);
+  const [elapsedTime, setElapsedTime] = useState(maxFlightTime); // デフォルトは着弾完了時
+  const elapsedRef = useRef(maxFlightTime);
   const continuousSpinAngleRef = useRef(0);
 
   // マウスドラッグ軌道制御
@@ -140,20 +148,20 @@ export const PitchFlight3D = ({
   const prevMousePosRef = useRef({ x: 0, y: 0 });
   const orbitAnglesRef = useRef({ theta: 0, phi: 0 });
 
-  // 物理計算: 各球種の軌道点を計算 (左右の反転を解消)
+  // 物理計算: 各球種の軌道点を計算 (左右の反転を解消 ＆ 自然な放球角)
   const pitchTrajectories = useMemo(() => {
     return pitches.map(p => {
       const v_kmh = p.velocity || 145;
       const v_ms = v_kmh / 3.6; // m/s
       const dist = 16.8; // Release to Plate (m)
-      const flightTime = dist / v_ms; // 秒 (約0.4s)
+      const flightTime = dist / v_ms; // 各球種固有のフライト時間 (秒)
 
       // 捕手視点基準: 2D指定の左右と3D空間の左右を一致させるため -X 反転を適用
       const startX = -(p.releasePos?.x ?? -0.45);
       const startY = p.releasePos?.y ?? 16.8;
       const startZ = p.releasePos?.z ?? 1.85;
 
-      const targetX = -((p.targetLocation?.x ?? 0) / 100); // cm -> m (反転解消)
+      const targetX = -((p.targetLocation?.x ?? 0) / 100); // cm -> m
       const targetZ = (p.targetLocation?.z ?? 75) / 100; // cm -> m
 
       // 変化量 (cm -> m)
@@ -241,7 +249,6 @@ export const PitchFlight3D = ({
     scene.add(dirLight2);
 
     // 🏟️ グラウンド & マウンド & ホームベース
-    // フィールド床
     const fieldGeo = new THREE.PlaneGeometry(16, 26);
     fieldGeo.rotateX(-Math.PI / 2);
     const fieldMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.85, metalness: 0.1 });
@@ -321,16 +328,16 @@ export const PitchFlight3D = ({
     trajectoryGroup.name = 'trajectories';
     scene.add(trajectoryGroup);
 
-    // カメラ位置初期設定
+    // カメラ位置初期設定 (右打者: +0.75m / 左打者: -0.75m に修正)
     const updateCameraPos = (view) => {
       if (!camera) return;
       if (view === 'BATTER_R') {
-        // 右打者視点: 捕手から見て左側 (X = -0.75m) の右打席からマウンドを見る
-        camera.position.set(-0.75, 1.65, -0.2);
+        // 右打者視点: 三塁側（+X方向）の右打席からマウンドを見る
+        camera.position.set(0.75, 1.65, -0.2);
         camera.lookAt(0, 1.2, 16.8);
       } else if (view === 'BATTER_L') {
-        // 左打者視点: 捕手から見て右側 (X = +0.75m) の左打席からマウンドを見る
-        camera.position.set(0.75, 1.65, -0.2);
+        // 左打者視点: 一塁側（-X方向）の左打席からマウンドを見る
+        camera.position.set(-0.75, 1.65, -0.2);
         camera.lookAt(0, 1.2, 16.8);
       } else if (view === 'CATCHER') {
         // 捕手視点
@@ -361,6 +368,7 @@ export const PitchFlight3D = ({
 
     // マウスドラッグ
     const onMouseDown = (e) => {
+      if (cameraView === 'FOLLOW') return;
       isDraggingRef.current = true;
       prevMousePosRef.current = { x: e.clientX, y: e.clientY };
     };
@@ -396,10 +404,12 @@ export const PitchFlight3D = ({
     if (!camera) return;
 
     if (cameraView === 'BATTER_R') {
-      camera.position.set(-0.75, 1.65, -0.2);
+      // 右打者視点 (+X, 三塁側右打席)
+      camera.position.set(0.75, 1.65, -0.2);
       camera.lookAt(0, 1.2, 16.8);
     } else if (cameraView === 'BATTER_L') {
-      camera.position.set(0.75, 1.65, -0.2);
+      // 左打者視点 (-X, 一塁側左打席)
+      camera.position.set(-0.75, 1.65, -0.2);
       camera.lookAt(0, 1.2, 16.8);
     } else if (cameraView === 'CATCHER') {
       camera.position.set(0, 1.1, -2.8);
@@ -467,7 +477,7 @@ export const PitchFlight3D = ({
     });
   }, [pitchTrajectories, showSpinlessGlobal, showForcesGlobal, showTrajLinesGlobal]);
 
-  // アニメーションループ (飛翔 ＆ 常時自転)
+  // アニメーションループ (球速差によるリアルな到達時間 ＆ 常時自転)
   useEffect(() => {
     let lastTime = performance.now();
 
@@ -479,18 +489,18 @@ export const PitchFlight3D = ({
       continuousSpinAngleRef.current += deltaSec * (2 * Math.PI) * 4.0;
 
       if (isPlaying) {
-        const speedMultiplier = playbackSpeed * 1.5;
-        progressRef.current += deltaSec * speedMultiplier;
-        if (progressRef.current >= 1.0) {
-          progressRef.current = 1.0;
-          setIsPlaying(false); // 着弾したら停止し、その場で自転を継続
+        // 実秒数進行
+        const simDelta = deltaSec * playbackSpeed;
+        elapsedRef.current += simDelta;
+        if (elapsedRef.current >= maxFlightTime) {
+          elapsedRef.current = maxFlightTime;
+          setIsPlaying(false); // 全球着弾したら停止
         }
-        setFlightProgress(progressRef.current);
+        setElapsedTime(elapsedRef.current);
       }
 
-      const p = progressRef.current;
+      const curTime = elapsedRef.current;
       const scene = sceneRef.current;
-      const camera = cameraRef.current;
 
       if (scene) {
         const trajGroup = scene.getObjectByName('trajectories');
@@ -500,8 +510,13 @@ export const PitchFlight3D = ({
             const ghostBall = trajGroup.getObjectByName(`ghostBall_${pt.id || idx}`);
             const forceArrow = trajGroup.getObjectByName(`forceArrow_${pt.id || idx}`);
 
-            const stepIdx = Math.min(Math.floor(p * (pt.actualPoints.length - 1)), pt.actualPoints.length - 2);
-            const subT = (p * (pt.actualPoints.length - 1)) - stepIdx;
+            // 各球種ごとの進行率 (0.0 ~ 1.0)
+            // 球速が速い球は早く1.0 (着弾) に到達し、遅い球は遅れて1.0に到達する
+            const pitchProgress = Math.min(1.0, Math.max(0.0, curTime / pt.flightTime));
+
+            const totalSteps = pt.actualPoints.length - 1;
+            const stepIdx = Math.min(Math.floor(pitchProgress * totalSteps), totalSteps - 1);
+            const subT = (pitchProgress * totalSteps) - stepIdx;
 
             // 位置補間
             if (pt.actualPoints[stepIdx] && pt.actualPoints[stepIdx + 1]) {
@@ -549,7 +564,7 @@ export const PitchFlight3D = ({
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [isPlaying, pitchTrajectories, playbackSpeed, cameraView, selectedPitchId]);
+  }, [isPlaying, pitchTrajectories, playbackSpeed, maxFlightTime]);
 
   return (
     <div className="relative w-full h-full flex flex-col bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl">
@@ -567,7 +582,7 @@ export const PitchFlight3D = ({
             <button
               key={cam.id}
               onClick={() => onCameraChange?.(cam.id)}
-              className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-black transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-black transition-all cursor-pointer ${
                 cameraView === cam.id
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
@@ -582,19 +597,19 @@ export const PitchFlight3D = ({
         <div className="flex items-center gap-1.5 bg-zinc-900/90 p-1 rounded-xl border border-zinc-800 backdrop-blur pointer-events-auto shadow-lg">
           <button
             onClick={() => {
-              if (progressRef.current >= 1.0) {
-                progressRef.current = 0;
-                setFlightProgress(0);
+              if (elapsedRef.current >= maxFlightTime) {
+                elapsedRef.current = 0;
+                setElapsedTime(0);
               }
               setIsPlaying(!isPlaying);
             }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer transition-colors shadow"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer transition-colors shadow"
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
             <span>{isPlaying ? '一時停止' : '投球アニメ再生'}</span>
           </button>
           <button
-            onClick={() => { progressRef.current = 1.0; setFlightProgress(1.0); setIsPlaying(false); }}
+            onClick={() => { elapsedRef.current = maxFlightTime; setElapsedTime(maxFlightTime); setIsPlaying(false); }}
             className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white cursor-pointer transition-colors"
             title="着弾位置へリセット"
           >
@@ -603,102 +618,29 @@ export const PitchFlight3D = ({
         </div>
       </div>
 
-      {/* 3D Canvas */}
-      <div ref={containerRef} className="w-full h-full min-h-[440px] sm:min-h-[520px] cursor-grab active:cursor-grabbing" />
-
-      {/* 📊 画像1仕様: MOVIMIENTO (BREAK CHART) / 変化量チャート オーバーレイ (右下) */}
-      <div className="absolute bottom-10 right-3 z-10 w-44 sm:w-52 bg-zinc-950/90 border border-zinc-800 p-2.5 rounded-xl shadow-2xl backdrop-blur pointer-events-auto">
-        <div className="flex items-center justify-between mb-1.5 border-b border-zinc-800 pb-1">
-          <span className="text-[10px] font-black tracking-wider text-zinc-300 flex items-center gap-1">
-            <Activity className="w-3 h-3 text-sky-400" />
-            MOVIMIENTO (BREAK CHART)
-          </span>
-          <span className="text-[8px] font-mono text-zinc-500">HB vs VB (cm)</span>
-        </div>
-
-        {/* 2D Movement Coordinate Plot */}
-        <div className="relative w-full aspect-square bg-zinc-900/60 border border-zinc-800/80 rounded-lg overflow-hidden flex items-center justify-center">
-          {/* Grid lines */}
-          <div className="absolute w-full h-[1px] bg-zinc-700/50" />
-          <div className="absolute h-full w-[1px] bg-zinc-700/50" />
-          <div className="absolute inset-2 border border-dashed border-zinc-800 rounded pointer-events-none" />
-
-          {/* Directional Labels */}
-          <span className="absolute top-0.5 left-1/2 -translate-x-1/2 text-[7px] font-black text-zinc-500 uppercase">RISE (+)</span>
-          <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[7px] font-black text-zinc-500 uppercase">DROP (-)</span>
-          <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[7px] font-black text-zinc-500 uppercase">ARM</span>
-          <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[7px] font-black text-zinc-500 uppercase">GLOVE</span>
-
-          {/* SVG Movement Vectors */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none">
-            {pitches.map(p => {
-              // Scale: -60cm ~ +60cm -> 0% ~ 100%
-              const cx = 50;
-              const cy = 50;
-              const px = 50 - ((p.hb || 0) / 60) * 42; // ARM/GLOVE座標
-              const py = 50 - ((p.vb || 0) / 60) * 42;
-
-              return (
-                <g key={p.id}>
-                  {/* Line from center */}
-                  <line
-                    x1={`${cx}%`}
-                    y1={`${cy}%`}
-                    x2={`${px}%`}
-                    y2={`${py}%`}
-                    stroke={p.color}
-                    strokeWidth="2"
-                    strokeOpacity="0.85"
-                  />
-                  {/* Dot */}
-                  <circle
-                    cx={`${px}%`}
-                    cy={`${py}%`}
-                    r="4"
-                    fill={p.color}
-                    stroke="#ffffff"
-                    strokeWidth="1.5"
-                  />
-                </g>
-              );
-            })}
-          </svg>
-
-          {/* Pitch Labels on Chart */}
-          {pitches.map(p => {
-            const px = 50 - ((p.hb || 0) / 60) * 42;
-            const py = 50 - ((p.vb || 0) / 60) * 42;
-            return (
-              <span
-                key={p.id}
-                className="absolute text-[8px] font-black text-white px-1 py-0.2 rounded bg-black/80 shadow -translate-x-1/2 -translate-y-3 pointer-events-none"
-                style={{ left: `${px}%`, top: `${py}%` }}
-              >
-                {p.name.split(' ')[0]}
-              </span>
-            );
-          })}
-        </div>
-      </div>
+      {/* 3D Canvas (100% クリアな画面) */}
+      <div ref={containerRef} className="w-full h-full min-h-[460px] sm:min-h-[540px] cursor-grab active:cursor-grabbing" />
 
       {/* Bottom Timeline Scrubber */}
-      <div className="absolute bottom-2 left-4 right-4 sm:right-60 z-10 flex items-center gap-3 bg-zinc-900/80 px-3 py-1.5 rounded-xl border border-zinc-800/80 backdrop-blur pointer-events-auto">
-        <span className="text-[10px] font-mono text-zinc-400">マウンド</span>
+      <div className="absolute bottom-2 left-4 right-4 z-10 flex items-center gap-3 bg-zinc-900/80 px-3 py-1.5 rounded-xl border border-zinc-800/80 backdrop-blur pointer-events-auto">
+        <span className="text-[10px] font-mono text-zinc-400">マウンド (0.00s)</span>
         <input
           type="range"
           min="0"
-          max="1"
-          step="0.01"
-          value={flightProgress}
+          max={maxFlightTime}
+          step="0.005"
+          value={elapsedTime}
           onChange={(e) => {
             const val = parseFloat(e.target.value);
-            progressRef.current = val;
-            setFlightProgress(val);
+            elapsedRef.current = val;
+            setElapsedTime(val);
             setIsPlaying(false);
           }}
           className="flex-1 accent-blue-500 h-1.5 bg-zinc-800 rounded cursor-pointer"
         />
-        <span className="text-[10px] font-mono text-emerald-400">着弾 (Plate)</span>
+        <span className="text-[10px] font-mono text-emerald-400">
+          着弾 ({elapsedTime.toFixed(3)}s / {maxFlightTime.toFixed(3)}s)
+        </span>
       </div>
     </div>
   );
