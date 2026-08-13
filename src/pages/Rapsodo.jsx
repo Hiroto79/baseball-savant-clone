@@ -43,22 +43,17 @@ const Rapsodo = () => {
             setStartDate(dates[0]);
             setEndDate(dates[dates.length - 1]);
         }
-    }, [dates]);
-
-    // Filter data
-    const filterByDate = (data) => {
-        if (!startDate || !endDate) return data;
-        return data.filter(d => d.Date >= startDate && d.Date <= endDate);
-    };
+    }, [dates, startDate]);
 
     const filteredPitching = React.useMemo(() => {
         let data = pitchingData;
         if (selectedPlayers.length > 0) {
             data = data.filter(d => selectedPlayers.includes(d['Player Name']));
         }
-        const result = filterByDate(data);
-        console.log(`Pitching Filter: Players=${selectedPlayers.join(',')}, Date=${startDate}~${endDate}, Input=${pitchingData.length}, Output=${result.length}`);
-        return result;
+        if (startDate && endDate) {
+            data = data.filter(d => d.Date >= startDate && d.Date <= endDate);
+        }
+        return data;
     }, [pitchingData, selectedPlayers, startDate, endDate]);
 
     const filteredBatting = React.useMemo(() => {
@@ -66,9 +61,10 @@ const Rapsodo = () => {
         if (selectedPlayers.length > 0) {
             data = data.filter(d => selectedPlayers.includes(d['Player Name']));
         }
-        const result = filterByDate(data);
-        console.log(`Batting Filter: Players=${selectedPlayers.join(',')}, Date=${startDate}~${endDate}, Input=${battingData.length}, Output=${result.length}`);
-        return result;
+        if (startDate && endDate) {
+            data = data.filter(d => d.Date >= startDate && d.Date <= endDate);
+        }
+        return data;
     }, [battingData, selectedPlayers, startDate, endDate]);
 
     if (loading) {

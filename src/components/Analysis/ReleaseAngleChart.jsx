@@ -1,6 +1,4 @@
 import React, { useMemo } from 'react';
-import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, Tooltip, Cell, ReferenceLine } from 'recharts';
-import { useSettings } from '../../context/SettingsContext';
 
 const COLOR_MAP = {
     'FF': '#FF0000', '4-Seam Fastball': '#FF0000',
@@ -22,8 +20,6 @@ const COLOR_MAP = {
 };
 
 const ReleaseAngleChart = ({ pitches }) => {
-    const { language } = useSettings();
-
     const data = useMemo(() => {
         if (!pitches || pitches.length === 0) return [];
 
@@ -37,8 +33,7 @@ const ReleaseAngleChart = ({ pitches }) => {
                 grouped[rawType] = {
                     type: rawType,
                     count: 0,
-                    vx0Sum: 0, vy0Sum: 0, vz0Sum: 0,
-                    axSum: 0, aySum: 0, azSum: 0
+                    vx0Sum: 0, vy0Sum: 0, vz0Sum: 0
                 };
             }
             const g = grouped[rawType];
@@ -47,9 +42,6 @@ const ReleaseAngleChart = ({ pitches }) => {
             const vx0 = Number(p.vx0);
             const vy0 = Number(p.vy0);
             const vz0 = Number(p.vz0);
-            const ax = Number(p.ax);
-            const ay = Number(p.ay);
-            const az = Number(p.az);
 
             if (!isNaN(vx0) && !isNaN(vy0) && !isNaN(vz0)) {
                 g.vx0Sum += vx0;

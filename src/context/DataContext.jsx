@@ -163,7 +163,7 @@ export const DataProvider = ({ children }) => {
                     .replace(/['"]/g, '')
                     .replace(/^\ufeff/, '')
                     .replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
-                    .replace(/[_\s\.]/g, ''); // Remove _ and space and dot
+                    .replace(/[_\s.]/g, ''); // Remove _ and space and dot
 
                 keyMap[normalized] = key;
                 // Also store original lowercased for exact matches if needed? No, fuzzy is better.
@@ -173,7 +173,7 @@ export const DataProvider = ({ children }) => {
             const getValue = (row, targets) => {
                 for (const t of targets) {
                     // Normalize target same way
-                    const normTarget = t.toLowerCase().replace(/[_\s\.]/g, '');
+                    const normTarget = t.toLowerCase().replace(/[_\s.]/g, '');
                     const k = keyMap[normTarget];
                     if (k && row[k] !== undefined) return row[k];
                 }

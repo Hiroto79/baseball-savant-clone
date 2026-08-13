@@ -69,7 +69,7 @@ const PitchingSimulator = () => {
   const [showForces, setShowForces] = useState(true);
   const [showTrajLines, setShowTrajLines] = useState(true);
   const [cameraView, setCameraView] = useState('CATCHER');
-  const [playbackSpeed, setPlaybackSpeed] = useState(0.5);
+  const [playbackSpeed] = useState(0.5);
 
   // 選択中の球種オブジェクト
   const activePitch = pitches.find(p => p.id === selectedPitchId) || pitches[0];

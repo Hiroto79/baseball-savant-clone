@@ -78,24 +78,6 @@ const BattingStatsByCountTable = ({ data, selectedPlayers, mode }) => {
 
     if (!stats.length) return null;
 
-    // Split into 4 rows of 3 cols organization? 
-    // User showed a single table (likely 2 cols: Count | Avg). 
-    // But 12 rows is long. Maybe grid?
-    // User request: "display(被打率_count.style.hide(axis="index"))" -> shows a simple list.
-    // Let's standard vertical table for now.
-
-    const countsGrid = [
-        ['0-0', '1-0', '2-0', '3-0'],
-        ['0-1', '1-1', '2-1', '3-1'],
-        ['0-2', '1-2', '2-2', '3-2']
-    ];
-    // Actually user image or standard baseball stats usually group by balls or strikes.
-    // 0-0, 0-1, 0-2
-    // 1-0, 1-1, 1-2
-    // 2-0, 2-1, 2-2
-    // 3-0, 3-1, 3-2
-    // Let's just list them in order.
-
     return (
         <div className="bg-card rounded-xl border border-border p-4 shadow-sm w-full overflow-hidden">
             <h3 className="text-lg font-bold mb-4">Batting Average by Count</h3>

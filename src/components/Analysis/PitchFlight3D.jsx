@@ -49,7 +49,7 @@ function createProceduralLeatherTextures() {
 }
 
 // 108本ステッチ付きリアルボールMesh作成
-function createBaseballMesh(radius = 0.037, seamType = '4-seam') {
+function createBaseballMesh(radius = 0.037) {
   const ballGroup = new THREE.Group();
 
   const bumpTexture = createProceduralLeatherTextures();
@@ -111,7 +111,6 @@ function createGhostBallMesh(radius = 0.037) {
 
 export const PitchFlight3D = ({
   pitches = [],
-  selectedPitchId,
   showSpinlessGlobal = true,
   showForcesGlobal = true,
   showTrajLinesGlobal = true,

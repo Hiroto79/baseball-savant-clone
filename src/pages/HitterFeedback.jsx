@@ -19,10 +19,10 @@ const HitterFeedback = () => {
     const [teamPlayerSort, setTeamPlayerSort] = useState('original');
 
     useEffect(() => {
-        if (selectedPlayer) {
+        if (selectedPlayer && !customPlayerName) {
             setCustomPlayerName(selectedPlayer);
         }
-    }, [selectedPlayer]);
+    }, [selectedPlayer, customPlayerName]);
 
     // Manual Benchmarks (Previous & Target only)
     const [benchmarks, setBenchmarks] = useState({
@@ -812,7 +812,7 @@ const HitterFeedback = () => {
             </div>
 
             {/* ============== INDIVIDUAL REPORT ============== */}
-            {(viewMode === 'individual' || viewMode === 'print-all') && (viewMode === 'print-all' ? players : [selectedPlayer]).map((mappedPlayer, playerIdx) => {
+            {(viewMode === 'individual' || viewMode === 'print-all') && (viewMode === 'print-all' ? players : [selectedPlayer]).map((mappedPlayer) => {
                     if (!mappedPlayer) return null;
                     const isPrintAll = viewMode === 'print-all';
                     const displayPlayerName = isPrintAll ? mappedPlayer : (customPlayerName || mappedPlayer);
@@ -1460,7 +1460,7 @@ const HitterFeedback = () => {
                                                                         </tr>
                                                                     </>
                                                                 ) : (
-                                                                    CONFIG[reportType].map((cat, i) => {
+                                                                    CONFIG[reportType].map((cat) => {
                                                                         const s = getStats(cat, mappedPlayer);
                                                                         return (
                                                                             <tr key={cat.id} className="h-14">

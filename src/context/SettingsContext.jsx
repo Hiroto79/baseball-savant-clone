@@ -1,12 +1,25 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 const SettingsContext = createContext();
 
 export const useSettings = () => useContext(SettingsContext);
 
 export const SettingsProvider = ({ children }) => {
-    const [language, setLanguageState] = useState('ja'); // Default to Japanese
-    const [units, setUnitsState] = useState('metric'); // Default to Metric
+    const [language, setLanguageState] = useState(() => {
+        try {
+            return localStorage.getItem('language') || 'ja';
+        } catch {
+            return 'ja';
+        }
+    });
+
+    const [units, setUnitsState] = useState(() => {
+        try {
+            return localStorage.getItem('units') || 'metric';
+        } catch {
+            return 'metric';
+        }
+    });
 
     // Transient state for preserving feedback uploads across page navigation
     const [feedbackPitchingData, setFeedbackPitchingData] = useState(null);
@@ -14,23 +27,22 @@ export const SettingsProvider = ({ children }) => {
     const [feedbackPitchingFile, setFeedbackPitchingFile] = useState('');
     const [feedbackBattingFile, setFeedbackBattingFile] = useState('');
 
-    // Load settings from localStorage on mount
-    useEffect(() => {
-        const savedLanguage = localStorage.getItem('language');
-        const savedUnits = localStorage.getItem('units');
-
-        if (savedLanguage) setLanguageState(savedLanguage);
-        if (savedUnits) setUnitsState(savedUnits);
-    }, []);
-
     const setLanguage = (lang) => {
         setLanguageState(lang);
-        localStorage.setItem('language', lang);
+        try {
+            localStorage.setItem('language', lang);
+        } catch (e) {
+            console.warn('Failed to save language to localStorage:', e);
+        }
     };
 
     const setUnits = (unitSystem) => {
         setUnitsState(unitSystem);
-        localStorage.setItem('units', unitSystem);
+        try {
+            localStorage.setItem('units', unitSystem);
+        } catch (e) {
+            console.warn('Failed to save units to localStorage:', e);
+        }
     };
 
     return (

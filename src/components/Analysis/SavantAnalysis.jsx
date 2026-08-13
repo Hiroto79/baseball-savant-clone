@@ -42,14 +42,6 @@ const SavantAnalysis = ({ data }) => {
         return units === 'metric' ? val * FT_TO_M : val;
     };
 
-    // Helper to convert break (in -> cm)
-    // Savant PFX is usually in inches (imperial)
-    const convertBreak = (val) => {
-        if (val === null || val === undefined) return null;
-        const num = Number(val);
-        return units === 'metric' ? num * 2.54 : num; // 1 in = 2.54 cm
-    };
-
     // Filter data by date range (for batting mode) - MUST be before players
     const filteredData = useMemo(() => {
         if (mode !== 'batting' || dateRange === 'all') return data;
@@ -339,41 +331,6 @@ const SavantAnalysis = ({ data }) => {
     }, [filteredData, mode, selectedPlayers, units]);
 
 
-    // Prepare Pitch Movement Scatter Data & Domain
-    const { movementData, movementDomain } = useMemo(() => {
-        if (mode !== 'pitching' || selectedPlayers.length === 0) return { movementData: [], movementDomain: null };
-
-        const data = [];
-        let maxAbsVal = 0;
-
-        filteredData.forEach(d => {
-            const p = d.player_name;
-            if (!selectedPlayers.includes(p)) return;
-            const pType = d.pitch_name;
-            if (selectedPitchTypes.length > 0 && !selectedPitchTypes.includes(pType)) return;
-
-            if (d.pfx_x !== undefined && d.pfx_z !== undefined) {
-                const x = convertBreak(d.pfx_x);
-                const y = convertBreak(d.pfx_z);
-
-                // Update max for domain
-                maxAbsVal = Math.max(maxAbsVal, Math.abs(x), Math.abs(y));
-
-                data.push({
-                    player: pType || 'Unknown',
-                    x: x,
-                    y: y,
-                    fullPlayerName: p
-                });
-            }
-        });
-
-        // Create a symmetric domain with some padding
-        const limit = Math.ceil(maxAbsVal * 1.2);
-        const domain = [-limit, limit];
-
-        return { movementData: data, movementDomain: domain };
-    }, [filteredData, mode, selectedPlayers, selectedPitchTypes, units]);
 
 
     // Prepare Batted Ball Profile

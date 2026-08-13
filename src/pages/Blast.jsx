@@ -5,26 +5,26 @@ import PlayerSearch from '../components/Analysis/PlayerSearch';
 import { Loader2 } from 'lucide-react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, Legend } from 'recharts';
 
+// Custom tooltip with white text
+const CustomTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #333', padding: '10px', color: '#fff' }}>
+                {payload.map((entry, index) => (
+                    <p key={index} style={{ color: '#fff', margin: '2px 0' }}>
+                        {`${entry.name}: ${entry.value}${entry.unit || ''}`}
+                    </p>
+                ))}
+            </div>
+        );
+    }
+    return null;
+};
+
 const Blast = () => {
     const { blastData, loading } = useBlast();
     const { language } = useSettings();
     const [selectedPlayers, setSelectedPlayers] = useState([]);
-
-    // Custom tooltip with white text
-    const CustomTooltip = ({ active, payload }) => {
-        if (active && payload && payload.length) {
-            return (
-                <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #333', padding: '10px', color: '#fff' }}>
-                    {payload.map((entry, index) => (
-                        <p key={index} style={{ color: '#fff', margin: '2px 0' }}>
-                            {`${entry.name}: ${entry.value}${entry.unit || ''}`}
-                        </p>
-                    ))}
-                </div>
-            );
-        }
-        return null;
-    };
 
     // Extract unique players and flatten data for charts
     const { players, flatData } = useMemo(() => {

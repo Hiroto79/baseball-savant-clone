@@ -5,7 +5,6 @@ import { UploadCloud, FileText, Database } from 'lucide-react';
 function AnalyzerApp() {
   const [savantData, setSavantData] = useState(null);
   const [blastData, setBlastData] = useState(null);
-  const [activeTab, setActiveTab] = useState('savant');
 
   const handleFileUpload = (event, type) => {
     const file = event.target.files[0];

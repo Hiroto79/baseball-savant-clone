@@ -109,7 +109,7 @@ export function getInitRotationMatrix(seamType = '4-seam') {
 }
 
 // 本物の硬式球の108本立体V字ステッチ＆シームリッジ複合ジオメトリを生成
-function createRealisticBaseballSeams(seamType = '4-seam', radius = 1.0) {
+function createRealisticBaseballSeams(radius = 1.0) {
   const group = new THREE.Group();
   group.name = 'seamCompositeGroup';
 
@@ -481,7 +481,7 @@ export const SingleBallCanvas = ({
       ballGroup.remove(oldSeams);
     }
 
-    const newRealisticSeams = createRealisticBaseballSeams(seamType, 1.0);
+    const newRealisticSeams = createRealisticBaseballSeams(1.0);
     ballGroup.add(newRealisticSeams);
   }, [seamType]);
 

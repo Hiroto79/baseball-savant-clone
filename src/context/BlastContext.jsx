@@ -161,12 +161,7 @@ export const BlastProvider = ({ children }) => {
                 return isNaN(num) ? null : num;
             };
 
-            // Check if it's Japanese format (has specific headers)
             const firstRow = rawData[0] || {};
-            console.log('First Blast row:', firstRow);
-            console.log('Available Blast columns:', Object.keys(firstRow));
-            const isJapanese = Object.keys(firstRow).some(key => key.includes('日付') || key.includes('スイング'));
-
             const headers = Object.keys(firstRow);
             console.log('Available Blast columns:', headers);
 
@@ -240,7 +235,9 @@ export const BlastProvider = ({ children }) => {
                             if (!isNaN(dateObj.getTime())) {
                                 rowDate = dateObj.toISOString().split('T')[0];
                             }
-                        } catch (e) { }
+                        } catch {
+                            // ignore invalid date strings
+                        }
                     }
                 }
 

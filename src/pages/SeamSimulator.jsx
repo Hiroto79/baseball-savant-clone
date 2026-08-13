@@ -69,7 +69,18 @@ export const SeamSimulator = ({ showHeader = false }) => {
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto text-foreground">
-      
+      {showHeader && (
+        <div className="p-4 rounded-xl bg-card border border-border">
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <Compass className="w-5 h-5 text-primary" />
+            3D 縫い目・回転シミュレーター
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Rapsodo仕様 3Dステッチ縫い目によるシームシフト・回転軸・2球比較
+          </p>
+        </div>
+      )}
+
       {/* Control Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-xl bg-card border border-border shadow-sm">
         <div className="flex items-center gap-2">

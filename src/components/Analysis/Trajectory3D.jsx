@@ -3,7 +3,7 @@ import Plot from 'react-plotly.js';
 import { PITCH_COLORS } from '../../utils/pitchColors';
 import { Play, Pause } from 'lucide-react';
 
-const Trajectory3D = ({ data, language = 'en', units = 'metric' }) => {
+const Trajectory3D = ({ data, language = 'en' }) => {
     // --- State ---
     const [selectedType, setSelectedType] = useState('All');
     const [selectedIndex, setSelectedIndex] = useState('all');
