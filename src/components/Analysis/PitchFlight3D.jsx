@@ -6,8 +6,8 @@ import { Play, Pause, RotateCcw } from 'lucide-react';
  * Rapsodo 3D Diamond 仕様 3D Pitch Flight & Trajectory Simulator
  * 
  * 物理・弾道力学の完全整合:
- * - 右投手（RHP）: 投手視点で右腕（+0.45m）から放球。スライダーは左方向（グローブ側/アウトロー）へ鋭く曲がり落ちる。捕手視点では左側から右側へ曲がる。
- * - 左投手（LHP）: 投手視点で左腕（-0.45m）から放球。スライダーは右方向へ曲がる。
+ * - 右投手（RHP）: 投手視点で右腕（+0.45m）から放球。スライダー(HB<0)は左方向（アウトロー）へ曲がり落ち、直球(HB>0)は右方向（インハイ）へホップ＆シュート。
+ * - 左投手（LHP）: 投手視点で左腕（-0.45m）から放球。スライダー(HB>0)は右方向（一塁側低め）へ曲がり、直球(HB<0)は左方向へシュート。
  * - 視線方向への自由なドリーズーム（マウスホイール/ピンチで前後移動）
  * - 青いグリッド線なしの落ち着いたリアルスタジアムフロア
  */
@@ -144,7 +144,7 @@ export const PitchFlight3D = ({
   const isDraggingRef = useRef(false);
   const prevMousePosRef = useRef({ x: 0, y: 0 });
 
-  // 物理計算: 正しい左右座標系と空力加速度
+  // 物理計算: 完全対称な座標系と空力加速度
   const pitchTrajectories = useMemo(() => {
     return pitches.map(p => {
       const v_kmh = p.velocity || 145;
@@ -163,14 +163,12 @@ export const PitchFlight3D = ({
       const targetX = -((p.targetLocation?.x ?? 0) / 100);
       const targetZ = (p.targetLocation?.z ?? 75) / 100;
 
-      // 3. 空力変化量 (HB: +22cm=シュート/右腕側, -32cm=スライダー/左グラブ側)
+      // 3. 空力変化量 (HB: +は投手視点右向き加速、-は投手視点左向き加速)
       const hb_m = (p.hb ?? 0) / 100;
       const vb_m = (p.vb ?? 0) / 100;
 
       const g = 9.80665;
-      // 右投手: HB<0(スライダー) -> -X(左グラブ側/アウトロー)へ加速、HB>0(シュート) -> +X(右腕側/インハイ)へ加速
-      const handMult = pitcherHand === 'R' ? 1 : -1;
-      const ax = (2 * (handMult * hb_m)) / (flightTime * flightTime);
+      const ax = (2 * hb_m) / (flightTime * flightTime);
       const az_mag = (2 * vb_m) / (flightTime * flightTime); // ホップ揚力
 
       // 4. 初速計算

@@ -74,15 +74,21 @@ const PitchingSimulator = () => {
   // 選択中の球種オブジェクト
   const activePitch = pitches.find(p => p.id === selectedPitchId) || pitches[0];
 
-  // 利き腕切り替えハンドラ
+  // 利き腕切り替えハンドラ (リリース位置・横変化量HB・スピン傾き・コース位置を左右反転同期)
   const handlePitcherHandChange = (hand) => {
+    if (hand === pitcherHand) return;
     setPitcherHand(hand);
-    const defaultRelX = hand === 'R' ? 0.45 : -0.45;
     setPitches(prev => prev.map(p => ({
       ...p,
+      hb: -(p.hb || 0), // 変化量（HB）を左右反転！
+      tiltDegrees: -(p.tiltDegrees || 0), // スピンの傾き角度も反転！
       releasePos: {
         ...p.releasePos,
-        x: defaultRelX,
+        x: -(p.releasePos?.x ?? 0.45), // リリース横位置も左右反転！
+      },
+      targetLocation: {
+        ...p.targetLocation,
+        x: -(p.targetLocation?.x ?? 0), // ストライクゾーンの目標X位置も左右反転！
       }
     })));
   };
@@ -94,10 +100,14 @@ const PitchingSimulator = () => {
     const template = PITCH_TEMPLATES[nextIdx % PITCH_TEMPLATES.length];
     const newColor = COLOR_PALETTE[nextIdx % COLOR_PALETTE.length];
     const defaultRelX = pitcherHand === 'R' ? 0.45 : -0.45;
+    const hbVal = pitcherHand === 'L' ? -template.hb : template.hb;
+    const tiltDeg = pitcherHand === 'L' ? -template.tiltDegrees : template.tiltDegrees;
     const newPitch = {
       ...template,
       id: `pitch_${Date.now()}`,
       color: newColor,
+      hb: hbVal,
+      tiltDegrees: tiltDeg,
       releasePos: { x: defaultRelX, y: 16.8, z: 1.85 },
       targetLocation: { x: Math.round((Math.random() - 0.5) * 24), z: Math.round(65 + Math.random() * 25) },
     };
@@ -138,15 +148,17 @@ const PitchingSimulator = () => {
   const handleApplyTemplate = (templateName) => {
     const t = PITCH_TEMPLATES.find(x => x.name === templateName);
     if (!t) return;
+    const hbVal = pitcherHand === 'L' ? -t.hb : t.hb;
+    const tiltDeg = pitcherHand === 'L' ? -t.tiltDegrees : t.tiltDegrees;
     updateActivePitch({
       name: t.name,
       seamType: t.seamType,
       velocity: t.velocity,
       rpm: t.rpm,
       tiltClock: t.tiltClock,
-      tiltDegrees: t.tiltDegrees,
+      tiltDegrees: tiltDeg,
       gyroDegrees: t.gyroDegrees,
-      hb: t.hb,
+      hb: hbVal,
       vb: t.vb,
     });
   };
@@ -171,11 +183,12 @@ const PitchingSimulator = () => {
   // クイックコースプリセット
   const applyQuickCourse = (preset) => {
     let x = 0, z = 75;
-    if (preset === 'IN_HIGH') { x = -12; z = 92; } // 右打者インハイ
-    else if (preset === 'OUT_HIGH') { x = 12; z = 92; } // 右打者アウトハイ
+    const isRight = pitcherHand === 'R';
+    if (preset === 'IN_HIGH') { x = isRight ? -12 : 12; z = 92; } // インハイ
+    else if (preset === 'OUT_HIGH') { x = isRight ? 12 : -12; z = 92; } // 外高め
     else if (preset === 'CENTER') { x = 0; z = 75; } // ど真ん中
-    else if (preset === 'IN_LOW') { x = -12; z = 58; } // 右打者インロー
-    else if (preset === 'OUT_LOW') { x = 12; z = 58; } // 右打者アウトロー (スライダー定番)
+    else if (preset === 'IN_LOW') { x = isRight ? -12 : 12; z = 58; } // インロー
+    else if (preset === 'OUT_LOW') { x = isRight ? 12 : -12; z = 58; } // アウトロー
     updateActivePitch({ targetLocation: { x, z } });
   };
 
