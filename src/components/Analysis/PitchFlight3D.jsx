@@ -5,12 +5,12 @@ import { Play, Pause, RotateCcw } from 'lucide-react';
 /**
  * Rapsodo 3D Diamond 仕様 3D Pitch Flight & Trajectory Simulator
  * 
- * 物理・座標系の完全整合:
- * - 右投手（RHP）: リリース位置は一塁側（X = -0.45m）
- * - スライダー（HB = -32cm）: マウンドから一塁側で投げ出され、打者手前で三塁側（+X方向 / 右打者アウトロー）へ鋭く曲がり落ちる
- * - フォーシーム（HB = +22cm, VB = +45cm）: マウンドから一塁側で投げ出され、シュート成分（-X方向）とホップ（上向き揚力）でインハイへ突き刺さる
- * - 2Dストライクゾーン（-X = 左/インコース, +X = 右/アウトコース）と3D空間（-X = 一塁側, +X = 三塁側）が100%一致
- * - ズームイン・アウト（マウスホイール/ピンチ）＆スムーズな360°カメラ回転
+ * 強化・修正内容:
+ * - 捕手視点・全視点でのスムーズな前後ドリー（マウスホイール/ピンチで視線方向に前進・後退）
+ * - 背景の青いグリッド線を完全撤去（ダークで落ち着いたリアルスタジアム床面）
+ * - 物理・変化量座標系の完全整合:
+ *   - 投手視点: +HBは右方向（シュート/アーム側）、-HBは左方向（スライダー/グローブ側）へ変化
+ *   - 捕手視点: +HBは左方向（インコース/アーム側）、-HBは右方向（アウトコース/グローブ側）へ変化
  */
 
 // プロシージャル・レザーテクスチャ
@@ -172,7 +172,7 @@ export const PitchFlight3D = ({
       const ax = (2 * (-hb_m)) / (flightTime * flightTime);
       const az_mag = (2 * vb_m) / (flightTime * flightTime); // ホップ揚力
 
-      // 4. 初速計算 (放球時点の初速ベクトル)
+      // 4. 初速計算
       const vx0 = (targetX - startX - 0.5 * ax * flightTime * flightTime) / flightTime;
       const vy0 = -dist / flightTime;
       const vz0 = (targetZ - startZ - 0.5 * (az_mag - g) * flightTime * flightTime) / flightTime;
@@ -215,23 +215,18 @@ export const PitchFlight3D = ({
   const applyCameraPreset = (view, cam) => {
     if (!cam) return;
     if (view === 'BATTER_R') {
-      // 右打者視点: 三塁側（+X方向: 右打席）からマウンドを見る
       cam.position.set(0.75, 1.65, -0.2);
       cam.lookAt(0, 1.2, 16.8);
     } else if (view === 'BATTER_L') {
-      // 左打者視点: 一塁側（-X方向: 左打席）からマウンドを見る
       cam.position.set(-0.75, 1.65, -0.2);
       cam.lookAt(0, 1.2, 16.8);
     } else if (view === 'CATCHER') {
-      // 捕手視点
       cam.position.set(0, 1.1, -2.8);
       cam.lookAt(0, 1.0, 16.8);
     } else if (view === 'PITCHER') {
-      // 投手視点
       cam.position.set(0, 2.2, 19.5);
       cam.lookAt(0, 0.8, 0);
     } else if (view === 'SIDE') {
-      // 側面視点: 16.8m全体が美しく収まる位置
       cam.position.set(22.0, 3.0, 8.4);
       cam.lookAt(0, 1.2, 8.4);
     }
@@ -273,18 +268,13 @@ export const PitchFlight3D = ({
     dirLight2.position.set(-6, 8, -8);
     scene.add(dirLight2);
 
-    // 🏟️ グラウンド & マウンド & ホームベース
+    // 🏟️ グラウンド & マウンド & ホームベース (青いグリッド線を撤去し、シックな質感の床面)
     const fieldGeo = new THREE.PlaneGeometry(18, 28);
     fieldGeo.rotateX(-Math.PI / 2);
-    const fieldMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.85, metalness: 0.1 });
+    const fieldMat = new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.9, metalness: 0.05 });
     const field = new THREE.Mesh(fieldGeo, fieldMat);
     field.position.set(0, 0, 8.4);
     scene.add(field);
-
-    // 投球レーン・グリッドライン
-    const gridHelper = new THREE.GridHelper(26, 26, 0x3b82f6, 0x27272a);
-    gridHelper.position.set(0, 0.01, 8.4);
-    scene.add(gridHelper);
 
     // ピッチャーズプレート (マウンド Y=16.8)
     const plateGeo = new THREE.BoxGeometry(0.61, 0.04, 0.15);
@@ -386,18 +376,16 @@ export const PitchFlight3D = ({
 
     const onMouseUp = () => { isDraggingRef.current = false; };
 
+    // 🔍 捕手視点・全視点で自然に前後に前進/後退（ドリーズーム）
     const onWheel = (e) => {
       e.preventDefault();
       if (!camera) return;
-      const lookTarget = new THREE.Vector3(0, 1.2, 8.4);
-      const dir = camera.position.clone().sub(lookTarget);
-      const currentDist = dir.length();
-      const zoomFactor = e.deltaY > 0 ? 1.08 : 0.92;
-      const newDist = Math.max(2.5, Math.min(45.0, currentDist * zoomFactor));
 
-      dir.normalize().multiplyScalar(newDist);
-      camera.position.copy(lookTarget.clone().add(dir));
-      camera.lookAt(lookTarget);
+      const forward = new THREE.Vector3();
+      camera.getWorldDirection(forward);
+
+      const moveStep = e.deltaY < 0 ? 0.7 : -0.7; // 上スクロールで前進、下スクロールで後退
+      camera.position.addScaledVector(forward, moveStep);
     };
 
     const onDoubleClick = () => {
