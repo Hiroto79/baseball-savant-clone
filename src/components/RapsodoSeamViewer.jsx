@@ -114,8 +114,8 @@ export function getInitRotationMatrix(seamType = '4-seam') {
     // 2-Seam: 屈曲のない滑らかな2本の縦円弧レール (Z軸 45度)
     m.makeRotationZ(Math.PI / 4);
   } else if (seamType === '1-seam') {
-    // 1-Seam: 1本の縦シームラインが中央(X=0)を真っ直ぐ通り、1回転で1度だけ通過する完全垂直ワンシーム姿勢
-    m.makeRotationZ(Math.PI / 4);
+    // 1-Seam: 1本の縦シームラインが中央(X=0)を通り、1回転で1度だけ通過する完全垂直ワンシーム姿勢
+    m.makeRotationX(Math.PI / 2);
   } else {
     // 4-Seam: 馬蹄形(Cの字)が正面を向き、1回転で4回通過する王道のフォーシーム (Y軸 90度)
     m.makeRotationY(Math.PI / 2);

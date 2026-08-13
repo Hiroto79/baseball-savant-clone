@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Compass, Activity, Sparkles, Layers, Plus, Trash2, Ghost, Wind, Crosshair, HelpCircle } from 'lucide-react';
+import { Compass, Activity, Sparkles, Layers, Plus, Trash2, Ghost, Wind, Crosshair } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 import SeamSimulator from './SeamSimulator';
 import PitchFlight3D from '../components/Analysis/PitchFlight3D';
@@ -19,7 +19,7 @@ const INITIAL_PITCHES = [
     hb: 22, // cm (シュート成分)
     vb: 45, // cm (ホップ成分)
     releasePos: { x: -0.45, y: 16.8, z: 1.85 },
-    targetLocation: { x: -12, z: 88 }, // インハイ (cm)
+    targetLocation: { x: -10, z: 92 }, // インハイ (cm)
   },
   {
     id: 'pitch_2',
@@ -34,7 +34,7 @@ const INITIAL_PITCHES = [
     hb: -32, // cm (グローブ側へスライド)
     vb: 8, // cm (重力で大きく落下)
     releasePos: { x: -0.45, y: 16.8, z: 1.82 },
-    targetLocation: { x: 18, z: 58 }, // アウトロー (cm)
+    targetLocation: { x: 16, z: 58 }, // アウトロー (cm)
   },
 ];
 
@@ -82,7 +82,7 @@ const PitchingSimulator = () => {
       id: `pitch_${Date.now()}`,
       color: newColor,
       releasePos: { x: -0.45, y: 16.8, z: 1.85 },
-      targetLocation: { x: (Math.random() - 0.5) * 30, z: 60 + Math.random() * 30 },
+      targetLocation: { x: Math.round((Math.random() - 0.5) * 30), z: Math.round(60 + Math.random() * 30) },
     };
     setPitches([...pitches, newPitch]);
     setSelectedPitchId(newPitch.id);
@@ -120,19 +120,19 @@ const PitchingSimulator = () => {
     });
   };
 
-  // ストライクゾーンクリックでコース指定 (X: -30~30cm, Z: 35~115cm)
+  // 長方形ストライクゾーンクリックでコース指定 (X: -30~30cm, Z: 40~110cm)
   const handleZoneClick = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
     // 正規化 (0 ~ 1)
-    const normX = clickX / rect.width; // 0=左 (捕手視点: アウトコース), 1=右 (インコース)
-    const normY = clickY / rect.height; // 0=上, 1=下
+    const normX = Math.max(0, Math.min(1, clickX / rect.width));
+    const normY = Math.max(0, Math.min(1, clickY / rect.height));
 
-    // cm変換 (ゾーン幅: -35cm ~ +35cm, ゾーン高: 35cm ~ 120cm)
-    const targetX = Math.round((normX - 0.5) * 70);
-    const targetZ = Math.round(120 - normY * 85);
+    // cm変換 (ゾーン表示枠: -30cm ~ +30cm, ゾーン高: 40cm ~ 115cm)
+    const targetX = Math.round((normX - 0.5) * 60);
+    const targetZ = Math.round(115 - normY * 75);
 
     updateActivePitch({
       targetLocation: { x: targetX, z: targetZ }
@@ -142,12 +142,11 @@ const PitchingSimulator = () => {
   // クイックコースプリセット
   const applyQuickCourse = (preset) => {
     let x = 0, z = 75;
-    if (preset === 'IN_HIGH') { x = -15; z = 95; }
-    else if (preset === 'OUT_HIGH') { x = 15; z = 95; }
-    else if (preset === 'IN_LOW') { x = -15; z = 55; }
-    else if (preset === 'OUT_LOW') { x = 15; z = 55; }
+    if (preset === 'IN_HIGH') { x = -14; z = 95; }
+    else if (preset === 'OUT_HIGH') { x = 14; z = 95; }
+    else if (preset === 'IN_LOW') { x = -14; z = 55; }
+    else if (preset === 'OUT_LOW') { x = 14; z = 55; }
     else if (preset === 'CENTER') { x = 0; z = 75; }
-    else if (preset === 'DIRT') { x = 0; z = 35; }
     updateActivePitch({ targetLocation: { x, z } });
   };
 
@@ -162,8 +161,8 @@ const PitchingSimulator = () => {
           </h1>
           <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground mt-0.5 sm:mt-1 leading-relaxed">
             {language === 'ja'
-              ? 'Rapsodo 3D Diamond 仕様: リアル自転飛翔・無回転ゴースト比較・打者目線・直感コース指定を完全統合。'
-              : 'Rapsodo 3D Diamond grade: Real spinning flight, spinless ghost ball, batter views, and intuitive target picker.'}
+              ? 'Rapsodo 3D Diamond 仕様: リアル自転飛翔・無回転ゴースト比較・変化量チャート・直感長方形ゾーンコース指定。'
+              : 'Rapsodo 3D Diamond grade: Real spinning flight, spinless ghost ball, break chart, and rectangular strike zone target picker.'}
           </p>
         </div>
 
@@ -290,7 +289,7 @@ const PitchingSimulator = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
             {/* 3D Flight Viewport (8 Columns) */}
-            <div className="lg:col-span-8 min-h-[480px] sm:min-h-[560px]">
+            <div className="lg:col-span-8 min-h-[460px] sm:min-h-[540px]">
               <PitchFlight3D
                 pitches={pitches}
                 selectedPitchId={selectedPitchId}
@@ -306,51 +305,51 @@ const PitchingSimulator = () => {
             {/* Controls & Strike Zone Target Picker (4 Columns) */}
             <div className="lg:col-span-4 space-y-4">
               
-              {/* 🎯 1. インタラクティブ・ストライクゾーン（狙い撃ち・コース指定） */}
+              {/* 🎯 1. 正統派長方形ストライクゾーン（狙い撃ち・コース指定） */}
               <div className="bg-zinc-900/90 border border-zinc-800 p-4 rounded-2xl shadow-lg space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-black text-xs sm:text-sm text-zinc-200 flex items-center gap-1.5">
                     <Crosshair className="w-4 h-4 text-red-500" />
-                    <span>コース指定 (Strike Zone Target)</span>
+                    <span>コース指定 (Strike Zone)</span>
                   </h3>
                   <span className="text-[10px] font-mono text-zinc-400">
                     X: {activePitch.targetLocation?.x}cm / Z: {activePitch.targetLocation?.z}cm
                   </span>
                 </div>
 
-                {/* 2D Interactive Strike Zone Map */}
+                {/* 2D Clean Rectangular Strike Zone Map */}
                 <div
                   onClick={handleZoneClick}
-                  className="relative w-full aspect-[4/3] bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden cursor-crosshair flex items-center justify-center shadow-inner hover:border-zinc-700 transition-all"
+                  className="relative w-full max-w-[260px] mx-auto aspect-[3/4] bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden cursor-crosshair flex items-center justify-center shadow-inner hover:border-zinc-700 transition-all p-3"
                 >
-                  {/* Outer Ball Zone Margins */}
-                  <div className="absolute inset-2 border border-dashed border-zinc-850 rounded pointer-events-none" />
+                  {/* Outer Ball Zone Margin */}
+                  <div className="absolute inset-2 border border-dashed border-zinc-800/80 rounded pointer-events-none" />
 
-                  {/* 3x3 Official Strike Zone Grid */}
-                  <div className="relative w-3/5 h-3/4 border-2 border-red-500/80 bg-red-500/5 grid grid-cols-3 grid-rows-3 rounded pointer-events-none shadow-[0_0_15px_rgba(239,68,68,0.15)]">
+                  {/* 3x3 Official Vertical Strike Zone (長方形 43cm x 60cm 比率) */}
+                  <div className="relative w-4/5 h-4/5 border-2 border-red-500/80 bg-red-500/5 grid grid-cols-3 grid-rows-3 rounded pointer-events-none shadow-[0_0_15px_rgba(239,68,68,0.15)]">
                     {[...Array(9)].map((_, i) => (
-                      <div key={i} className="border border-red-500/30 flex items-center justify-center text-[8px] text-red-500/20 font-mono">
+                      <div key={i} className="border border-red-500/25 flex items-center justify-center text-[9px] text-red-500/20 font-mono font-bold">
                         {i + 1}
                       </div>
                     ))}
                   </div>
 
                   {/* Home Plate Icon at Bottom */}
-                  <div className="absolute bottom-1 w-12 h-3 bg-zinc-700/60 clip-home-plate pointer-events-none" />
+                  <div className="absolute bottom-1 w-10 h-2 bg-zinc-700/60 clip-home-plate pointer-events-none" />
 
                   {/* All Pitch Target Pins */}
                   {pitches.map(p => {
                     const isCur = p.id === selectedPitchId;
-                    // X: -35 ~ +35 -> 0% ~ 100%
-                    const leftPct = ((p.targetLocation?.x || 0) + 35) / 70 * 100;
-                    // Z: 35 ~ 120 -> 100% ~ 0%
-                    const topPct = (120 - (p.targetLocation?.z || 75)) / 85 * 100;
+                    // X: -30 ~ +30 -> 0% ~ 100%
+                    const leftPct = ((p.targetLocation?.x || 0) + 30) / 60 * 100;
+                    // Z: 40 ~ 115 -> 100% ~ 0%
+                    const topPct = (115 - (p.targetLocation?.z || 75)) / 75 * 100;
 
                     return (
                       <div
                         key={p.id}
                         className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none transition-transform ${
-                          isCur ? 'scale-125 z-20 animate-pulse' : 'scale-100 z-10 opacity-70'
+                          isCur ? 'scale-125 z-20 animate-pulse' : 'scale-100 z-10 opacity-75'
                         }`}
                         style={{ left: `${leftPct}%`, top: `${topPct}%` }}
                       >

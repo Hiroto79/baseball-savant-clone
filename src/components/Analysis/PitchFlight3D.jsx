@@ -1,16 +1,15 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
-import { Play, Pause, RotateCcw, Eye, Sparkles, Layers, Compass, Wind, Camera } from 'lucide-react';
+import { Play, Pause, RotateCcw, Activity } from 'lucide-react';
 
 /**
  * Rapsodo 3D Diamond 仕様 3D Pitch Flight & Trajectory Simulator
  * 
- * 機能:
- * - リアルなPBR硬式球（108本立体ステッチ）がマウンドからホームへ自転しながら飛翔
- * - 👻 無回転（重力のみ）ゴーストボール比較
- * - 💨 マグナス＆SSW変化力ベクトル（3D矢印・気流トレイル）
- * - 👁️ 打者視点（右打席・左打席）、捕手視点、投手視点、ボール追尾カメラ
- * - 🎯 ストライクゾーン・ターゲットピン連動
+ * 強化内容:
+ * - 着弾点（ホームベース上）でボールが静止し、設定されたスピン軸・RPMで3D自転を継続
+ * - バッテン線・着弾丸マークを排除し、洗練された3Dストライクゾーンと自転ボールを表示
+ * - 正しい右打者 / 左打者目線（右打者: 一塁側から投手を見る / 左打者: 三塁側から投手を見る）
+ * - 画面右下に「MOVIMIENTO (BREAK CHART) / 変化量チャート」を常時オーバーレイ表示
  */
 
 // プロシージャル・レザーテクスチャ
@@ -115,7 +114,6 @@ export const PitchFlight3D = ({
   pitches = [],
   selectedPitchId,
   onSelectPitch,
-  onUpdateTarget,
   showSpinlessGlobal = true,
   showForcesGlobal = true,
   cameraView = 'CATCHER', // 'CATCHER' | 'BATTER_R' | 'BATTER_L' | 'PITCHER' | 'FOLLOW' | 'SIDE'
@@ -128,9 +126,11 @@ export const PitchFlight3D = ({
   const cameraRef = useRef(null);
   const animFrameRef = useRef(null);
 
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [flightProgress, setFlightProgress] = useState(0); // 0.0 ~ 1.0
-  const progressRef = useRef(0);
+  // 自動ループ再生はオフ。デフォルトは着弾位置 (progress=1.0) でボールが自転待機
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [flightProgress, setFlightProgress] = useState(1.0); // 0.0 = 放球, 1.0 = 着弾
+  const progressRef = useRef(1.0);
+  const continuousSpinAngleRef = useRef(0);
 
   // マウスドラッグ軌道制御
   const isDraggingRef = useRef(false);
@@ -271,19 +271,20 @@ export const PitchFlight3D = ({
     homeMesh.position.set(0, 0.02, 0);
     scene.add(homeMesh);
 
-    // 🎯 3D ストライクゾーンフレーム (幅43cm, 高さ0.5m~1.1m)
+    // 🎯 3D ストライクゾーンフレーム (幅43cm, 高さ0.5m~1.05m / バッテン線なしの洗練された矩形)
     const szWidth = 0.43;
     const szBottom = 0.50;
     const szTop = 1.05;
     const szHeight = szTop - szBottom;
 
+    // 外枠ボックス
     const szGeo = new THREE.BoxGeometry(szWidth, szHeight, 0.01);
-    const szMat = new THREE.MeshBasicMaterial({ color: 0xef4444, wireframe: true, transparent: true, opacity: 0.75 });
+    const szMat = new THREE.MeshBasicMaterial({ color: 0xef4444, wireframe: true, transparent: true, opacity: 0.65 });
     const szMesh = new THREE.Mesh(szGeo, szMat);
     szMesh.position.set(0, szBottom + szHeight / 2, 0);
     scene.add(szMesh);
 
-    // 3x3 グリッドライン
+    // 3x3 グリッドライン（バッテン線は入れず、綺麗な縦2本・横2本の罫線のみ）
     const gridMat = new THREE.LineBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.35 });
     const gridPoints = [
       // 縦2本
@@ -300,7 +301,7 @@ export const PitchFlight3D = ({
     // 打者ボックス (左右)
     [-0.75, 0.75].forEach(bx => {
       const boxGeo = new THREE.BoxGeometry(0.9, 0.01, 1.8);
-      const boxMat = new THREE.MeshBasicMaterial({ color: 0x52525b, wireframe: true, transparent: true, opacity: 0.4 });
+      const boxMat = new THREE.MeshBasicMaterial({ color: 0x52525b, wireframe: true, transparent: true, opacity: 0.3 });
       const bMesh = new THREE.Mesh(boxGeo, boxMat);
       bMesh.position.set(bx, 0.01, 0.2);
       scene.add(bMesh);
@@ -311,16 +312,16 @@ export const PitchFlight3D = ({
     trajectoryGroup.name = 'trajectories';
     scene.add(trajectoryGroup);
 
-    // カメラ位置初期設定
+    // カメラ位置初期設定 (右打者・左打者の位置を正確に修正)
     const updateCameraPos = (view) => {
       if (!camera) return;
       if (view === 'BATTER_R') {
-        // 右打者視点
-        camera.position.set(-0.75, 1.65, -0.3);
+        // 右打者視点: 捕手から見て左側 (X = -0.75m) の右打席からマウンドを見る
+        camera.position.set(-0.75, 1.65, -0.2);
         camera.lookAt(0, 1.2, 16.8);
       } else if (view === 'BATTER_L') {
-        // 左打者視点
-        camera.position.set(0.75, 1.65, -0.3);
+        // 左打者視点: 捕手から見て右側 (X = +0.75m) の左打席からマウンドを見る
+        camera.position.set(0.75, 1.65, -0.2);
         camera.lookAt(0, 1.2, 16.8);
       } else if (view === 'CATCHER') {
         // 捕手視点
@@ -334,10 +335,6 @@ export const PitchFlight3D = ({
         // 側面視点
         camera.position.set(10.5, 2.0, 8.4);
         camera.lookAt(0, 1.0, 8.4);
-      } else if (view === 'TOP') {
-        // 真上視点
-        camera.position.set(0, 15, 8.4);
-        camera.lookAt(0, 0, 8.4);
       }
     };
     updateCameraPos(cameraView);
@@ -365,9 +362,6 @@ export const PitchFlight3D = ({
       const dy = e.clientY - prevMousePosRef.current.y;
       prevMousePosRef.current = { x: e.clientX, y: e.clientY };
 
-      orbitAnglesRef.current.theta += dx * 0.008;
-      orbitAnglesRef.current.phi = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, orbitAnglesRef.current.phi + dy * 0.008));
-
       camera.position.x += dx * 0.01;
       camera.position.y -= dy * 0.01;
     };
@@ -394,10 +388,12 @@ export const PitchFlight3D = ({
     if (!camera) return;
 
     if (cameraView === 'BATTER_R') {
-      camera.position.set(-0.75, 1.65, -0.3);
+      // 右打者視点 (右打席: 捕手から見て左 X = -0.75m)
+      camera.position.set(-0.75, 1.65, -0.2);
       camera.lookAt(0, 1.2, 16.8);
     } else if (cameraView === 'BATTER_L') {
-      camera.position.set(0.75, 1.65, -0.3);
+      // 左打者視点 (左打席: 捕手から見て右 X = +0.75m)
+      camera.position.set(0.75, 1.65, -0.2);
       camera.lookAt(0, 1.2, 16.8);
     } else if (cameraView === 'CATCHER') {
       camera.position.set(0, 1.1, -2.8);
@@ -408,9 +404,6 @@ export const PitchFlight3D = ({
     } else if (cameraView === 'SIDE') {
       camera.position.set(10.5, 2.0, 8.4);
       camera.lookAt(0, 1.0, 8.4);
-    } else if (cameraView === 'TOP') {
-      camera.position.set(0, 15, 8.4);
-      camera.lookAt(0, 0, 8.4);
     }
   }, [cameraView]);
 
@@ -463,18 +456,10 @@ export const PitchFlight3D = ({
         arrowHelper.name = `forceArrow_${pt.id || idx}`;
         trajGroup.add(arrowHelper);
       }
-
-      // 6. ホーム着弾点マーカー
-      const endPt = pt.actualPoints[pt.actualPoints.length - 1];
-      const targetMarkerGeo = new THREE.RingGeometry(0.03, 0.05, 24);
-      const targetMarkerMat = new THREE.MeshBasicMaterial({ color: pColor, side: THREE.DoubleSide });
-      const targetMarker = new THREE.Mesh(targetMarkerGeo, targetMarkerMat);
-      targetMarker.position.copy(endPt);
-      trajGroup.add(targetMarker);
     });
   }, [pitchTrajectories, showSpinlessGlobal, showForcesGlobal]);
 
-  // アニメーションループ (飛翔 ＆ 自転)
+  // アニメーションループ (飛翔 ＆ 常時自転)
   useEffect(() => {
     let lastTime = performance.now();
 
@@ -482,10 +467,16 @@ export const PitchFlight3D = ({
       const deltaSec = (time - lastTime) / 1000;
       lastTime = time;
 
+      // ボールの連続自転角度を進める
+      continuousSpinAngleRef.current += deltaSec * (2 * Math.PI) * 4.0;
+
       if (isPlaying) {
-        // 基準フライト時間 約0.42秒をplaybackSpeedでスケーリング
         const speedMultiplier = playbackSpeed * 1.5;
-        progressRef.current = (progressRef.current + deltaSec * speedMultiplier) % 1.0;
+        progressRef.current += deltaSec * speedMultiplier;
+        if (progressRef.current >= 1.0) {
+          progressRef.current = 1.0;
+          setIsPlaying(false); // 着弾したら停止し、その場で自転を継続
+        }
         setFlightProgress(progressRef.current);
       }
 
@@ -510,14 +501,15 @@ export const PitchFlight3D = ({
 
               if (ball) {
                 ball.position.copy(currentPos);
-                // 自転回転 (RPM * time)
-                const spinRad = (pt.rpm || 2200) * (2 * Math.PI / 60) * (p * pt.flightTime);
+                // 常時自転 (RPM * time)
+                const spinSpeedMult = (pt.rpm || 2200) / 2200;
+                const spinAngle = continuousSpinAngleRef.current * spinSpeedMult;
                 const tiltRad = ((pt.tiltDegrees || 45) * Math.PI) / 180;
                 const gyroRad = ((pt.gyroDegrees || 10) * Math.PI) / 180;
 
                 const qTilt = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), tiltRad);
                 const qGyro = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), gyroRad);
-                const qSpin = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -spinRad);
+                const qSpin = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -spinAngle);
 
                 const finalQ = new THREE.Quaternion().copy(qTilt).multiply(qGyro).multiply(qSpin);
                 ball.quaternion.copy(finalQ);
@@ -527,7 +519,7 @@ export const PitchFlight3D = ({
                 forceArrow.position.copy(currentPos);
               }
 
-              // 追尾カメラ (選択球種または第1球)
+              // 追尾カメラ
               if (cameraView === 'FOLLOW' && (pt.id === selectedPitchId || idx === 0)) {
                 camera.position.set(currentPos.x, currentPos.y + 0.35, currentPos.z - 1.2);
                 camera.lookAt(currentPos.x, currentPos.y, currentPos.z + 5);
@@ -568,7 +560,6 @@ export const PitchFlight3D = ({
             { id: 'BATTER_R', label: '👁️ 右打者' },
             { id: 'BATTER_L', label: '👁️ 左打者' },
             { id: 'PITCHER', label: '⚾ 投手' },
-            { id: 'FOLLOW', label: '🎥 追尾' },
             { id: 'SIDE', label: '📐 側面' },
           ].map(cam => (
             <button
@@ -588,15 +579,22 @@ export const PitchFlight3D = ({
         {/* Playback Controls */}
         <div className="flex items-center gap-1.5 bg-zinc-900/90 p-1 rounded-xl border border-zinc-800 backdrop-blur pointer-events-auto shadow-lg">
           <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white cursor-pointer transition-colors"
+            onClick={() => {
+              if (progressRef.current >= 1.0) {
+                progressRef.current = 0;
+                setFlightProgress(0);
+              }
+              setIsPlaying(!isPlaying);
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer transition-colors shadow"
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            <span>{isPlaying ? '一時停止' : '投球アニメ再生'}</span>
           </button>
           <button
-            onClick={() => { progressRef.current = 0; setFlightProgress(0); }}
+            onClick={() => { progressRef.current = 1.0; setFlightProgress(1.0); setIsPlaying(false); }}
             className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white cursor-pointer transition-colors"
-            title="リセット"
+            title="着弾位置へリセット"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
@@ -604,11 +602,86 @@ export const PitchFlight3D = ({
       </div>
 
       {/* 3D Canvas */}
-      <div ref={containerRef} className="w-full h-full min-h-[420px] sm:min-h-[500px] cursor-grab active:cursor-grabbing" />
+      <div ref={containerRef} className="w-full h-full min-h-[440px] sm:min-h-[520px] cursor-grab active:cursor-grabbing" />
+
+      {/* 📊 画像1仕様: MOVIMIENTO (BREAK CHART) / 変化量チャート オーバーレイ (右下) */}
+      <div className="absolute bottom-10 right-3 z-10 w-44 sm:w-52 bg-zinc-950/90 border border-zinc-800 p-2.5 rounded-xl shadow-2xl backdrop-blur pointer-events-auto">
+        <div className="flex items-center justify-between mb-1.5 border-b border-zinc-800 pb-1">
+          <span className="text-[10px] font-black tracking-wider text-zinc-300 flex items-center gap-1">
+            <Activity className="w-3 h-3 text-sky-400" />
+            MOVIMIENTO (BREAK CHART)
+          </span>
+          <span className="text-[8px] font-mono text-zinc-500">HB vs VB (cm)</span>
+        </div>
+
+        {/* 2D Movement Coordinate Plot */}
+        <div className="relative w-full aspect-square bg-zinc-900/60 border border-zinc-800/80 rounded-lg overflow-hidden flex items-center justify-center">
+          {/* Grid lines */}
+          <div className="absolute w-full h-[1px] bg-zinc-700/50" />
+          <div className="absolute h-full w-[1px] bg-zinc-700/50" />
+          <div className="absolute inset-2 border border-dashed border-zinc-800 rounded pointer-events-none" />
+
+          {/* Directional Labels */}
+          <span className="absolute top-0.5 left-1/2 -translate-x-1/2 text-[7px] font-black text-zinc-500 uppercase">RISE (+)</span>
+          <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[7px] font-black text-zinc-500 uppercase">DROP (-)</span>
+          <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[7px] font-black text-zinc-500 uppercase">ARM</span>
+          <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[7px] font-black text-zinc-500 uppercase">GLOVE</span>
+
+          {/* SVG Movement Vectors */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+            {pitches.map(p => {
+              // Scale: -60cm ~ +60cm -> 0% ~ 100%
+              const cx = 50;
+              const cy = 50;
+              const px = 50 + ((p.hb || 0) / 60) * 42;
+              const py = 50 - ((p.vb || 0) / 60) * 42;
+
+              return (
+                <g key={p.id}>
+                  {/* Line from center */}
+                  <line
+                    x1={`${cx}%`}
+                    y1={`${cy}%`}
+                    x2={`${px}%`}
+                    y2={`${py}%`}
+                    stroke={p.color}
+                    strokeWidth="2"
+                    strokeOpacity="0.85"
+                  />
+                  {/* Dot */}
+                  <circle
+                    cx={`${px}%`}
+                    cy={`${py}%`}
+                    r="4"
+                    fill={p.color}
+                    stroke="#ffffff"
+                    strokeWidth="1.5"
+                  />
+                </g>
+              );
+            })}
+          </svg>
+
+          {/* Pitch Labels on Chart */}
+          {pitches.map(p => {
+            const px = 50 + ((p.hb || 0) / 60) * 42;
+            const py = 50 - ((p.vb || 0) / 60) * 42;
+            return (
+              <span
+                key={p.id}
+                className="absolute text-[8px] font-black text-white px-1 py-0.2 rounded bg-black/80 shadow -translate-x-1/2 -translate-y-3 pointer-events-none"
+                style={{ left: `${px}%`, top: `${py}%` }}
+              >
+                {p.name.split(' ')[0]}
+              </span>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Bottom Timeline Scrubber */}
-      <div className="absolute bottom-2 left-4 right-4 z-10 flex items-center gap-3 bg-zinc-900/80 px-3 py-1.5 rounded-xl border border-zinc-800/80 backdrop-blur pointer-events-auto">
-        <span className="text-[10px] font-mono text-zinc-400">0.00s</span>
+      <div className="absolute bottom-2 left-4 right-4 sm:right-60 z-10 flex items-center gap-3 bg-zinc-900/80 px-3 py-1.5 rounded-xl border border-zinc-800/80 backdrop-blur pointer-events-auto">
+        <span className="text-[10px] font-mono text-zinc-400">マウンド</span>
         <input
           type="range"
           min="0"
@@ -619,6 +692,7 @@ export const PitchFlight3D = ({
             const val = parseFloat(e.target.value);
             progressRef.current = val;
             setFlightProgress(val);
+            setIsPlaying(false);
           }}
           className="flex-1 accent-blue-500 h-1.5 bg-zinc-800 rounded cursor-pointer"
         />
