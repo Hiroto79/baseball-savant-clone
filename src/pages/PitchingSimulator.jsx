@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Compass, Activity, Sparkles, Layers, Plus, Trash2, Ghost, Wind, Crosshair, Spline, TrendingUp } from 'lucide-react';
+import { Compass, Activity, Sparkles, Layers, Plus, Trash2, Ghost, Wind, Crosshair, Spline, TrendingUp, User } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 import SeamSimulator from './SeamSimulator';
 import PitchFlight3D from '../components/Analysis/PitchFlight3D';
 
-// デフォルトの初期球種セット
+// デフォルトの初期球種セット (右投手基準)
 const INITIAL_PITCHES = [
   {
     id: 'pitch_1',
@@ -16,10 +16,10 @@ const INITIAL_PITCHES = [
     tiltClock: '1:15',
     tiltDegrees: 37.5,
     gyroDegrees: 8,
-    hb: 22, // cm (シュート成分)
+    hb: 22, // cm (シュート・アーム側成分)
     vb: 45, // cm (ホップ成分)
     releasePos: { x: -0.45, y: 16.8, z: 1.85 },
-    targetLocation: { x: -10, z: 90 }, // インハイ (cm)
+    targetLocation: { x: -10, z: 92 }, // インハイ (cm)
   },
   {
     id: 'pitch_2',
@@ -31,10 +31,10 @@ const INITIAL_PITCHES = [
     tiltClock: '10:30',
     tiltDegrees: -45,
     gyroDegrees: 48,
-    hb: -32, // cm (グローブ側へスライド)
-    vb: 8, // cm (重力で大きく落下)
+    hb: -32, // cm (グローブ側へ大きくスライド)
+    vb: 8, // cm (鋭く落下)
     releasePos: { x: -0.45, y: 16.8, z: 1.82 },
-    targetLocation: { x: 14, z: 60 }, // アウトロー (cm)
+    targetLocation: { x: 14, z: 58 }, // アウトロー (cm)
   },
 ];
 
@@ -55,8 +55,10 @@ const COLOR_PALETTE = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#a855f7', '#
 
 const PitchingSimulator = () => {
   const { language } = useSettings();
-  // 'seam' (3D 縫い目・回転) または 'trajectory' (3D 弾道軌道)
   const [activeTab, setActiveTab] = useState('trajectory');
+
+  // 投手利き腕 ('R' = 右投げ, 'L' = 左投げ)
+  const [pitcherHand, setPitcherHand] = useState('R');
 
   // 複数球種ステート
   const [pitches, setPitches] = useState(INITIAL_PITCHES);
@@ -72,17 +74,31 @@ const PitchingSimulator = () => {
   // 選択中の球種オブジェクト
   const activePitch = pitches.find(p => p.id === selectedPitchId) || pitches[0];
 
+  // 利き腕切り替えハンドラ
+  const handlePitcherHandChange = (hand) => {
+    setPitcherHand(hand);
+    const defaultRelX = hand === 'R' ? -0.45 : 0.45;
+    setPitches(prev => prev.map(p => ({
+      ...p,
+      releasePos: {
+        ...p.releasePos,
+        x: defaultRelX,
+      }
+    })));
+  };
+
   // 球種の追加
   const handleAddPitch = () => {
     if (pitches.length >= 5) return;
     const nextIdx = pitches.length;
     const template = PITCH_TEMPLATES[nextIdx % PITCH_TEMPLATES.length];
     const newColor = COLOR_PALETTE[nextIdx % COLOR_PALETTE.length];
+    const defaultRelX = pitcherHand === 'R' ? -0.45 : 0.45;
     const newPitch = {
       ...template,
       id: `pitch_${Date.now()}`,
       color: newColor,
-      releasePos: { x: -0.45, y: 16.8, z: 1.85 },
+      releasePos: { x: defaultRelX, y: 16.8, z: 1.85 },
       targetLocation: { x: Math.round((Math.random() - 0.5) * 24), z: Math.round(65 + Math.random() * 25) },
     };
     setPitches([...pitches, newPitch]);
@@ -141,11 +157,9 @@ const PitchingSimulator = () => {
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
-    // 正規化 (0 ~ 1)
     const normX = Math.max(0, Math.min(1, clickX / rect.width));
     const normY = Math.max(0, Math.min(1, clickY / rect.height));
 
-    // cm変換 (ゾーン表示枠: -28cm ~ +28cm, ゾーン高: 45cm ~ 110cm)
     const targetX = Math.round((normX - 0.5) * 56);
     const targetZ = Math.round(110 - normY * 65);
 
@@ -157,11 +171,11 @@ const PitchingSimulator = () => {
   // クイックコースプリセット
   const applyQuickCourse = (preset) => {
     let x = 0, z = 75;
-    if (preset === 'IN_HIGH') { x = -12; z = 92; }
-    else if (preset === 'OUT_HIGH') { x = 12; z = 92; }
-    else if (preset === 'IN_LOW') { x = -12; z = 58; }
-    else if (preset === 'OUT_LOW') { x = 12; z = 58; }
-    else if (preset === 'CENTER') { x = 0; z = 75; }
+    if (preset === 'IN_HIGH') { x = -12; z = 92; } // 右打者インハイ
+    else if (preset === 'OUT_HIGH') { x = 12; z = 92; } // 右打者アウトハイ
+    else if (preset === 'CENTER') { x = 0; z = 75; } // ど真ん中
+    else if (preset === 'IN_LOW') { x = -12; z = 58; } // 右打者インロー
+    else if (preset === 'OUT_LOW') { x = 12; z = 58; } // 右打者アウトロー (スライダー定番)
     updateActivePitch({ targetLocation: { x, z } });
   };
 
@@ -176,36 +190,65 @@ const PitchingSimulator = () => {
           </h1>
           <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground mt-0.5 sm:mt-1 leading-relaxed">
             {language === 'ja'
-              ? 'Rapsodo 3D Diamond 仕様: 球速差による物理着弾遅延・無回転ゴースト比較・変化量チャート・直感長方形ゾーンコース指定。'
-              : 'Rapsodo 3D Diamond grade: Velocity-based flight arrival times, spinless ghost ball, break chart, and rectangular strike zone picker.'}
+              ? 'Rapsodo 3D Diamond 仕様: 右投・左投連動の完全物理弾道・球速差到達遅延・無回転ゴースト比較・変化量チャート。'
+              : 'Rapsodo 3D Diamond grade: Handedness-aligned ballistics, velocity arrival times, spinless ghost ball, and break chart.'}
           </p>
         </div>
 
-        {/* Main Mode Tabs */}
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 bg-muted p-1 sm:p-1.5 rounded-xl border border-border shrink-0">
-          <button
-            onClick={() => setActiveTab('trajectory')}
-            className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-black text-xs transition-all cursor-pointer ${
-              activeTab === 'trajectory'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
-            }`}
-          >
-            <Activity className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>3D 弾道軌道</span>
-          </button>
+        {/* Main Mode Tabs & Pitcher Hand Switcher */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Pitcher Hand Toggle */}
+          <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+            <span className="text-[10px] font-black text-zinc-400 px-1.5 flex items-center gap-1">
+              <User className="w-3 h-3 text-blue-400" /> 投手:
+            </span>
+            <button
+              onClick={() => handlePitcherHandChange('R')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                pitcherHand === 'R'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              右投げ (RHP)
+            </button>
+            <button
+              onClick={() => handlePitcherHandChange('L')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                pitcherHand === 'L'
+                  ? 'bg-red-600 text-white shadow'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              左投げ (LHP)
+            </button>
+          </div>
 
-          <button
-            onClick={() => setActiveTab('seam')}
-            className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-black text-xs transition-all cursor-pointer ${
-              activeTab === 'seam'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
-            }`}
-          >
-            <Compass className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>3D 縫い目・回転</span>
-          </button>
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 bg-muted p-1 rounded-xl border border-border shrink-0">
+            <button
+              onClick={() => setActiveTab('trajectory')}
+              className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-black text-xs transition-all cursor-pointer ${
+                activeTab === 'trajectory'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
+              }`}
+            >
+              <Activity className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>3D 弾道軌道</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('seam')}
+              className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-black text-xs transition-all cursor-pointer ${
+                activeTab === 'seam'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
+              }`}
+            >
+              <Compass className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>3D 縫い目・回転</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -217,7 +260,7 @@ const PitchingSimulator = () => {
         /* 🚀 REVOLUTIONARY 3D PITCH FLIGHT SIMULATOR */
         <div className="space-y-4">
           
-          {/* Multi-Pitch Bar & Global Toggles (スッキリした球種タブ) */}
+          {/* Multi-Pitch Bar & Global Toggles */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 backdrop-blur shadow-md">
             
             {/* Pitch Badges */}
@@ -329,10 +372,11 @@ const PitchingSimulator = () => {
                   cameraView={cameraView}
                   onCameraChange={setCameraView}
                   playbackSpeed={playbackSpeed}
+                  pitcherHand={pitcherHand}
                 />
               </div>
 
-              {/* 📊 3D映像の下に独立配置された「MOVIMIENTO (BREAK CHART) / 変化量チャート」 */}
+              {/* 📊 MOVIMIENTO (BREAK CHART) / 変化量チャート */}
               <div className="bg-zinc-900/90 border border-zinc-800 p-4 rounded-2xl shadow-lg">
                 <div className="flex items-center justify-between mb-3 border-b border-zinc-800/80 pb-2">
                   <div className="flex items-center gap-2">
@@ -342,7 +386,7 @@ const PitchingSimulator = () => {
                     </h3>
                   </div>
                   <span className="text-[10px] font-mono text-zinc-400">
-                    捕手視点 (HB vs VB cm)
+                    捕手視点基準 (HB vs VB cm)
                   </span>
                 </div>
 
@@ -358,8 +402,8 @@ const PitchingSimulator = () => {
                     {/* Labels */}
                     <span className="absolute top-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-zinc-500">RISE (+)</span>
                     <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-zinc-500">DROP (-)</span>
-                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[8px] font-black text-zinc-500">- HB (-)</span>
-                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] font-black text-zinc-500">+ HB (+)</span>
+                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[8px] font-black text-zinc-500">- HB (左)</span>
+                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] font-black text-zinc-500">+ HB (右)</span>
 
                     {/* Vector Lines */}
                     <svg className="absolute inset-0 w-full h-full pointer-events-none">
@@ -460,10 +504,8 @@ const PitchingSimulator = () => {
                   onClick={handleZoneClick}
                   className="relative w-full max-w-[240px] mx-auto aspect-[4/5] bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden cursor-crosshair flex items-center justify-center shadow-inner hover:border-zinc-700 transition-all p-3"
                 >
-                  {/* Outer Ball Zone Margin */}
                   <div className="absolute inset-2 border border-dashed border-zinc-800/80 rounded pointer-events-none" />
 
-                  {/* 3x3 Official Vertical Strike Zone (自然な比率のストライクゾーン枠) */}
                   <div className="relative w-4/5 h-4/5 border-2 border-red-500/80 bg-red-500/5 grid grid-cols-3 grid-rows-3 rounded pointer-events-none shadow-[0_0_15px_rgba(239,68,68,0.15)]">
                     {[...Array(9)].map((_, i) => (
                       <div key={i} className="border border-red-500/25 flex items-center justify-center text-[9px] text-red-500/20 font-mono font-bold">
@@ -472,15 +514,12 @@ const PitchingSimulator = () => {
                     ))}
                   </div>
 
-                  {/* Home Plate Icon at Bottom */}
                   <div className="absolute bottom-1 w-10 h-2 bg-zinc-700/60 clip-home-plate pointer-events-none" />
 
                   {/* All Pitch Target Pins */}
                   {pitches.map(p => {
                     const isCur = p.id === selectedPitchId;
-                    // X: -28 ~ +28 -> 0% ~ 100%
                     const leftPct = ((p.targetLocation?.x || 0) + 28) / 56 * 100;
-                    // Z: 45 ~ 110 -> 100% ~ 0%
                     const topPct = (110 - (p.targetLocation?.z || 75)) / 65 * 100;
 
                     return (
@@ -639,7 +678,9 @@ const PitchingSimulator = () => {
                       <div className="flex justify-between text-[11px] text-zinc-400 mb-0.5">
                         <span>リリース横位置</span>
                         <span className="font-mono font-bold text-cyan-400">
-                          {(activePitch.releasePos?.x ?? -0.45) < 0 ? `右 ${(activePitch.releasePos?.x ?? -0.45).toFixed(2)}m` : `左 +${(activePitch.releasePos?.x ?? 0.45).toFixed(2)}m`}
+                          {(activePitch.releasePos?.x ?? (pitcherHand === 'R' ? -0.45 : 0.45)) < 0
+                            ? `右腕一塁側 ${(Math.abs(activePitch.releasePos?.x ?? -0.45)).toFixed(2)}m`
+                            : `左腕三塁側 ${(Math.abs(activePitch.releasePos?.x ?? 0.45)).toFixed(2)}m`}
                         </span>
                       </div>
                       <input
@@ -647,7 +688,7 @@ const PitchingSimulator = () => {
                         min="-0.90"
                         max="0.90"
                         step="0.02"
-                        value={activePitch.releasePos?.x ?? -0.45}
+                        value={activePitch.releasePos?.x ?? (pitcherHand === 'R' ? -0.45 : 0.45)}
                         onChange={(e) => updateActiveReleasePos('x', parseFloat(e.target.value))}
                         className="w-full accent-cyan-500 h-1.5 bg-zinc-800 rounded cursor-pointer"
                       />

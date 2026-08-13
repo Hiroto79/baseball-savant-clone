@@ -5,12 +5,12 @@ import { Play, Pause, RotateCcw } from 'lucide-react';
 /**
  * Rapsodo 3D Diamond 仕様 3D Pitch Flight & Trajectory Simulator
  * 
- * 強化・修正内容:
- * - 捕手視点・全視点でのスムーズな前後ドリー（マウスホイール/ピンチで視線方向に前進・後退）
- * - 背景の青いグリッド線を完全撤去（ダークで落ち着いたリアルスタジアム床面）
- * - 物理・変化量座標系の完全整合:
- *   - 投手視点: +HBは右方向（シュート/アーム側）、-HBは左方向（スライダー/グローブ側）へ変化
- *   - 捕手視点: +HBは左方向（インコース/アーム側）、-HBは右方向（アウトコース/グローブ側）へ変化
+ * 物理・弾道力学の完全再現:
+ * - 利き腕（右投 / 左投）に連動した完全無欠の放球・空力軌道
+ *   - 右投手（RHP）: 一塁側（X = -0.45m）から放球。スライダーは三塁側（右打者アウトロー）へ鋭く曲がり落ち、直球・シンカーは一塁側（インコース）へホップ＆シュート。
+ *   - 左投手（LHP）: 三塁側（X = +0.45m）から放球。スライダーは一塁側へ曲がり、直球は三塁側へ曲がる。
+ * - 視線方向への自由なドリーズーム（マウスホイール/ピンチで前後移動）
+ * - 青いグリッド線なしの落ち着いたリアルスタジアムフロア
  */
 
 // プロシージャル・レザーテクスチャ
@@ -51,7 +51,6 @@ function createProceduralLeatherTextures() {
 function createBaseballMesh(radius = 0.037, seamType = '4-seam') {
   const ballGroup = new THREE.Group();
 
-  // 1. レザー球体本体
   const bumpTexture = createProceduralLeatherTextures();
   const sphereGeo = new THREE.SphereGeometry(radius, 32, 32);
   const sphereMat = new THREE.MeshStandardMaterial({
@@ -64,7 +63,6 @@ function createBaseballMesh(radius = 0.037, seamType = '4-seam') {
   const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
   ballGroup.add(sphereMesh);
 
-  // 2. シーム曲線とステッチ
   const segments = 180;
   const alpha = 0.60;
   const points = [];
@@ -119,6 +117,7 @@ export const PitchFlight3D = ({
   cameraView = 'CATCHER', // 'CATCHER' | 'BATTER_R' | 'BATTER_L' | 'PITCHER' | 'SIDE'
   onCameraChange,
   playbackSpeed = 0.5,
+  pitcherHand = 'R', // 'R' = 右投げ, 'L' = 左投げ
 }) => {
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
@@ -155,7 +154,8 @@ export const PitchFlight3D = ({
       const flightTime = dist / v_ms; // 秒
 
       // 1. リリース位置 (右投手は一塁側 X=-0.45m, 左投手は三塁側 X=+0.45m)
-      const startX = p.releasePos?.x ?? -0.45;
+      const defaultRelX = pitcherHand === 'R' ? -0.45 : 0.45;
+      const startX = p.releasePos?.x ?? defaultRelX;
       const startY = p.releasePos?.y ?? 16.8;
       const startZ = p.releasePos?.z ?? 1.85;
 
@@ -163,13 +163,15 @@ export const PitchFlight3D = ({
       const targetX = (p.targetLocation?.x ?? 0) / 100;
       const targetZ = (p.targetLocation?.z ?? 75) / 100;
 
-      // 3. 空力変化量 (HB: +22cm=シュート/一塁側への加速, -32cm=スライダー/三塁側への加速)
+      // 3. 空力変化量 (HB: +22cm=シュート/アーム側への加速, -32cm=スライダー/グローブ側への加速)
       const hb_m = (p.hb ?? 0) / 100;
       const vb_m = (p.vb ?? 0) / 100;
 
       const g = 9.80665;
-      // スライダー(HB<0)なら ax > 0 (+X方向/三塁側へ加速)、シュート(HB>0)なら ax < 0 (-X方向/一塁側へ加速)
-      const ax = (2 * (-hb_m)) / (flightTime * flightTime);
+      // 右投手: HB<0(スライダー) -> +X(三塁側/アウトロー)へ加速、HB>0(シュート) -> -X(一塁側/インハイ)へ加速
+      // 左投手: HB<0(スライダー) -> -X(一塁側)へ加速、HB>0(シュート) -> +X(三塁側)へ加速
+      const handSign = pitcherHand === 'R' ? -1 : 1;
+      const ax = (2 * (handSign * hb_m)) / (flightTime * flightTime);
       const az_mag = (2 * vb_m) / (flightTime * flightTime); // ホップ揚力
 
       // 4. 初速計算
@@ -209,7 +211,7 @@ export const PitchFlight3D = ({
         g,
       };
     });
-  }, [pitches]);
+  }, [pitches, pitcherHand]);
 
   // カメラプリセット適用関数
   const applyCameraPreset = (view, cam) => {
@@ -268,7 +270,7 @@ export const PitchFlight3D = ({
     dirLight2.position.set(-6, 8, -8);
     scene.add(dirLight2);
 
-    // 🏟️ グラウンド & マウンド & ホームベース (青いグリッド線を撤去し、シックな質感の床面)
+    // 🏟️ グラウンド & マウンド & ホームベース
     const fieldGeo = new THREE.PlaneGeometry(18, 28);
     fieldGeo.rotateX(-Math.PI / 2);
     const fieldMat = new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.9, metalness: 0.05 });
@@ -376,7 +378,7 @@ export const PitchFlight3D = ({
 
     const onMouseUp = () => { isDraggingRef.current = false; };
 
-    // 🔍 捕手視点・全視点で自然に前後に前進/後退（ドリーズーム）
+    // 🔍 視線方向に前進/後退（ドリーズーム）
     const onWheel = (e) => {
       e.preventDefault();
       if (!camera) return;
@@ -384,7 +386,7 @@ export const PitchFlight3D = ({
       const forward = new THREE.Vector3();
       camera.getWorldDirection(forward);
 
-      const moveStep = e.deltaY < 0 ? 0.7 : -0.7; // 上スクロールで前進、下スクロールで後退
+      const moveStep = e.deltaY < 0 ? 0.7 : -0.7;
       camera.position.addScaledVector(forward, moveStep);
     };
 
