@@ -97,23 +97,23 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
     }, [isPlaying]);
 
     // ==========================================
-    // STADIUM FIELD 3D TRACES (Mound, Plates, Boxes, Strike Zone)
+    // STADIUM FIELD 3D TRACES (True Proportions)
     // ==========================================
     const sceneTraces = useMemo(() => {
         const traces = [];
 
-        // 1. Home Plate (White Pentagon pointing to catcher y=0, front edge at y=1.417)
+        // 1. Home Plate (White Pentagon: tip at y=0, front edge at y=1.417, width=1.417ft)
         traces.push({
             type: 'scatter3d', mode: 'lines',
             x: [0, -0.708, -0.708, 0.708, 0.708, 0],
             y: [0, 0.708, 1.417, 1.417, 0.708, 0],
-            z: [0.04, 0.04, 0.04, 0.04, 0.04, 0.04],
+            z: [0.03, 0.03, 0.03, 0.03, 0.03, 0.03],
             line: { color: '#ffffff', width: 6 },
             showlegend: false, hoverinfo: 'none'
         });
 
         // 2. Strike Zone Frame on Home Plate Front Edge (y = 1.417)
-        // Standard Strike Zone Width: 17 inches (-0.708 to +0.708 ft), Height: 1.5 to 3.5 ft
+        // Correct Aspect Ratio (17 in wide, 24 in high: 1.5ft to 3.5ft)
         traces.push({
             type: 'scatter3d', mode: 'lines',
             x: [-0.708, 0.708, 0.708, -0.708, -0.708],
@@ -123,27 +123,25 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
             showlegend: false, hoverinfo: 'none'
         });
 
-        // Strike Zone Inner Grid Lines (9-Grid subtle)
-        // Vertical inner lines
+        // Strike Zone 9-Grid Inner Dividers
         traces.push({
             type: 'scatter3d', mode: 'lines',
             x: [-0.236, -0.236, null, 0.236, 0.236],
             y: [1.417, 1.417, null, 1.417, 1.417],
             z: [1.5, 3.5, null, 1.5, 3.5],
-            line: { color: 'rgba(56, 189, 248, 0.35)', width: 2, dash: 'dot' },
+            line: { color: 'rgba(56, 189, 248, 0.4)', width: 2, dash: 'dot' },
             showlegend: false, hoverinfo: 'none'
         });
-        // Horizontal inner lines
         traces.push({
             type: 'scatter3d', mode: 'lines',
             x: [-0.708, 0.708, null, -0.708, 0.708],
             y: [1.417, 1.417, null, 1.417, 1.417],
             z: [2.167, 2.167, null, 2.833, 2.833],
-            line: { color: 'rgba(56, 189, 248, 0.35)', width: 2, dash: 'dot' },
+            line: { color: 'rgba(56, 189, 248, 0.4)', width: 2, dash: 'dot' },
             showlegend: false, hoverinfo: 'none'
         });
 
-        // 3. Right Batter's Box (Right-handed batter box: x < 0 in catcher view)
+        // 3. Right Batter's Box (Catcher view left: x < 0)
         traces.push({
             type: 'scatter3d', mode: 'lines',
             x: [-1.1, -4.1, -4.1, -1.1, -1.1],
@@ -153,7 +151,7 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
             showlegend: false, hoverinfo: 'none'
         });
 
-        // 4. Left Batter's Box (Left-handed batter box: x > 0 in catcher view)
+        // 4. Left Batter's Box (Catcher view right: x > 0)
         traces.push({
             type: 'scatter3d', mode: 'lines',
             x: [1.1, 4.1, 4.1, 1.1, 1.1],
@@ -178,7 +176,7 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
             moundZ.push(0.02);
         }
 
-        // Mound Circle
+        // Mound Circle (Clay tone)
         traces.push({
             type: 'scatter3d', mode: 'lines',
             x: moundX, y: moundY, z: moundZ,
@@ -222,34 +220,34 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
         return traces;
     }, []);
 
-    // Camera Presets
+    // Camera Presets (Optimized Eye distance for realistic proportions)
     const cameraSettings = useMemo(() => {
         switch (cameraAngle) {
             case 'pitcher': // Behind Pitcher looking at Catcher
                 return {
-                    eye: { x: 0, y: 1.8, z: 0.6 },
-                    center: { x: 0, y: -0.2, z: -0.1 }
+                    eye: { x: 0, y: 1.5, z: 0.5 },
+                    center: { x: 0, y: -0.1, z: -0.05 }
                 };
             case 'side': // 1st base dugout side view
                 return {
-                    eye: { x: -1.7, y: 0.2, z: 0.4 },
+                    eye: { x: -1.6, y: 0.2, z: 0.35 },
                     center: { x: 0, y: 0.5, z: 0 }
                 };
             case 'top': // Overhead top down view
                 return {
-                    eye: { x: 0, y: 0.0, z: 2.3 },
+                    eye: { x: 0, y: 0.0, z: 2.1 },
                     center: { x: 0, y: 0.5, z: 0 }
                 };
-            case 'catcher': // Behind Catcher looking at Pitcher
+            case 'catcher': // Realistic Catcher View (Zone in natural proportions)
             default:
                 return {
-                    eye: { x: -0.2, y: -1.35, z: 0.45 },
+                    eye: { x: 0, y: -0.85, z: 0.28 },
                     center: { x: 0, y: 0.5, z: -0.05 }
                 };
         }
     }, [cameraAngle]);
 
-    // Layout configuration
+    // Layout configuration with balanced aspectratio
     const layout = useMemo(() => ({
         autosize: true,
         margin: { l: 0, r: 0, b: 0, t: 0 },
@@ -262,11 +260,11 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
             font: { color: '#ffffff', size: 12, family: 'Inter, sans-serif' }
         },
         scene: {
-            xaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-10, 10] },
-            yaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-5, 68] },
-            zaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [0, 9] },
+            xaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-6, 6] },
+            yaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-3, 65] },
+            zaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [0, 8] },
             camera: cameraSettings,
-            aspectratio: { x: 1.1, y: 3.2, z: 1.0 }
+            aspectratio: { x: 1.6, y: 3.0, z: 1.0 }
         }
     }), [cameraSettings]);
 
