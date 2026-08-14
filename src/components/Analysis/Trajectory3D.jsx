@@ -220,29 +220,29 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
         return traces;
     }, []);
 
-    // Camera Presets (Optimized Eye distance for realistic proportions)
+    // Camera Presets (Optimized Eye distance for realistic proportions matching Image 2)
     const cameraSettings = useMemo(() => {
         switch (cameraAngle) {
             case 'pitcher': // Behind Pitcher looking at Catcher
                 return {
-                    eye: { x: 0, y: 1.5, z: 0.5 },
-                    center: { x: 0, y: -0.1, z: -0.05 }
+                    eye: { x: 0, y: 1.6, z: 0.6 },
+                    center: { x: 0, y: -0.2, z: -0.1 }
                 };
             case 'side': // 1st base dugout side view
                 return {
-                    eye: { x: -1.6, y: 0.2, z: 0.35 },
+                    eye: { x: -1.7, y: 0.2, z: 0.4 },
                     center: { x: 0, y: 0.5, z: 0 }
                 };
             case 'top': // Overhead top down view
                 return {
-                    eye: { x: 0, y: 0.0, z: 2.1 },
+                    eye: { x: 0, y: 0.0, z: 2.2 },
                     center: { x: 0, y: 0.5, z: 0 }
                 };
-            case 'catcher': // Realistic Catcher View (Zone in natural proportions)
+            case 'catcher': // Realistic Catcher View matching Image 2 (Mound & Zone both visible)
             default:
                 return {
-                    eye: { x: 0, y: -0.85, z: 0.28 },
-                    center: { x: 0, y: 0.5, z: -0.05 }
+                    eye: { x: 0, y: -1.45, z: 0.55 },
+                    center: { x: 0, y: 0.35, z: -0.1 }
                 };
         }
     }, [cameraAngle]);
@@ -260,11 +260,11 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
             font: { color: '#ffffff', size: 12, family: 'Inter, sans-serif' }
         },
         scene: {
-            xaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-6, 6] },
-            yaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-3, 65] },
-            zaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [0, 8] },
+            xaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-8, 8] },
+            yaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-4, 66] },
+            zaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [0, 9] },
             camera: cameraSettings,
-            aspectratio: { x: 1.6, y: 3.0, z: 1.0 }
+            aspectratio: { x: 1.5, y: 2.9, z: 1.0 }
         }
     }), [cameraSettings]);
 

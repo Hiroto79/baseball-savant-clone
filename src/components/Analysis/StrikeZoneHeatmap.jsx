@@ -27,7 +27,7 @@ const StrikeZoneHeatmap = ({ data, language = 'ja' }) => {
 
     const layout = {
         autosize: true,
-        margin: { l: 30, r: 15, b: 25, t: 10 },
+        margin: { l: 32, r: 15, b: 30, t: 20 },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: '#080d1e',
         font: { color: '#94a3b8', size: 9 },
@@ -41,7 +41,7 @@ const StrikeZoneHeatmap = ({ data, language = 'ja' }) => {
         },
         yaxis: {
             title: { text: language === 'ja' ? '高さ (ft)' : 'Plate Z (ft)', font: { size: 9, color: '#94a3b8' } },
-            range: [0.5, 4.5],
+            range: [0.3, 4.8],
             zeroline: false,
             showgrid: true,
             gridcolor: '#1e293b',
