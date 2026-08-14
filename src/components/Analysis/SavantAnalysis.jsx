@@ -17,6 +17,9 @@ import PitchMovementChart from './PitchMovementChart';
 import PitchTypeSelector from './PitchTypeSelector';
 import BattingStatsByCountTable from './BattingStatsByCountTable';
 import PitchArsenalTable from './PitchArsenalTable';
+import PercentileRankings from './PercentileRankings';
+import ReleasePointChart from './ReleasePointChart';
+import HittingPowerMatrix from './HittingPowerMatrix';
 
 const SavantAnalysis = ({ data }) => {
     const { language, units } = useSettings();
@@ -521,12 +524,20 @@ const SavantAnalysis = ({ data }) => {
             {/* Content Dashboard */}
             {selectedPlayers.length > 0 ? (
                 <div className="space-y-8">
-                    {/* KPI Cards */}
+                    {/* 1. Statcast Percentile Rankings (MLB Savant Classic) */}
+                    <PercentileRankings
+                        data={filteredData}
+                        allData={data}
+                        selectedPlayers={selectedPlayers}
+                        mode={mode}
+                    />
+
+                    {/* 2. KPI Summary Cards */}
                     <KPICards data={summaryData} mode={mode} />
 
                     {/* Main Analysis Sections */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Comparison Table - Inspector Removed Verified */}
+                        {/* Comparison Table */}
                         <div className="md:col-span-2">
                             <ComparisonTable data={summaryData} metrics={metrics} />
                         </div>
@@ -542,7 +553,15 @@ const SavantAnalysis = ({ data }) => {
                                     />
                                 </div>
 
-                                {/* 2. Batter Handedness Split Filter */}
+                                {/* 2. Release Point & Tunneling Consistency */}
+                                <div className="md:col-span-2">
+                                    <ReleasePointChart
+                                        data={filteredData}
+                                        selectedPlayers={selectedPlayers}
+                                    />
+                                </div>
+
+                                {/* 3. Batter Handedness Split Filter */}
                                 <div className="md:col-span-2 flex items-center justify-between bg-card p-3 rounded-xl border border-border">
                                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                         {language === 'ja' ? '打者左右フィルター (vs RHH / vs LHH)' : 'Batter Handedness Filter'}
@@ -568,7 +587,7 @@ const SavantAnalysis = ({ data }) => {
                                     </div>
                                 </div>
 
-                                {/* 3. Two-Column Visual Split (Movement & Strike Zone) */}
+                                {/* 4. Two-Column Visual Split (Movement & Strike Zone) */}
                                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                                     {/* Left: Pitch Movement */}
                                     <div className="w-full">
@@ -598,7 +617,7 @@ const SavantAnalysis = ({ data }) => {
                                     </div>
                                 </div>
 
-                                {/* 4. 3D Trajectory Viewer (Full Width Dedicated Card) */}
+                                {/* 5. 3D Trajectory Viewer (Full Width Dedicated Card) */}
                                 <div className="md:col-span-2 bg-card rounded-xl border border-border p-4 shadow-sm">
                                     <div className="flex items-center justify-between mb-3">
                                         <div>
@@ -620,7 +639,7 @@ const SavantAnalysis = ({ data }) => {
                                     </div>
                                 </div>
 
-                                {/* 4. Count Breakdown & Batted Ball Profile */}
+                                {/* 6. Count Breakdown & Batted Ball Profile */}
                                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                                         <h3 className="text-sm font-bold text-foreground mb-3">
@@ -638,7 +657,7 @@ const SavantAnalysis = ({ data }) => {
                                     </div>
                                 </div>
 
-                                {/* 5. Velocity Trend Chart */}
+                                {/* 7. Velocity Trend Chart */}
                                 <div className="md:col-span-2">
                                     <ComparisonChart
                                         data={chartData}
@@ -649,11 +668,17 @@ const SavantAnalysis = ({ data }) => {
                             </>
                         ) : (
                             <>
+                                {/* Batting Mode Sections */}
                                 <div className="md:col-span-2">
                                     <BatterMetricsTable data={filteredData} selectedPlayers={selectedPlayers} />
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                        <BattingStatsByCountTable data={filteredData} selectedPlayers={selectedPlayers} mode={mode} />
-                                    </div>
+                                </div>
+
+                                {/* Hitting Power Matrix (Bat Speed vs Exit Velo) */}
+                                <div className="md:col-span-2">
+                                    <HittingPowerMatrix
+                                        data={filteredData}
+                                        selectedPlayers={selectedPlayers}
+                                    />
                                 </div>
 
                                 <div className="md:col-span-2 grid md:grid-cols-2 gap-6">
@@ -666,24 +691,16 @@ const SavantAnalysis = ({ data }) => {
                                 </div>
 
                                 <div className="md:col-span-2">
-                                    <ContactAnalysis3D data={filteredData} selectedPlayers={selectedPlayers} />
+                                    <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
+                                        <h3 className="text-sm font-bold text-foreground mb-3">
+                                            {language === 'ja' ? 'カウント別 打撃成績' : 'Stats by Count'}
+                                        </h3>
+                                        <BattingStatsByCountTable data={filteredData} selectedPlayers={selectedPlayers} mode={mode} />
+                                    </div>
                                 </div>
 
-                                <div className="md:col-span-2 grid md:grid-cols-2 gap-6">
-                                    <ScatterPlot
-                                        data={scatterData}
-                                        xKey="launchAngle"
-                                        yKey="exitVelocity"
-                                        xLabel={language === 'ja' ? '打球角度 (°)' : 'Launch Angle (°)'}
-                                        yLabel={language === 'ja' ? `打球速度 (${units === 'metric' ? 'km/h' : 'mph'})` : `Exit Velocity (${units === 'metric' ? 'km/h' : 'mph'})`}
-                                    />
-                                    <ScatterPlot
-                                        data={batSpeedScatterData}
-                                        xKey="batSpeed"
-                                        yKey="exitVelocity"
-                                        xLabel={language === 'ja' ? `バットスピード (${units === 'metric' ? 'km/h' : 'mph'})` : `Bat Speed (${units === 'metric' ? 'km/h' : 'mph'})`}
-                                        yLabel={language === 'ja' ? `打球速度 (${units === 'metric' ? 'km/h' : 'mph'})` : `Exit Velocity (${units === 'metric' ? 'km/h' : 'mph'})`}
-                                    />
+                                <div className="md:col-span-2">
+                                    <ContactAnalysis3D data={filteredData} selectedPlayers={selectedPlayers} />
                                 </div>
                             </>
                         )}
@@ -694,9 +711,8 @@ const SavantAnalysis = ({ data }) => {
                     <ChevronsUpDown className="h-12 w-12 mb-4 opacity-20" />
                     <p>{language === 'ja' ? '選手を選択して比較を開始してください' : 'Select players to start comparison'}</p>
                 </div>
-            )
-            }
-        </div >
+            )}
+        </div>
     );
 };
 

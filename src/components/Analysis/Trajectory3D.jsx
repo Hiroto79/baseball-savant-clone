@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
 import { PITCH_COLORS } from '../../utils/pitchColors';
-import { Play, Pause, RotateCcw, Eye, Camera } from 'lucide-react';
+import { Play, Pause, RotateCcw, Camera } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 
 const Trajectory3D = ({ data, language = 'ja' }) => {
@@ -10,7 +10,7 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
     const [selectedIndex, setSelectedIndex] = useState('all');
     const [isPlaying, setIsPlaying] = useState(false);
     const [frame, setFrame] = useState(0);
-    const [cameraAngle, setCameraAngle] = useState('catcher'); // 'catcher' | 'pitcher' | 'side' | 'top'
+    const [cameraAngle, setCameraAngle] = useState('catcher');
     const STEPS = 40;
 
     const MPH_TO_KMH = 1.60934;
@@ -97,55 +97,76 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
     }, [isPlaying]);
 
     // ==========================================
-    // STADIUM FIELD 3D TRACES (Mound, Plates, Boxes)
+    // STADIUM FIELD 3D TRACES (Mound, Plates, Boxes, Strike Zone)
     // ==========================================
     const sceneTraces = useMemo(() => {
         const traces = [];
 
-        // 1. Home Plate (White Pentagon)
+        // 1. Home Plate (White Pentagon pointing to catcher y=0, front edge at y=1.417)
         traces.push({
             type: 'scatter3d', mode: 'lines',
-            x: [-0.71, 0, 0.71, 0.71, -0.71, -0.71],
-            y: [1.417, 0.5, 1.417, 1.417 + 0.71, 1.417 + 0.71, 1.417],
-            z: [0.05, 0.05, 0.05, 0.05, 0.05, 0.05],
-            line: { color: '#ffffff', width: 5 },
+            x: [0, -0.708, -0.708, 0.708, 0.708, 0],
+            y: [0, 0.708, 1.417, 1.417, 0.708, 0],
+            z: [0.04, 0.04, 0.04, 0.04, 0.04, 0.04],
+            line: { color: '#ffffff', width: 6 },
             showlegend: false, hoverinfo: 'none'
         });
 
-        // 2. Strike Zone 3D Wire Box
+        // 2. Strike Zone Frame on Home Plate Front Edge (y = 1.417)
+        // Standard Strike Zone Width: 17 inches (-0.708 to +0.708 ft), Height: 1.5 to 3.5 ft
         traces.push({
             type: 'scatter3d', mode: 'lines',
-            x: [-0.71, 0.71, 0.71, -0.71, -0.71,   -0.71, 0.71, 0.71, -0.71, -0.71,   -0.71, -0.71,   0.71, 0.71,   0.71, 0.71,   -0.71, -0.71],
-            y: [1.417, 1.417, 1.417, 1.417, 1.417,   2.5, 2.5, 2.5, 2.5, 2.5,             1.417, 2.5,     1.417, 2.5,   1.417, 2.5,   1.417, 2.5],
-            z: [1.5, 1.5, 3.5, 3.5, 1.5,             1.5, 1.5, 3.5, 3.5, 1.5,             1.5, 1.5,       1.5, 1.5,     3.5, 3.5,     3.5, 3.5],
-            line: { color: '#38bdf8', width: 4 },
+            x: [-0.708, 0.708, 0.708, -0.708, -0.708],
+            y: [1.417, 1.417, 1.417, 1.417, 1.417],
+            z: [1.5, 1.5, 3.5, 3.5, 1.5],
+            line: { color: '#38bdf8', width: 5 },
             showlegend: false, hoverinfo: 'none'
         });
 
-        // 3. Right Batter's Box (Right handed batter stands here: Catcher view left x < 0)
+        // Strike Zone Inner Grid Lines (9-Grid subtle)
+        // Vertical inner lines
         traces.push({
             type: 'scatter3d', mode: 'lines',
-            x: [-1.2, -4.2, -4.2, -1.2, -1.2],
-            y: [-1.0, -1.0, 5.0, 5.0, -1.0],
-            z: [0.03, 0.03, 0.03, 0.03, 0.03],
-            line: { color: 'rgba(255, 255, 255, 0.55)', width: 3 },
+            x: [-0.236, -0.236, null, 0.236, 0.236],
+            y: [1.417, 1.417, null, 1.417, 1.417],
+            z: [1.5, 3.5, null, 1.5, 3.5],
+            line: { color: 'rgba(56, 189, 248, 0.35)', width: 2, dash: 'dot' },
+            showlegend: false, hoverinfo: 'none'
+        });
+        // Horizontal inner lines
+        traces.push({
+            type: 'scatter3d', mode: 'lines',
+            x: [-0.708, 0.708, null, -0.708, 0.708],
+            y: [1.417, 1.417, null, 1.417, 1.417],
+            z: [2.167, 2.167, null, 2.833, 2.833],
+            line: { color: 'rgba(56, 189, 248, 0.35)', width: 2, dash: 'dot' },
             showlegend: false, hoverinfo: 'none'
         });
 
-        // 4. Left Batter's Box (Left handed batter stands here: Catcher view right x > 0)
+        // 3. Right Batter's Box (Right-handed batter box: x < 0 in catcher view)
         traces.push({
             type: 'scatter3d', mode: 'lines',
-            x: [1.2, 4.2, 4.2, 1.2, 1.2],
-            y: [-1.0, -1.0, 5.0, 5.0, -1.0],
-            z: [0.03, 0.03, 0.03, 0.03, 0.03],
-            line: { color: 'rgba(255, 255, 255, 0.55)', width: 3 },
+            x: [-1.1, -4.1, -4.1, -1.1, -1.1],
+            y: [-1.0, -1.0, 4.0, 4.0, -1.0],
+            z: [0.02, 0.02, 0.02, 0.02, 0.02],
+            line: { color: 'rgba(255, 255, 255, 0.45)', width: 3 },
             showlegend: false, hoverinfo: 'none'
         });
 
-        // 5. Pitcher's Mound (18ft diameter Circle at y = 60.5ft, with 10 inch / 0.83ft height)
+        // 4. Left Batter's Box (Left-handed batter box: x > 0 in catcher view)
+        traces.push({
+            type: 'scatter3d', mode: 'lines',
+            x: [1.1, 4.1, 4.1, 1.1, 1.1],
+            y: [-1.0, -1.0, 4.0, 4.0, -1.0],
+            z: [0.02, 0.02, 0.02, 0.02, 0.02],
+            line: { color: 'rgba(255, 255, 255, 0.45)', width: 3 },
+            showlegend: false, hoverinfo: 'none'
+        });
+
+        // 5. Pitcher's Mound (Circle at y = 60.5ft, radius = 9.0ft)
         const moundRadius = 9.0;
         const moundCenterY = 60.5;
-        const moundPoints = 36;
+        const moundPoints = 32;
         const moundX = [];
         const moundY = [];
         const moundZ = [];
@@ -157,28 +178,28 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
             moundZ.push(0.02);
         }
 
-        // Mound Outer Circle Line (Earthy Clay tone)
+        // Mound Circle
         traces.push({
             type: 'scatter3d', mode: 'lines',
             x: moundX, y: moundY, z: moundZ,
-            line: { color: '#c2410c', width: 4 }, // Clay orange/brown
+            line: { color: '#c2410c', width: 4 },
             showlegend: false, hoverinfo: 'none'
         });
 
-        // Mound Plateau Slope lines (3D Elevation)
-        for (let a = 0; a < 8; a++) {
-            const rad = (a / 8) * 2 * Math.PI;
+        // Mound Elevation Slopes
+        for (let a = 0; a < 6; a++) {
+            const rad = (a / 6) * 2 * Math.PI;
             traces.push({
                 type: 'scatter3d', mode: 'lines',
                 x: [0, moundRadius * Math.cos(rad)],
                 y: [moundCenterY, moundCenterY + moundRadius * Math.sin(rad)],
                 z: [0.83, 0.02],
-                line: { color: 'rgba(194, 65, 12, 0.35)', width: 2 },
+                line: { color: 'rgba(194, 65, 12, 0.3)', width: 2 },
                 showlegend: false, hoverinfo: 'none'
             });
         }
 
-        // 6. Pitcher's Plate (Rubber / 投手板: 24in x 6in at z=0.83ft)
+        // 6. Pitcher's Plate (Rubber: 24in x 6in at z=0.83ft)
         traces.push({
             type: 'scatter3d', mode: 'lines',
             x: [-1.0, 1.0, 1.0, -1.0, -1.0],
@@ -188,23 +209,13 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
             showlegend: false, hoverinfo: 'none'
         });
 
-        // 7. Pitching Turf Lane / Field Guide Lines (マウンド〜ホーム間のグラウンドレーン)
+        // 7. Ground Pitching Turf Guide Lines
         traces.push({
             type: 'scatter3d', mode: 'lines',
-            x: [-3.0, -3.0, 3.0, 3.0],
-            y: [5.0, 52.0, 52.0, 5.0],
+            x: [-2.5, -2.5, 2.5, 2.5],
+            y: [4.0, 51.5, 51.5, 4.0],
             z: [0.01, 0.01, 0.01, 0.01],
-            line: { color: 'rgba(51, 65, 85, 0.4)', width: 2, dash: 'dash' },
-            showlegend: false, hoverinfo: 'none'
-        });
-
-        // 8. Foul Lines (1st & 3rd Base lines from home plate)
-        traces.push({
-            type: 'scatter3d', mode: 'lines',
-            x: [-18, 0, 18],
-            y: [28, 1.417, 28],
-            z: [0.02, 0.02, 0.02],
-            line: { color: 'rgba(255, 255, 255, 0.3)', width: 2 },
+            line: { color: 'rgba(71, 85, 105, 0.35)', width: 1.5, dash: 'dash' },
             showlegend: false, hoverinfo: 'none'
         });
 
@@ -216,23 +227,23 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
         switch (cameraAngle) {
             case 'pitcher': // Behind Pitcher looking at Catcher
                 return {
-                    eye: { x: 0, y: 1.4, z: 0.6 },
-                    center: { x: 0, y: -0.3, z: -0.1 }
+                    eye: { x: 0, y: 1.8, z: 0.6 },
+                    center: { x: 0, y: -0.2, z: -0.1 }
                 };
             case 'side': // 1st base dugout side view
                 return {
-                    eye: { x: -1.6, y: 0.1, z: 0.5 },
+                    eye: { x: -1.7, y: 0.2, z: 0.4 },
                     center: { x: 0, y: 0.5, z: 0 }
                 };
             case 'top': // Overhead top down view
                 return {
-                    eye: { x: 0, y: -0.1, z: 2.2 },
+                    eye: { x: 0, y: 0.0, z: 2.3 },
                     center: { x: 0, y: 0.5, z: 0 }
                 };
-            case 'catcher': // Behind Catcher looking at Pitcher (Default Pro View)
+            case 'catcher': // Behind Catcher looking at Pitcher
             default:
                 return {
-                    eye: { x: -0.25, y: -1.45, z: 0.55 },
+                    eye: { x: -0.2, y: -1.35, z: 0.45 },
                     center: { x: 0, y: 0.5, z: -0.05 }
                 };
         }
@@ -251,11 +262,11 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
             font: { color: '#ffffff', size: 12, family: 'Inter, sans-serif' }
         },
         scene: {
-            xaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-12, 12] },
-            yaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-6, 70] },
-            zaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [0, 10] },
+            xaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-10, 10] },
+            yaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-5, 68] },
+            zaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [0, 9] },
             camera: cameraSettings,
-            aspectratio: { x: 1.2, y: 3.2, z: 1.1 }
+            aspectratio: { x: 1.1, y: 3.2, z: 1.0 }
         }
     }), [cameraSettings]);
 
@@ -271,7 +282,6 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
         const lineTraces = activeTrajs.map(({ traj, p }) => {
             const pitchType = getPitchLabel(p);
             
-            // Format velocity & movement for hover tooltip
             const rawVel = p.release_speed || p.Velocity || p.velocity;
             const velText = rawVel 
                 ? (units === 'metric' ? `${(Number(rawVel) * MPH_TO_KMH).toFixed(1)} km/h` : `${Number(rawVel).toFixed(1)} mph`)
