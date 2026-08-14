@@ -16,12 +16,14 @@ import PlayerSearch from './PlayerSearch';
 import PitchMovementChart from './PitchMovementChart';
 import PitchTypeSelector from './PitchTypeSelector';
 import BattingStatsByCountTable from './BattingStatsByCountTable';
+import PitchArsenalTable from './PitchArsenalTable';
 
 const SavantAnalysis = ({ data }) => {
     const { language, units } = useSettings();
     const [mode, setMode] = useState('pitching'); // 'pitching' | 'batting'
     const [selectedPlayers, setSelectedPlayers] = useState([]);
     const [selectedPitchTypes, setSelectedPitchTypes] = useState([]);
+    const [standFilter, setStandFilter] = useState('all'); // 'all' | 'R' | 'L'
     const [dateRange, setDateRange] = useState('all'); // 'all' | 'custom'
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -531,47 +533,116 @@ const SavantAnalysis = ({ data }) => {
 
                         {mode === 'pitching' ? (
                             <>
-                                {/* Detailed Metrics Summary (New) */}
+                                {/* 1. Pitch Arsenal Table (Full-width Matrix) */}
                                 <div className="md:col-span-2">
-                                    <PitchMetricsSummary data={filteredData} selectedPlayers={selectedPlayers} />
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <BattingStatsByCountTable data={filteredData} selectedPlayers={selectedPlayers} mode={mode} />
+                                    <PitchArsenalTable 
+                                        data={filteredData} 
+                                        selectedPlayers={selectedPlayers} 
+                                        standFilter={standFilter} 
+                                    />
+                                </div>
+
+                                {/* 2. Batter Handedness Split Filter */}
+                                <div className="md:col-span-2 flex items-center justify-between bg-card p-3 rounded-xl border border-border">
+                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                        {language === 'ja' ? '打者左右フィルター (vs RHH / vs LHH)' : 'Batter Handedness Filter'}
+                                    </span>
+                                    <div className="flex gap-1.5">
+                                        {[
+                                            { id: 'all', label: language === 'ja' ? '全打者' : 'All Batters' },
+                                            { id: 'R', label: language === 'ja' ? '対 右打者' : 'vs Right' },
+                                            { id: 'L', label: language === 'ja' ? '対 左打者' : 'vs Left' }
+                                        ].map(tab => (
+                                            <button
+                                                key={tab.id}
+                                                onClick={() => setStandFilter(tab.id)}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                                    standFilter === tab.id
+                                                        ? 'bg-primary text-primary-foreground shadow-sm'
+                                                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                                                }`}
+                                            >
+                                                {tab.label}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
 
+                                {/* 3. Three-Column Visual Dashboard (Movement, Strike Zone, 3D Trajectory) */}
+                                <div className="md:col-span-2 grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
+                                    {/* Left: Pitch Movement (Compact 380px) */}
+                                    <div className="lg:col-span-1">
+                                        <PitchMovementChart 
+                                            data={filteredData} 
+                                            selectedPlayers={selectedPlayers} 
+                                            standFilter={standFilter} 
+                                        />
+                                    </div>
+
+                                    {/* Center: Strike Zone Heatmap */}
+                                    <div className="lg:col-span-1">
+                                        <div className="bg-card rounded-xl border border-border p-4 shadow-sm h-[380px] flex flex-col">
+                                            <h3 className="text-sm font-bold text-foreground mb-1">
+                                                {language === 'ja' ? 'コース別配球 (Strike Zone)' : 'Pitch Location'}
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground mb-2">
+                                                {language === 'ja' ? '捕手視点でのコース分布' : 'Catcher view heatmap'}
+                                            </p>
+                                            <div className="flex-1 w-full min-h-0 flex items-center justify-center">
+                                                <StrikeZoneHeatmap
+                                                    data={trajectoryData.filter(d => standFilter === 'all' || !d.stand || d.stand === standFilter)}
+                                                    language={language}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Right: 3D Trajectory */}
+                                    <div className="lg:col-span-1">
+                                        <div className="bg-card rounded-xl border border-border p-4 shadow-sm h-[380px] flex flex-col">
+                                            <h3 className="text-sm font-bold text-foreground mb-1">
+                                                {language === 'ja' ? '3D 投球軌道 (Trajectory)' : '3D Trajectory'}
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground mb-2">
+                                                {language === 'ja' ? 'マウンドからホームへの立体軌道' : '3D Ball flight path'}
+                                            </p>
+                                            <div className="flex-1 w-full min-h-0">
+                                                <Trajectory3D
+                                                    key="traj-3d-view"
+                                                    data={trajectoryData.filter(d => standFilter === 'all' || !d.stand || d.stand === standFilter)}
+                                                    language={language}
+                                                    units={units}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 4. Count Breakdown & Batted Ball Profile */}
+                                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
+                                        <h3 className="text-sm font-bold text-foreground mb-3">
+                                            {language === 'ja' ? 'カウント別 投球成績' : 'Stats by Count'}
+                                        </h3>
+                                        <BattingStatsByCountTable data={filteredData} selectedPlayers={selectedPlayers} mode={mode} />
+                                    </div>
+                                    <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-col justify-between">
+                                        <div>
+                                            <h3 className="text-sm font-bold text-foreground mb-3">
+                                                {language === 'ja' ? '被打球プロファイル (Batted Balls)' : 'Batted Ball Profile'}
+                                            </h3>
+                                            <BattedBallProfile data={battedBallProfile} />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 5. Velocity Trend Chart */}
                                 <div className="md:col-span-2">
                                     <ComparisonChart
                                         data={chartData}
                                         lines={chartLines.map(l => ({ dataKey: `${l.id}_vel`, name: l.name }))}
                                         yLabel={language === 'ja' ? `平均球速 (${units === 'metric' ? 'km/h' : 'mph'})` : `Avg Velocity (${units === 'metric' ? 'km/h' : 'mph'})`}
                                     />
-                                </div>
-
-                                { /* 3D Trajectory & Heatmap */}
-                                <div className="md:col-span-2 grid md:grid-cols-3 gap-6">
-                                    <div className="md:col-span-2">
-                                        <Trajectory3D
-                                            key="traj-3d-view"
-                                            data={trajectoryData}
-                                            language={language}
-                                            units={units}
-                                        />
-                                    </div>
-                                    <div className="md:col-span-1">
-                                        <StrikeZoneHeatmap
-                                            data={trajectoryData}
-                                            language={language}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Movement Only */}
-                                <div className="md:col-span-2">
-                                    <PitchMovementChart data={filteredData} selectedPlayers={selectedPlayers} />
-                                </div>
-
-                                <div className="md:col-span-2">
-                                    <BattedBallProfile data={battedBallProfile} />
                                 </div>
                             </>
                         ) : (

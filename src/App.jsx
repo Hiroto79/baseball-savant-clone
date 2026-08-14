@@ -20,6 +20,8 @@ import SeamSimulator from './pages/SeamSimulator';
 import { SettingsProvider } from './context/SettingsContext';
 import { BlastProvider } from './context/BlastContext';
 
+import Dashboard from './components/Dashboard';
+
 import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
@@ -69,20 +71,18 @@ function App() {
               <BrowserRouter>
                 <Layout>
                   <Routes>
-
+                    <Route path="/" element={<Dashboard />} />
                     <Route path="/player/:playerId" element={<PlayerDetails />} />
                     <Route path="/rapsodo" element={<Rapsodo />} />
                     <Route path="/blast" element={<Blast />} />
                     <Route path="/analysis" element={<Analysis />} />
                     <Route path="/leaderboard" element={<Leaderboard />} />
-                    <Route path="/feedback" element={<Feedback />} /> {/* Added Feedback route */}
-                    <Route path="/hitter-feedback" element={<HitterFeedback />} /> {/* Added HitterFeedback route */}
+                    <Route path="/feedback" element={<Feedback />} />
+                    <Route path="/hitter-feedback" element={<HitterFeedback />} />
                     <Route path="/simulator" element={<PitchingSimulator />} />
                     <Route path="/seam-simulator" element={<SeamSimulator />} />
                     <Route path="/upload" element={<Upload />} />
                     <Route path="/settings" element={<Settings />} />
-
-                    <Route path="/" element={<Navigate to="/analysis" replace />} />
                   </Routes>
                 </Layout>
               </BrowserRouter>

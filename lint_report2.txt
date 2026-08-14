@@ -1,0 +1,320 @@
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+
+/Users/ento/baseball-savant/src/components/Analysis/BlastAnalysis.jsx
+   57:48  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `convertVel`, but the source dependencies were [playerSwings, selectedPlayers, units]. Inferred different dependency than source.
+
+   55 |
+   56 |     // Prepare Chart Data and Summary Data
+>  57 |     const { chartData, summaryData } = useMemo(() => {
+      |                                                ^^^^^^^
+>  58 |         if (selectedPlayers.length === 0) return { chartData: [], summaryData: {} };
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  59 |
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 135 |
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 136 |     }, [playerSwings, selectedPlayers, units]);
+      | ^^^^^^ Could not preserve existing manual memoization
+  137 |
+  138 |     const metrics = [
+  139 |         { key: 'bat_speed', label: language === 'ja' ? '平均バットスピード' : 'Avg Bat Speed', unit: units === 'metric' ? 'km/h' : 'mph' },  react-hooks/preserve-manual-memoization
+  136:8   warning  React Hook useMemo has a missing dependency: 'convertVel'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  react-hooks/exhaustive-deps
+
+/Users/ento/baseball-savant/src/components/Analysis/PitchFlight3D.jsx
+  454:6  warning  React Hook useEffect has a missing dependency: 'cameraView'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/ento/baseball-savant/src/components/Analysis/PolarSprayChart.jsx
+   60:13  error  'traces' is not defined  no-undef
+   95:13  error  'traces' is not defined  no-undef
+  114:13  error  'traces' is not defined  no-undef
+  125:16  error  'traces' is not defined  no-undef
+
+/Users/ento/baseball-savant/src/components/Analysis/RapsodoAnalysis.jsx
+   79:48  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `convertVel`, but the source dependencies were [pitchingData, battingData, mode, selectedPlayers, selectedPitchTypes, units]. Inferred different dependency than source.
+
+   77 |
+   78 |     // Prepare Chart Data and Summary Data
+>  79 |     const { chartData, summaryData } = useMemo(() => {
+      |                                                ^^^^^^^
+>  80 |         if (selectedPlayers.length === 0) return { chartData: [], summaryData: {} };
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  81 |
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 236 |
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 237 |     }, [pitchingData, battingData, mode, selectedPlayers, selectedPitchTypes, units]);
+      | ^^^^^^ Could not preserve existing manual memoization
+  238 |
+  239 |     // Define metrics
+  240 |     const metrics = mode === 'pitching'    react-hooks/preserve-manual-memoization
+   79:48  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `convertBreak`, but the source dependencies were [pitchingData, battingData, mode, selectedPlayers, selectedPitchTypes, units]. Inferred different dependency than source.
+
+   77 |
+   78 |     // Prepare Chart Data and Summary Data
+>  79 |     const { chartData, summaryData } = useMemo(() => {
+      |                                                ^^^^^^^
+>  80 |         if (selectedPlayers.length === 0) return { chartData: [], summaryData: {} };
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  81 |
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 236 |
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 237 |     }, [pitchingData, battingData, mode, selectedPlayers, selectedPitchTypes, units]);
+      | ^^^^^^ Could not preserve existing manual memoization
+  238 |
+  239 |     // Define metrics
+  240 |     const metrics = mode === 'pitching'  react-hooks/preserve-manual-memoization
+   79:48  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `convertDist`, but the source dependencies were [pitchingData, battingData, mode, selectedPlayers, selectedPitchTypes, units]. Inferred different dependency than source.
+
+   77 |
+   78 |     // Prepare Chart Data and Summary Data
+>  79 |     const { chartData, summaryData } = useMemo(() => {
+      |                                                ^^^^^^^
+>  80 |         if (selectedPlayers.length === 0) return { chartData: [], summaryData: {} };
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  81 |
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 236 |
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 237 |     }, [pitchingData, battingData, mode, selectedPlayers, selectedPitchTypes, units]);
+      | ^^^^^^ Could not preserve existing manual memoization
+  238 |
+  239 |     // Define metrics
+  240 |     const metrics = mode === 'pitching'   react-hooks/preserve-manual-memoization
+  237:8   warning  React Hook useMemo has missing dependencies: 'convertBreak', 'convertDist', and 'convertVel'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  react-hooks/exhaustive-deps
+
+/Users/ento/baseball-savant/src/components/Analysis/SavantAnalysis.jsx
+   47:11  error    'convertBreak' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             no-unused-vars
+  111:48  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `convertVel`, but the source dependencies were [filteredData, mode, selectedPlayers, selectedPitchTypes, units]. Inferred different dependency than source.
+
+  109 |
+  110 |     // Prepare Chart Data and Summary Data
+> 111 |     const { chartData, summaryData } = useMemo(() => {
+      |                                                ^^^^^^^
+> 112 |         if (selectedPlayers.length === 0) return { chartData: [], summaryData: {} };
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 113 |
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 307 |
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 308 |     }, [filteredData, mode, selectedPlayers, selectedPitchTypes, units]);
+      | ^^^^^^ Could not preserve existing manual memoization
+  309 |
+  310 |     const trajectoryData = useMemo(() => {
+  311 |         if (selectedPlayers.length === 0) return [];   react-hooks/preserve-manual-memoization
+  111:48  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `convertDist`, but the source dependencies were [filteredData, mode, selectedPlayers, selectedPitchTypes, units]. Inferred different dependency than source.
+
+  109 |
+  110 |     // Prepare Chart Data and Summary Data
+> 111 |     const { chartData, summaryData } = useMemo(() => {
+      |                                                ^^^^^^^
+> 112 |         if (selectedPlayers.length === 0) return { chartData: [], summaryData: {} };
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 113 |
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 307 |
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 308 |     }, [filteredData, mode, selectedPlayers, selectedPitchTypes, units]);
+      | ^^^^^^ Could not preserve existing manual memoization
+  309 |
+  310 |     const trajectoryData = useMemo(() => {
+  311 |         if (selectedPlayers.length === 0) return [];  react-hooks/preserve-manual-memoization
+  308:8   warning  React Hook useMemo has missing dependencies: 'convertDist' and 'convertVel'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react-hooks/exhaustive-deps
+  316:33  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `convertVel`, but the source dependencies were [filteredData, mode, selectedPlayers, units]. Inferred different dependency than source.
+
+  314 |
+  315 |     // Prepare scatter plot data for batting mode
+> 316 |     const scatterData = useMemo(() => {
+      |                                 ^^^^^^^
+> 317 |         if (mode !== 'batting' || selectedPlayers.length === 0) return [];
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 318 |
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 338 |
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 339 |     }, [filteredData, mode, selectedPlayers, units]);
+      | ^^^^^^ Could not preserve existing manual memoization
+  340 |
+  341 |
+  342 |                                                                                                                                                                                                          react-hooks/preserve-manual-memoization
+  339:8   warning  React Hook useMemo has a missing dependency: 'convertVel'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              react-hooks/exhaustive-deps
+  368:41  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `convertVel`, but the source dependencies were [filteredData, mode, selectedPlayers, units]. Inferred different dependency than source.
+
+  366 |
+  367 |     // Prepare bat speed scatter plot data for batting mode
+> 368 |     const batSpeedScatterData = useMemo(() => {
+      |                                         ^^^^^^^
+> 369 |         if (mode !== 'batting' || selectedPlayers.length === 0) return [];
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 370 |
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 392 |         return data;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 393 |     }, [filteredData, mode, selectedPlayers, units]);
+      | ^^^^^^ Could not preserve existing manual memoization
+  394 |
+  395 |     // Define metrics
+  396 |     const metrics = mode === 'pitching'                                                                                             react-hooks/preserve-manual-memoization
+  393:8   warning  React Hook useMemo has a missing dependency: 'convertVel'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              react-hooks/exhaustive-deps
+
+/Users/ento/baseball-savant/src/components/RapsodoSeamViewer.jsx
+   94:17  error    Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  472:6   warning  React Hook useEffect has missing dependencies: 'seamType' and 'viewAngle'. Either include them or remove the dependency array   react-hooks/exhaustive-deps
+  589:14  error    Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/ento/baseball-savant/src/context/BlastContext.jsx
+    6:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  164:41  error  'firstRow' is not defined                                                                                                       no-undef
+
+/Users/ento/baseball-savant/src/context/DataContext.jsx
+  6:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/ento/baseball-savant/src/context/RapsodoContext.jsx
+  6:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/ento/baseball-savant/src/context/SettingsContext.jsx
+  5:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/ento/baseball-savant/src/pages/HitterFeedback.jsx
+   23:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  21 |     useEffect(() => {
+  22 |         if (selectedPlayer && !customPlayerName) {
+> 23 |             setCustomPlayerName(selectedPlayer);
+     |             ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  24 |         }
+  25 |     }, [selectedPlayer, customPlayerName]);
+  26 |   react-hooks/set-state-in-effect
+   96:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  94 |     useEffect(() => {
+  95 |         if (players.length > 0 && !selectedPlayer) {
+> 96 |             setSelectedPlayer(players[0]);
+     |             ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  97 |         }
+  98 |     }, [players, selectedPlayer]);
+  99 |                  react-hooks/set-state-in-effect
+  534:29  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+  532 |
+  533 |     // Performance Optimization: Memoize expensive data derivations
+> 534 |     const memoScatterData = useMemo(() => getScatterData(selectedPlayer), [selectedPlayer, reportType, allData]);
+      |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Could not preserve existing memoization
+  535 |     const teamStats = useMemo(() => getTeamStats(), [reportType, allData]);
+  536 |
+  537 |     // Performance Optimization: Memoize static stats (Team/Grade Averages)                                                                                                                                                                                                                  react-hooks/preserve-manual-memoization
+  534:75  warning  React Hook useMemo has a missing dependency: 'getScatterData'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react-hooks/exhaustive-deps
+  535:23  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+  533 |     // Performance Optimization: Memoize expensive data derivations
+  534 |     const memoScatterData = useMemo(() => getScatterData(selectedPlayer), [selectedPlayer, reportType, allData]);
+> 535 |     const teamStats = useMemo(() => getTeamStats(), [reportType, allData]);
+      |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Could not preserve existing memoization
+  536 |
+  537 |     // Performance Optimization: Memoize static stats (Team/Grade Averages)
+  538 |     const staticTableStats = useMemo(() => {                                                                                                                                                                                                           react-hooks/preserve-manual-memoization
+  535:53  warning  React Hook useMemo has a missing dependency: 'getTeamStats'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            react-hooks/exhaustive-deps
+  538:30  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+  536 |
+  537 |     // Performance Optimization: Memoize static stats (Team/Grade Averages)
+> 538 |     const staticTableStats = useMemo(() => {
+      |                              ^^^^^^^^^^^^^^^
+> 539 |         if (!allData.length) return null;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 540 |         const result = { team: {}, grade2: {}, grade1: {}, ms3: {}, grade3: {} };
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 610 |         return result;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 611 |     }, [allData, reportType]);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Could not preserve existing memoization
+  612 |
+  613 |     const handlePrint = () => window.print();
+  614 |     const getTypeColor = (ang) => {  react-hooks/preserve-manual-memoization
+  611:8   warning  React Hook useMemo has missing dependencies: 'CONFIG', 'getPlayerGradeInfo', 'getStats', and 'players'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               react-hooks/exhaustive-deps
+
+/Users/ento/baseball-savant/src/pages/Leaderboard.jsx
+   63:29  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+   61 |
+   62 |     // Process Data for Leaderboard
+>  63 |     const leaderboardData = useMemo(() => {
+      |                             ^^^^^^^^^^^^^^^
+>  64 |         // const rankings = [];
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  65 |         const playerMap = {}; // To store max value per player
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 182 |
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 183 |     }, [activeTab, metric, savantData, rapsodoPitching, rapsodoBatting, blastData, units, ageCategory]);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Could not preserve existing memoization
+  184 |
+  185 |     // Helper to format value for display
+  186 |     function formatValue(val, metricId, source) {  react-hooks/preserve-manual-memoization
+  183:8   warning  React Hook useMemo has a missing dependency: 'formatValue'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               react-hooks/exhaustive-deps
+
+/Users/ento/baseball-savant/src/pages/Rapsodo.jsx
+  43:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  41 |     useEffect(() => {
+  42 |         if (dates.length > 0 && !startDate) {
+> 43 |             setStartDate(dates[0]);
+     |             ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  44 |             setEndDate(dates[dates.length - 1]);
+  45 |         }
+  46 |     }, [dates, startDate]);  react-hooks/set-state-in-effect
+
+✖ 38 problems (27 errors, 11 warnings)
+
