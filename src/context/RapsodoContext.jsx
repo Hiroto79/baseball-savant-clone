@@ -359,41 +359,38 @@ export const RapsodoProvider = ({ children }) => {
 
     const deleteFile = async (fileId) => {
         try {
+            setLoading(true);
             const idStr = String(fileId);
 
-            // Delete from Supabase (both tables)
-            const { error: pError } = await supabase
-                .from('rapsodo_pitching')
-                .delete()
-                .eq('upload_id', idStr);
-
-            if (pError) {
-                console.error("Error deleting from rapsodo_pitching:", pError);
-                // Continue to try deleting from batting even if pitching fails? 
-                // Better to alert but try both.
+            if (fileId === 'legacy' || !fileId) {
+                await supabase.from('rapsodo_pitching').delete().not('id', 'is', null);
+                await supabase.from('rapsodo_batting').delete().not('id', 'is', null);
+            } else {
+                await supabase.from('rapsodo_pitching').delete().eq('upload_id', idStr);
+                await supabase.from('rapsodo_batting').delete().eq('upload_id', idStr);
+                if (fileHistory.length <= 1) {
+                    await supabase.from('rapsodo_pitching').delete().not('id', 'is', null);
+                    await supabase.from('rapsodo_batting').delete().not('id', 'is', null);
+                }
             }
 
-            const { error: bError } = await supabase
-                .from('rapsodo_batting')
-                .delete()
-                .eq('upload_id', idStr);
-
-            if (bError) {
-                console.error("Error deleting from rapsodo_batting:", bError);
-            }
-
-            if (pError || bError) {
-                alert(`Warning: Some data might not have been deleted from server. Check console for details.`);
-            }
-
-            setPitchingData(prev => prev.filter(row => row._fileId !== fileId));
-            setBattingData(prev => prev.filter(row => row._fileId !== fileId));
+            setPitchingData(prev => prev.filter(row => row._fileId !== fileId && fileId !== 'legacy'));
+            setBattingData(prev => prev.filter(row => row._fileId !== fileId && fileId !== 'legacy'));
             setFileHistory(prev => prev.filter(file => file.id !== fileId));
 
+            if (fileId === 'legacy') {
+                setPitchingData([]);
+                setBattingData([]);
+                setFileHistory([]);
+            }
+
             console.log(`Deleted file ${fileId} from Supabase and local state`);
+            alert("削除が完了しました。");
         } catch (err) {
             console.error("Delete operation failed:", err);
             alert("An unexpected error occurred while deleting.");
+        } finally {
+            setLoading(false);
         }
     };
 

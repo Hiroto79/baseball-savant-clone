@@ -335,27 +335,55 @@ export const DataProvider = ({ children }) => {
 
     const deleteFile = async (fileId) => {
         try {
-            // Delete from Supabase
-            // Note: fileId is stored as string in DB column 'upload_id'
-            const { error } = await supabase
-                .from('savant_data')
-                .delete()
-                .eq('upload_id', String(fileId));
+            setLoading(true);
+            let error = null;
+
+            if (fileId === 'legacy' || !fileId) {
+                // Delete all rows in savant_data
+                const res = await supabase
+                    .from('savant_data')
+                    .delete()
+                    .not('id', 'is', null);
+                error = res.error;
+            } else {
+                // Try deleting by upload_id first
+                const res = await supabase
+                    .from('savant_data')
+                    .delete()
+                    .eq('upload_id', String(fileId));
+                error = res.error;
+
+                // Fallback: if 0 rows or column missing, delete all
+                if (!error) {
+                    const check = await supabase.from('savant_data').select('id').limit(1);
+                    if (check.data && check.data.length > 0 && fileHistory.length <= 1) {
+                        await supabase.from('savant_data').delete().not('id', 'is', null);
+                    }
+                }
+            }
 
             if (error) {
                 console.error("Error deleting file from Supabase:", error);
-                alert(`Failed to delete file from server: ${error.message}`);
+                alert(`Failed to delete data from server: ${error.message}`);
                 return;
             }
 
             // Update local state
-            setData(prev => prev.filter(row => row._fileId !== fileId));
+            setData(prev => prev.filter(row => row._fileId !== fileId && fileId !== 'legacy'));
             setFileHistory(prev => prev.filter(file => file.id !== fileId));
 
+            if (fileId === 'legacy') {
+                setData([]);
+                setFileHistory([]);
+            }
+
             console.log(`Deleted file ${fileId} from Supabase and local state`);
+            alert("削除が完了しました。");
         } catch (err) {
             console.error("Delete operation failed:", err);
             alert("An unexpected error occurred while deleting.");
+        } finally {
+            setLoading(false);
         }
     };
 

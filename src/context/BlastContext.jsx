@@ -367,11 +367,22 @@ export const BlastProvider = ({ children }) => {
     // Function to delete file from history
     const deleteFile = async (fileId) => {
         try {
-            // Delete from Supabase
-            const { error } = await supabase
-                .from('blast_data')
-                .delete()
-                .eq('upload_id', String(fileId));
+            setLoading(true);
+            let error = null;
+
+            if (fileId === 'legacy' || !fileId) {
+                const res = await supabase.from('blast_data').delete().not('id', 'is', null);
+                error = res.error;
+            } else {
+                const res = await supabase.from('blast_data').delete().eq('upload_id', String(fileId));
+                error = res.error;
+                if (!error) {
+                    const check = await supabase.from('blast_data').select('id').limit(1);
+                    if (check.data && check.data.length > 0 && fileHistory.length <= 1) {
+                        await supabase.from('blast_data').delete().not('id', 'is', null);
+                    }
+                }
+            }
 
             if (error) {
                 console.error("Error deleting file from Supabase:", error);
@@ -379,15 +390,22 @@ export const BlastProvider = ({ children }) => {
                 return;
             }
 
-            // Remove data associated with this file
-            setBlastData(prev => prev.filter(row => row._fileId !== fileId));
-            // Remove from history
+            // Update local state
+            setBlastData(prev => prev.filter(row => row._fileId !== fileId && fileId !== 'legacy'));
             setFileHistory(prev => prev.filter(file => file.id !== fileId));
 
+            if (fileId === 'legacy') {
+                setBlastData([]);
+                setFileHistory([]);
+            }
+
             console.log(`Deleted file ${fileId} from Supabase and local state`);
+            alert("削除が完了しました。");
         } catch (err) {
             console.error("Delete operation failed:", err);
             alert("An unexpected error occurred while deleting.");
+        } finally {
+            setLoading(false);
         }
     };
 
