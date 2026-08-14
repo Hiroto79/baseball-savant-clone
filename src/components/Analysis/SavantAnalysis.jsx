@@ -610,7 +610,7 @@ const SavantAnalysis = ({ data }) => {
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="h-[420px] w-full">
+                                    <div className="h-[480px] w-full">
                                         <Trajectory3D
                                             key="traj-3d-view"
                                             data={trajectoryData.filter(d => standFilter === 'all' || !d.stand || d.stand === standFilter)}

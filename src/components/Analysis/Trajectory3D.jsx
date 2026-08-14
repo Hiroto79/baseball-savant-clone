@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
 import { PITCH_COLORS } from '../../utils/pitchColors';
-import { Play, Pause, RotateCcw } from 'lucide-react';
+import { Play, Pause, RotateCcw, Eye, Camera } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 
 const Trajectory3D = ({ data, language = 'ja' }) => {
@@ -10,6 +10,7 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
     const [selectedIndex, setSelectedIndex] = useState('all');
     const [isPlaying, setIsPlaying] = useState(false);
     const [frame, setFrame] = useState(0);
+    const [cameraAngle, setCameraAngle] = useState('catcher'); // 'catcher' | 'pitcher' | 'side' | 'top'
     const STEPS = 40;
 
     const MPH_TO_KMH = 1.60934;
@@ -75,7 +76,7 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
     }, [data, selectedType]);
 
     const displayData = useMemo(() => {
-        if (selectedIndex === 'all') return filteredData.slice(0, 30);
+        if (selectedIndex === 'all') return filteredData.slice(0, 35);
         return filteredData[selectedIndex] ? [filteredData[selectedIndex]] : [];
     }, [filteredData, selectedIndex]);
 
@@ -95,51 +96,168 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
         return () => clearInterval(interval);
     }, [isPlaying]);
 
-    // Scene (Home plate & Strike zone 3D)
-    const sceneTraces = useMemo(() => [
-        // Home Plate
-        {
+    // ==========================================
+    // STADIUM FIELD 3D TRACES (Mound, Plates, Boxes)
+    // ==========================================
+    const sceneTraces = useMemo(() => {
+        const traces = [];
+
+        // 1. Home Plate (White Pentagon)
+        traces.push({
             type: 'scatter3d', mode: 'lines',
             x: [-0.71, 0, 0.71, 0.71, -0.71, -0.71],
             y: [1.417, 0.5, 1.417, 1.417 + 0.71, 1.417 + 0.71, 1.417],
             z: [0.05, 0.05, 0.05, 0.05, 0.05, 0.05],
-            line: { color: '#ffffff', width: 4 },
+            line: { color: '#ffffff', width: 5 },
             showlegend: false, hoverinfo: 'none'
-        },
-        // Strike Zone 3D
-        {
-            type: 'scatter3d', mode: 'lines',
-            x: [-0.71, 0.71, 0.71, -0.71, -0.71],
-            y: [1.417, 1.417, 1.417, 1.417, 1.417],
-            z: [1.5, 1.5, 3.5, 3.5, 1.5],
-            line: { color: '#38bdf8', width: 3, dash: 'solid' },
-            showlegend: false, hoverinfo: 'none'
-        }
-    ], []);
+        });
 
-    // Layout with Clean Background (No ugly axis lines or numbers)
+        // 2. Strike Zone 3D Wire Box
+        traces.push({
+            type: 'scatter3d', mode: 'lines',
+            x: [-0.71, 0.71, 0.71, -0.71, -0.71,   -0.71, 0.71, 0.71, -0.71, -0.71,   -0.71, -0.71,   0.71, 0.71,   0.71, 0.71,   -0.71, -0.71],
+            y: [1.417, 1.417, 1.417, 1.417, 1.417,   2.5, 2.5, 2.5, 2.5, 2.5,             1.417, 2.5,     1.417, 2.5,   1.417, 2.5,   1.417, 2.5],
+            z: [1.5, 1.5, 3.5, 3.5, 1.5,             1.5, 1.5, 3.5, 3.5, 1.5,             1.5, 1.5,       1.5, 1.5,     3.5, 3.5,     3.5, 3.5],
+            line: { color: '#38bdf8', width: 4 },
+            showlegend: false, hoverinfo: 'none'
+        });
+
+        // 3. Right Batter's Box (Right handed batter stands here: Catcher view left x < 0)
+        traces.push({
+            type: 'scatter3d', mode: 'lines',
+            x: [-1.2, -4.2, -4.2, -1.2, -1.2],
+            y: [-1.0, -1.0, 5.0, 5.0, -1.0],
+            z: [0.03, 0.03, 0.03, 0.03, 0.03],
+            line: { color: 'rgba(255, 255, 255, 0.55)', width: 3 },
+            showlegend: false, hoverinfo: 'none'
+        });
+
+        // 4. Left Batter's Box (Left handed batter stands here: Catcher view right x > 0)
+        traces.push({
+            type: 'scatter3d', mode: 'lines',
+            x: [1.2, 4.2, 4.2, 1.2, 1.2],
+            y: [-1.0, -1.0, 5.0, 5.0, -1.0],
+            z: [0.03, 0.03, 0.03, 0.03, 0.03],
+            line: { color: 'rgba(255, 255, 255, 0.55)', width: 3 },
+            showlegend: false, hoverinfo: 'none'
+        });
+
+        // 5. Pitcher's Mound (18ft diameter Circle at y = 60.5ft, with 10 inch / 0.83ft height)
+        const moundRadius = 9.0;
+        const moundCenterY = 60.5;
+        const moundPoints = 36;
+        const moundX = [];
+        const moundY = [];
+        const moundZ = [];
+
+        for (let i = 0; i <= moundPoints; i++) {
+            const angle = (i / moundPoints) * 2 * Math.PI;
+            moundX.push(moundRadius * Math.cos(angle));
+            moundY.push(moundCenterY + moundRadius * Math.sin(angle));
+            moundZ.push(0.02);
+        }
+
+        // Mound Outer Circle Line (Earthy Clay tone)
+        traces.push({
+            type: 'scatter3d', mode: 'lines',
+            x: moundX, y: moundY, z: moundZ,
+            line: { color: '#c2410c', width: 4 }, // Clay orange/brown
+            showlegend: false, hoverinfo: 'none'
+        });
+
+        // Mound Plateau Slope lines (3D Elevation)
+        for (let a = 0; a < 8; a++) {
+            const rad = (a / 8) * 2 * Math.PI;
+            traces.push({
+                type: 'scatter3d', mode: 'lines',
+                x: [0, moundRadius * Math.cos(rad)],
+                y: [moundCenterY, moundCenterY + moundRadius * Math.sin(rad)],
+                z: [0.83, 0.02],
+                line: { color: 'rgba(194, 65, 12, 0.35)', width: 2 },
+                showlegend: false, hoverinfo: 'none'
+            });
+        }
+
+        // 6. Pitcher's Plate (Rubber / 投手板: 24in x 6in at z=0.83ft)
+        traces.push({
+            type: 'scatter3d', mode: 'lines',
+            x: [-1.0, 1.0, 1.0, -1.0, -1.0],
+            y: [60.5, 60.5, 60.0, 60.0, 60.5],
+            z: [0.83, 0.83, 0.83, 0.83, 0.83],
+            line: { color: '#ffffff', width: 6 },
+            showlegend: false, hoverinfo: 'none'
+        });
+
+        // 7. Pitching Turf Lane / Field Guide Lines (マウンド〜ホーム間のグラウンドレーン)
+        traces.push({
+            type: 'scatter3d', mode: 'lines',
+            x: [-3.0, -3.0, 3.0, 3.0],
+            y: [5.0, 52.0, 52.0, 5.0],
+            z: [0.01, 0.01, 0.01, 0.01],
+            line: { color: 'rgba(51, 65, 85, 0.4)', width: 2, dash: 'dash' },
+            showlegend: false, hoverinfo: 'none'
+        });
+
+        // 8. Foul Lines (1st & 3rd Base lines from home plate)
+        traces.push({
+            type: 'scatter3d', mode: 'lines',
+            x: [-18, 0, 18],
+            y: [28, 1.417, 28],
+            z: [0.02, 0.02, 0.02],
+            line: { color: 'rgba(255, 255, 255, 0.3)', width: 2 },
+            showlegend: false, hoverinfo: 'none'
+        });
+
+        return traces;
+    }, []);
+
+    // Camera Presets
+    const cameraSettings = useMemo(() => {
+        switch (cameraAngle) {
+            case 'pitcher': // Behind Pitcher looking at Catcher
+                return {
+                    eye: { x: 0, y: 1.4, z: 0.6 },
+                    center: { x: 0, y: -0.3, z: -0.1 }
+                };
+            case 'side': // 1st base dugout side view
+                return {
+                    eye: { x: -1.6, y: 0.1, z: 0.5 },
+                    center: { x: 0, y: 0.5, z: 0 }
+                };
+            case 'top': // Overhead top down view
+                return {
+                    eye: { x: 0, y: -0.1, z: 2.2 },
+                    center: { x: 0, y: 0.5, z: 0 }
+                };
+            case 'catcher': // Behind Catcher looking at Pitcher (Default Pro View)
+            default:
+                return {
+                    eye: { x: -0.25, y: -1.45, z: 0.55 },
+                    center: { x: 0, y: 0.5, z: -0.05 }
+                };
+        }
+    }, [cameraAngle]);
+
+    // Layout configuration
     const layout = useMemo(() => ({
         autosize: true,
         margin: { l: 0, r: 0, b: 0, t: 0 },
         paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: '#080d1e',
+        plot_bgcolor: '#060a17',
         showlegend: false,
         hoverlabel: {
             bgcolor: '#0f172a',
             bordercolor: '#38bdf8',
-            font: { color: '#ffffff', size: 12 }
+            font: { color: '#ffffff', size: 12, family: 'Inter, sans-serif' }
         },
         scene: {
-            xaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-3.5, 3.5] },
-            yaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [0, 60] },
-            zaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [0, 7.5] },
-            camera: {
-                eye: { x: -0.35, y: -2.1, z: 0.8 },
-                center: { x: 0, y: 0.35, z: -0.2 }
-            },
-            aspectratio: { x: 0.9, y: 2.3, z: 1.0 }
+            xaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-12, 12] },
+            yaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-6, 70] },
+            zaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [0, 10] },
+            camera: cameraSettings,
+            aspectratio: { x: 1.2, y: 3.2, z: 1.1 }
         }
-    }), []);
+    }), [cameraSettings]);
 
     const plotData = useMemo(() => {
         const activeTrajs = displayData.map(p => {
@@ -182,7 +300,7 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
                 x: traj.x.slice(0, len),
                 y: traj.y.slice(0, len),
                 z: traj.z.slice(0, len),
-                line: { width: 4.5, color: PITCH_COLORS[pitchType] || '#3b82f6' },
+                line: { width: 5.5, color: PITCH_COLORS[pitchType] || '#3b82f6' },
                 showlegend: false,
                 hoverinfo: 'text',
                 text: hoverInfo
@@ -195,7 +313,7 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
             return {
                 type: 'scatter3d', mode: 'markers',
                 x: [traj.x[k]], y: [traj.y[k]], z: [traj.z[k]],
-                marker: { size: 5.5, color: '#ffffff', line: { color: '#38bdf8', width: 2 } },
+                marker: { size: 6.5, color: '#ffffff', line: { color: '#38bdf8', width: 2 } },
                 showlegend: false,
                 hoverinfo: 'none'
             };
@@ -213,18 +331,41 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
     }
 
     return (
-        <div className="w-full h-full min-h-[360px] relative overflow-hidden rounded-xl bg-[#080d1e] flex flex-col">
+        <div className="w-full h-full min-h-[460px] relative overflow-hidden rounded-2xl bg-[#060a17] border border-slate-800/80 flex flex-col shadow-inner">
             {/* Top Toolbar */}
-            <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
-                <div className="bg-slate-900/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/60 text-[11px] text-slate-300 pointer-events-auto">
-                    ドラッグ: 3D回転 | ホバー: 球速・変化量表示
+            <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 z-10 pointer-events-none">
+                {/* Left: Camera Angle Selectors */}
+                <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur-md p-1 rounded-xl border border-slate-700/60 pointer-events-auto shadow-md">
+                    <span className="text-[11px] text-slate-400 font-semibold px-2 flex items-center gap-1">
+                        <Camera size={12} className="text-blue-400" />
+                        {language === 'ja' ? '視点' : 'View'}:
+                    </span>
+                    {[
+                        { id: 'catcher', label: language === 'ja' ? '捕手視点' : 'Catcher' },
+                        { id: 'pitcher', label: language === 'ja' ? '投手視点' : 'Pitcher' },
+                        { id: 'side', label: language === 'ja' ? '横視点' : 'Side' },
+                        { id: 'top', label: language === 'ja' ? '上空' : 'Top' }
+                    ].map(cam => (
+                        <button
+                            key={cam.id}
+                            onClick={() => setCameraAngle(cam.id)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                                cameraAngle === cam.id
+                                    ? 'bg-blue-600 text-white shadow-sm'
+                                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                            }`}
+                        >
+                            {cam.label}
+                        </button>
+                    ))}
                 </div>
 
-                <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-700/60 pointer-events-auto">
+                {/* Right: Pitch Filter & Animation Controls */}
+                <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-700/60 pointer-events-auto shadow-md">
                     <select
                         value={selectedType}
                         onChange={(e) => { setSelectedType(e.target.value); setSelectedIndex('all'); setFrame(0); }}
-                        className="bg-slate-800 text-white text-xs px-2.5 py-1 rounded-lg border border-slate-600 font-medium focus:outline-none"
+                        className="bg-slate-800 text-white text-xs px-2.5 py-1 rounded-lg border border-slate-600 font-medium focus:outline-none cursor-pointer"
                     >
                         {availableTypes.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
@@ -238,10 +379,10 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
                                 setIsPlaying(true);
                             }
                         }}
-                        className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-md"
+                        className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-md active:scale-95"
                     >
                         {isPlaying ? <Pause size={12} /> : <Play size={12} />}
-                        {isPlaying ? '停止' : '再生'}
+                        {isPlaying ? (language === 'ja' ? '停止' : 'Pause') : (language === 'ja' ? '再生' : 'Play')}
                     </button>
 
                     <button
@@ -251,6 +392,13 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
                     >
                         <RotateCcw size={13} />
                     </button>
+                </div>
+            </div>
+
+            {/* Bottom Status Help */}
+            <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
+                <div className="bg-slate-900/80 backdrop-blur-sm px-3 py-1 rounded-lg border border-slate-700/40 text-[11px] text-slate-400">
+                    マウンド（60.5ft）〜 ホーム（0ft）| ドラッグで3D回転・スクロールでズーム
                 </div>
             </div>
 
