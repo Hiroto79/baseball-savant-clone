@@ -266,9 +266,30 @@ export const DataProvider = ({ children }) => {
             console.log("Starting upload to Supabase. Total rows:", dbRows.length);
             console.log("Sample row:", dbRows[0]);
 
+            const SAVANT_DB_COLUMNS = [
+                'game_date', 'pitcher_name', 'batter_name', 'pitch_name', 'release_speed', 
+                'release_spin_rate', 'release_pos_x', 'release_pos_y', 'release_pos_z', 
+                'launch_speed', 'launch_angle', 'hit_distance_sc', 'events', 'description', 
+                'zone', 'stand', 'p_throws', 'home_team', 'away_team', 'type', 'pitch_type', 
+                'hit_location', 'bb_type', 'balls', 'strikes', 'game_year', 'pfx_x', 'pfx_z', 
+                'plate_x', 'plate_z', 'on_3b', 'on_2b', 'on_1b', 'outs_when_up', 'inning', 
+                'inning_topbot', 'hc_x', 'hc_y', 'vx0', 'vy0', 'vz0', 'ax', 'ay', 'az', 
+                'sz_top', 'sz_bot', 'effective_speed', 'release_extension', 'game_pk', 
+                'spin_axis', 'delta_home_win_exp', 'delta_run_exp', 'vaa', 'haa', 
+                'attack_angle', 'attack_direction', 'estimated_woba_using_speedangle'
+            ];
+
             for (let i = 0; i < dbRows.length; i += BATCH_SIZE) {
-                const batch = dbRows.slice(i, i + BATCH_SIZE);
-                const { error } = await supabase.from('savant_data').insert(batch).select();
+                const batch = dbRows.slice(i, i + BATCH_SIZE).map(row => {
+                    const cleanRow = {};
+                    SAVANT_DB_COLUMNS.forEach(col => {
+                        if (row[col] !== undefined) {
+                            cleanRow[col] = row[col];
+                        }
+                    });
+                    return cleanRow;
+                });
+                const { error } = await supabase.from('savant_data').insert(batch);
 
                 if (error) {
                     console.error("Supabase Insert Error:", error);

@@ -273,8 +273,23 @@ export const BlastProvider = ({ children }) => {
             const BATCH_SIZE = 1000;
             console.log(`Starting Blast upload. Total rows: ${dbRows.length}`);
 
+            const BLAST_DB_COLUMNS = [
+                'date', 'player_name', 'bat_speed', 'attack_angle', 'vertical_bat_angle', 
+                'power', 'time_to_contact', 'peak_hand_speed', 'on_plane_efficiency', 
+                'rotation_score', 'on_plane_score', 'connection_score', 'rotation_acceleration', 
+                'connection_at_impact', 'connection_at_address', 'bat_angle'
+            ];
+
             for (let i = 0; i < dbRows.length; i += BATCH_SIZE) {
-                const batch = dbRows.slice(i, i + BATCH_SIZE);
+                const batch = dbRows.slice(i, i + BATCH_SIZE).map(row => {
+                    const cleanRow = {};
+                    BLAST_DB_COLUMNS.forEach(col => {
+                        if (row[col] !== undefined) {
+                            cleanRow[col] = row[col];
+                        }
+                    });
+                    return cleanRow;
+                });
                 const { error } = await supabase.from('blast_data').insert(batch);
 
                 if (error) {
