@@ -218,11 +218,11 @@ export const PitchFlight3D = ({
   const applyCameraPreset = (view, cam) => {
     if (!cam) return;
     if (view === 'BATTER_R') {
-      cam.position.set(-0.75, 1.65, -0.2);
+      cam.position.set(0.75, 1.65, -0.2);
       cameraTargetRef.current.set(0, 1.0, 8.4);
       cam.lookAt(cameraTargetRef.current);
     } else if (view === 'BATTER_L') {
-      cam.position.set(0.75, 1.65, -0.2);
+      cam.position.set(-0.75, 1.65, -0.2);
       cameraTargetRef.current.set(0, 1.0, 8.4);
       cam.lookAt(cameraTargetRef.current);
     } else if (view === 'CATCHER') {
