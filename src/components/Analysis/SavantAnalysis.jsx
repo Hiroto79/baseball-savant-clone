@@ -568,10 +568,10 @@ const SavantAnalysis = ({ data }) => {
                                     </div>
                                 </div>
 
-                                {/* 3. Three-Column Visual Dashboard (Movement, Strike Zone, 3D Trajectory) */}
-                                <div className="md:col-span-2 grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
-                                    {/* Left: Pitch Movement (Compact 380px) */}
-                                    <div className="lg:col-span-1">
+                                {/* 3. Two-Column Visual Split (Movement & Strike Zone) */}
+                                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                                    {/* Left: Pitch Movement */}
+                                    <div className="w-full">
                                         <PitchMovementChart 
                                             data={filteredData} 
                                             selectedPlayers={selectedPlayers} 
@@ -579,42 +579,44 @@ const SavantAnalysis = ({ data }) => {
                                         />
                                     </div>
 
-                                    {/* Center: Strike Zone Heatmap */}
-                                    <div className="lg:col-span-1">
-                                        <div className="bg-card rounded-xl border border-border p-4 shadow-sm h-[380px] flex flex-col">
-                                            <h3 className="text-sm font-bold text-foreground mb-1">
-                                                {language === 'ja' ? 'コース別配球 (Strike Zone)' : 'Pitch Location'}
+                                    {/* Right: Strike Zone Heatmap */}
+                                    <div className="bg-card rounded-xl border border-border p-4 shadow-sm h-[380px] flex flex-col justify-between">
+                                        <div>
+                                            <h3 className="text-sm font-bold text-foreground mb-0.5">
+                                                {language === 'ja' ? 'コース別配球 (Strike Zone Location)' : 'Pitch Location (Catcher View)'}
                                             </h3>
-                                            <p className="text-xs text-muted-foreground mb-2">
-                                                {language === 'ja' ? '捕手視点でのコース分布' : 'Catcher view heatmap'}
+                                            <p className="text-xs text-muted-foreground">
+                                                {language === 'ja' ? '捕手視点でのコース分布・ヒートマップ' : 'Catcher view strike zone frequency'}
                                             </p>
-                                            <div className="flex-1 w-full min-h-0 flex items-center justify-center">
-                                                <StrikeZoneHeatmap
-                                                    data={trajectoryData.filter(d => standFilter === 'all' || !d.stand || d.stand === standFilter)}
-                                                    language={language}
-                                                />
-                                            </div>
+                                        </div>
+                                        <div className="flex-1 w-full min-h-0 pt-2">
+                                            <StrikeZoneHeatmap
+                                                data={trajectoryData.filter(d => standFilter === 'all' || !d.stand || d.stand === standFilter)}
+                                                language={language}
+                                            />
                                         </div>
                                     </div>
+                                </div>
 
-                                    {/* Right: 3D Trajectory */}
-                                    <div className="lg:col-span-1">
-                                        <div className="bg-card rounded-xl border border-border p-4 shadow-sm h-[380px] flex flex-col">
-                                            <h3 className="text-sm font-bold text-foreground mb-1">
-                                                {language === 'ja' ? '3D 投球軌道 (Trajectory)' : '3D Trajectory'}
+                                {/* 4. 3D Trajectory Viewer (Full Width Dedicated Card) */}
+                                <div className="md:col-span-2 bg-card rounded-xl border border-border p-4 shadow-sm">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div>
+                                            <h3 className="text-sm font-bold text-foreground">
+                                                {language === 'ja' ? '3D 投球軌道シミュレータ (Trajectory 3D)' : '3D Pitch Trajectory Simulation'}
                                             </h3>
-                                            <p className="text-xs text-muted-foreground mb-2">
-                                                {language === 'ja' ? 'マウンドからホームへの立体軌道' : '3D Ball flight path'}
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                {language === 'ja' ? 'マウンドからホームベースまでの立体軌道と球種別の変化の可視化' : 'Interactive 3D ball flight path from mound to home plate'}
                                             </p>
-                                            <div className="flex-1 w-full min-h-0">
-                                                <Trajectory3D
-                                                    key="traj-3d-view"
-                                                    data={trajectoryData.filter(d => standFilter === 'all' || !d.stand || d.stand === standFilter)}
-                                                    language={language}
-                                                    units={units}
-                                                />
-                                            </div>
                                         </div>
+                                    </div>
+                                    <div className="h-[420px] w-full">
+                                        <Trajectory3D
+                                            key="traj-3d-view"
+                                            data={trajectoryData.filter(d => standFilter === 'all' || !d.stand || d.stand === standFilter)}
+                                            language={language}
+                                            units={units}
+                                        />
                                     </div>
                                 </div>
 

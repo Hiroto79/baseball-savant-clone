@@ -276,7 +276,8 @@ export const DataProvider = ({ children }) => {
                 'inning_topbot', 'hc_x', 'hc_y', 'vx0', 'vy0', 'vz0', 'ax', 'ay', 'az', 
                 'sz_top', 'sz_bot', 'effective_speed', 'release_extension', 'game_pk', 
                 'spin_axis', 'delta_home_win_exp', 'delta_run_exp', 'vaa', 'haa', 
-                'attack_angle', 'attack_direction', 'estimated_woba_using_speedangle'
+                'attack_angle', 'attack_direction', 'estimated_woba_using_speedangle',
+                'bat_speed', 'swing_length'
             ];
 
             for (let i = 0; i < dbRows.length; i += BATCH_SIZE) {
