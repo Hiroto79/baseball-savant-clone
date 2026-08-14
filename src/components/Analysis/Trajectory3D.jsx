@@ -2,13 +2,17 @@ import React, { useMemo, useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
 import { PITCH_COLORS } from '../../utils/pitchColors';
 import { Play, Pause, RotateCcw } from 'lucide-react';
+import { useSettings } from '../../context/SettingsContext';
 
 const Trajectory3D = ({ data, language = 'ja' }) => {
+    const { units } = useSettings();
     const [selectedType, setSelectedType] = useState('All');
     const [selectedIndex, setSelectedIndex] = useState('all');
     const [isPlaying, setIsPlaying] = useState(false);
     const [frame, setFrame] = useState(0);
     const STEPS = 40;
+
+    const MPH_TO_KMH = 1.60934;
 
     const calculateTrajectory = (pitch) => {
         try {
@@ -54,9 +58,10 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
     const getPitchLabel = (p) => p.pitch_name || p.pitch_type || 'Pitch';
 
     const availableTypes = useMemo(() => {
-        if (!data || data.length === 0) return ['All'];
+        if (!data || !Array.isArray(data) || data.length === 0) return ['All'];
         const types = new Set();
         data.forEach(p => {
+            if (!p) return;
             const label = getPitchLabel(p);
             if (label) types.add(label);
         });
@@ -64,9 +69,9 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
     }, [data]);
 
     const filteredData = useMemo(() => {
-        if (!data) return [];
+        if (!data || !Array.isArray(data)) return [];
         if (selectedType === 'All') return data;
-        return data.filter(p => getPitchLabel(p) === selectedType);
+        return data.filter(p => p && getPitchLabel(p) === selectedType);
     }, [data, selectedType]);
 
     const displayData = useMemo(() => {
@@ -98,7 +103,7 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
             x: [-0.71, 0, 0.71, 0.71, -0.71, -0.71],
             y: [1.417, 0.5, 1.417, 1.417 + 0.71, 1.417 + 0.71, 1.417],
             z: [0.05, 0.05, 0.05, 0.05, 0.05, 0.05],
-            line: { color: '#e2e8f0', width: 4 },
+            line: { color: '#ffffff', width: 4 },
             showlegend: false, hoverinfo: 'none'
         },
         // Strike Zone 3D
@@ -112,21 +117,27 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
         }
     ], []);
 
+    // Layout with Clean Background (No ugly axis lines or numbers)
     const layout = useMemo(() => ({
         autosize: true,
         margin: { l: 0, r: 0, b: 0, t: 0 },
         paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: '#0b1329',
+        plot_bgcolor: '#080d1e',
         showlegend: false,
+        hoverlabel: {
+            bgcolor: '#0f172a',
+            bordercolor: '#38bdf8',
+            font: { color: '#ffffff', size: 12 }
+        },
         scene: {
-            xaxis: { title: '', range: [-3.5, 3.5], showgrid: true, gridcolor: '#1e293b', zerolinecolor: '#334155', tickfont: { size: 8, color: '#64748b' } },
-            yaxis: { title: '', range: [0, 60], showgrid: true, gridcolor: '#1e293b', zerolinecolor: '#334155', tickfont: { size: 8, color: '#64748b' } },
-            zaxis: { title: '', range: [0, 7.5], showgrid: true, gridcolor: '#1e293b', zerolinecolor: '#334155', tickfont: { size: 8, color: '#64748b' } },
+            xaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [-3.5, 3.5] },
+            yaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [0, 60] },
+            zaxis: { visible: false, showgrid: false, showline: false, showticklabels: false, zeroline: false, range: [0, 7.5] },
             camera: {
-                eye: { x: -0.4, y: -2.0, z: 0.9 },
-                center: { x: 0, y: 0.4, z: -0.2 }
+                eye: { x: -0.35, y: -2.1, z: 0.8 },
+                center: { x: 0, y: 0.35, z: -0.2 }
             },
-            aspectratio: { x: 0.9, y: 2.2, z: 1.0 }
+            aspectratio: { x: 0.9, y: 2.3, z: 1.0 }
         }
     }), []);
 
@@ -141,33 +152,59 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
 
         const lineTraces = activeTrajs.map(({ traj, p }) => {
             const pitchType = getPitchLabel(p);
+            
+            // Format velocity & movement for hover tooltip
+            const rawVel = p.release_speed || p.Velocity || p.velocity;
+            const velText = rawVel 
+                ? (units === 'metric' ? `${(Number(rawVel) * MPH_TO_KMH).toFixed(1)} km/h` : `${Number(rawVel).toFixed(1)} mph`)
+                : '';
+
+            let hbText = '';
+            let ivbText = '';
+            if (p.pfx_x != null && p.pfx_z != null) {
+                let hb = -Number(p.pfx_x) * 12;
+                let ivb = Number(p.pfx_z) * 12;
+                if (units === 'metric') {
+                    hb *= 2.54;
+                    ivb *= 2.54;
+                    hbText = `HB: ${hb > 0 ? `+${hb.toFixed(1)}` : hb.toFixed(1)} cm`;
+                    ivbText = `iVB: ${ivb > 0 ? `+${ivb.toFixed(1)}` : ivb.toFixed(1)} cm`;
+                } else {
+                    hbText = `HB: ${hb > 0 ? `+${hb.toFixed(1)}` : hb.toFixed(1)} in`;
+                    ivbText = `iVB: ${ivb > 0 ? `+${ivb.toFixed(1)}` : ivb.toFixed(1)} in`;
+                }
+            }
+
+            const hoverInfo = `<b>${pitchType}</b><br>球速: ${velText}${hbText ? `<br>${hbText}<br>${ivbText}` : ''}`;
+
             return {
                 type: 'scatter3d', mode: 'lines',
                 x: traj.x.slice(0, len),
                 y: traj.y.slice(0, len),
                 z: traj.z.slice(0, len),
-                line: { width: 4, color: PITCH_COLORS[pitchType] || '#3b82f6' },
+                line: { width: 4.5, color: PITCH_COLORS[pitchType] || '#3b82f6' },
                 showlegend: false,
                 hoverinfo: 'text',
-                text: `${pitchType} ${p.release_speed ? Math.round(Number(p.release_speed)) + ' mph' : ''}`
+                text: hoverInfo
             };
         });
 
         const ballTraces = activeTrajs.map(({ traj, p }) => {
+            const pitchType = getPitchLabel(p);
             const k = Math.min(frame, traj.x.length - 1);
             return {
                 type: 'scatter3d', mode: 'markers',
                 x: [traj.x[k]], y: [traj.y[k]], z: [traj.z[k]],
-                marker: { size: 5, color: '#ffffff', line: { color: '#38bdf8', width: 1.5 } },
+                marker: { size: 5.5, color: '#ffffff', line: { color: '#38bdf8', width: 2 } },
                 showlegend: false,
                 hoverinfo: 'none'
             };
         });
 
         return [...sceneTraces, ...lineTraces, ...ballTraces];
-    }, [displayData, frame, sceneTraces]);
+    }, [displayData, frame, sceneTraces, units]);
 
-    if (!data || data.length === 0) {
+    if (!data || !Array.isArray(data) || data.length === 0) {
         return (
             <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
                 {language === 'ja' ? '軌道データがありません' : 'No trajectory data'}
@@ -176,18 +213,18 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
     }
 
     return (
-        <div className="w-full h-full min-h-[340px] relative overflow-hidden rounded-xl bg-card flex flex-col">
+        <div className="w-full h-full min-h-[360px] relative overflow-hidden rounded-xl bg-[#080d1e] flex flex-col">
             {/* Top Toolbar */}
-            <div className="absolute top-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
-                <div className="bg-background/80 backdrop-blur-md px-2 py-1 rounded-md border border-border text-[11px] text-muted-foreground pointer-events-auto">
-                    ドラッグ: 3D回転 | スクロール: 拡大
+            <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
+                <div className="bg-slate-900/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/60 text-[11px] text-slate-300 pointer-events-auto">
+                    ドラッグ: 3D回転 | ホバー: 球速・変化量表示
                 </div>
 
-                <div className="flex items-center gap-1.5 bg-background/80 backdrop-blur-md p-1.5 rounded-lg border border-border pointer-events-auto">
+                <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-700/60 pointer-events-auto">
                     <select
                         value={selectedType}
                         onChange={(e) => { setSelectedType(e.target.value); setSelectedIndex('all'); setFrame(0); }}
-                        className="bg-card text-foreground text-xs px-2 py-1 rounded border border-border font-medium focus:outline-none"
+                        className="bg-slate-800 text-white text-xs px-2.5 py-1 rounded-lg border border-slate-600 font-medium focus:outline-none"
                     >
                         {availableTypes.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
@@ -201,7 +238,7 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
                                 setIsPlaying(true);
                             }
                         }}
-                        className="flex items-center gap-1 bg-primary text-primary-foreground px-2.5 py-1 rounded text-xs font-semibold hover:opacity-90 transition-all shadow-sm"
+                        className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-md"
                     >
                         {isPlaying ? <Pause size={12} /> : <Play size={12} />}
                         {isPlaying ? '停止' : '再生'}
@@ -209,7 +246,7 @@ const Trajectory3D = ({ data, language = 'ja' }) => {
 
                     <button
                         onClick={() => { setIsPlaying(false); setFrame(0); }}
-                        className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
+                        className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
                         title="リセット"
                     >
                         <RotateCcw size={13} />

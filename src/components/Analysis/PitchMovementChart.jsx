@@ -54,10 +54,10 @@ const PitchMovementChart = ({ data, selectedPlayers, standFilter = 'all' }) => {
     const { language, units } = useSettings();
 
     const chartData = useMemo(() => {
-        if (!data || data.length === 0 || selectedPlayers.length === 0) return [];
+        if (!data || !Array.isArray(data) || data.length === 0 || !selectedPlayers || selectedPlayers.length === 0) return [];
 
         const filtered = data.filter(d => {
-            if (!d.player_name || !selectedPlayers.includes(d.player_name)) return false;
+            if (!d || !d.player_name || !selectedPlayers.includes(d.player_name)) return false;
             if (!d.pitch_type && !d.pitch_name) return false;
             if (standFilter !== 'all' && d.stand && d.stand !== standFilter) return false;
             return true;
@@ -115,28 +115,28 @@ const PitchMovementChart = ({ data, selectedPlayers, standFilter = 'all' }) => {
 
     if (chartData.length === 0) {
         return (
-            <div className="bg-card rounded-xl border border-border p-4 flex flex-col items-center justify-center h-[340px] text-muted-foreground text-sm">
+            <div className="bg-card rounded-xl border border-border p-4 flex flex-col items-center justify-center h-[380px] text-muted-foreground text-xs">
                 <p>{language === 'ja' ? '変化量データがありません' : 'No Movement Data'}</p>
             </div>
         );
     }
 
     return (
-        <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-col h-[380px]">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-col items-center justify-between h-[420px] w-full">
             {/* Header */}
-            <div className="flex items-center justify-between mb-2">
+            <div className="w-full flex items-center justify-between mb-1">
                 <div>
                     <h3 className="text-sm font-bold text-foreground">
-                        {language === 'ja' ? '球種別 変化量' : 'Pitch Movement'}
+                        {language === 'ja' ? '球種別 変化量 (Pitch Movement)' : 'Pitch Movement'}
                     </h3>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground">
                         {units === 'metric' ? '横: HB (cm) / 縦: iVB (cm)' : 'X: HB (in) / Y: iVB (in)'}
                     </p>
                 </div>
             </div>
 
             {/* Compact Legend */}
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mb-1 text-xs">
+            <div className="w-full flex flex-wrap gap-x-3 gap-y-1 mb-2 text-xs justify-start">
                 {legendData.map(s => (
                     <div key={s.name} className="flex items-center gap-1">
                         <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }}></span>
@@ -145,8 +145,8 @@ const PitchMovementChart = ({ data, selectedPlayers, standFilter = 'all' }) => {
                 ))}
             </div>
 
-            {/* Fixed square size chart container */}
-            <div className="flex-1 w-full min-h-0 relative">
+            {/* 1:1 Aspect Ratio Box (Never stretched horizontally) */}
+            <div className="w-full max-w-[340px] aspect-square min-h-0 flex-1 relative mx-auto">
                 <ResponsiveContainer width="100%" height="100%">
                     <ScatterChart margin={{ top: 10, right: 15, bottom: 15, left: -10 }}>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.2} stroke="#64748b" />
@@ -156,7 +156,7 @@ const PitchMovementChart = ({ data, selectedPlayers, standFilter = 'all' }) => {
                             name="HB"
                             domain={domain}
                             ticks={ticks}
-                            tick={{ fontSize: 10, fill: '#94a3b8' }}
+                            tick={{ fontSize: 9, fill: '#94a3b8' }}
                             stroke="#475569"
                         />
                         <YAxis
@@ -165,7 +165,7 @@ const PitchMovementChart = ({ data, selectedPlayers, standFilter = 'all' }) => {
                             name="iVB"
                             domain={domain}
                             ticks={ticks}
-                            tick={{ fontSize: 10, fill: '#94a3b8' }}
+                            tick={{ fontSize: 9, fill: '#94a3b8' }}
                             stroke="#475569"
                         />
                         <ReferenceLine x={0} stroke="#94a3b8" strokeDasharray="2 2" strokeOpacity={0.6} />

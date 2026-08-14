@@ -580,7 +580,7 @@ const SavantAnalysis = ({ data }) => {
                                     </div>
 
                                     {/* Right: Strike Zone Heatmap */}
-                                    <div className="bg-card rounded-xl border border-border p-4 shadow-sm h-[380px] flex flex-col justify-between">
+                                    <div className="bg-card rounded-xl border border-border p-4 shadow-sm h-[420px] flex flex-col justify-between">
                                         <div>
                                             <h3 className="text-sm font-bold text-foreground mb-0.5">
                                                 {language === 'ja' ? 'コース別配球 (Strike Zone Location)' : 'Pitch Location (Catcher View)'}
@@ -589,7 +589,7 @@ const SavantAnalysis = ({ data }) => {
                                                 {language === 'ja' ? '捕手視点でのコース分布・ヒートマップ' : 'Catcher view strike zone frequency'}
                                             </p>
                                         </div>
-                                        <div className="flex-1 w-full min-h-0 pt-2">
+                                        <div className="flex-1 w-full min-h-0 pt-2 flex items-center justify-center">
                                             <StrikeZoneHeatmap
                                                 data={trajectoryData.filter(d => standFilter === 'all' || !d.stand || d.stand === standFilter)}
                                                 language={language}

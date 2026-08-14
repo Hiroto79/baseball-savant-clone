@@ -12,7 +12,6 @@ import {
     TrendingUp,
     ArrowRight,
     Users,
-    Layers,
     Filter
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -46,10 +45,19 @@ const PITCH_MAP = {
 };
 
 const Dashboard = () => {
-    const { data: savantData } = useData();
-    const { pitchingData: rapPitching, battingData: rapBatting } = useRapsodo();
-    const { blastData } = useBlast();
-    const { language, units } = useSettings();
+    const dataContext = useData() || {};
+    const savantData = Array.isArray(dataContext.data) ? dataContext.data : [];
+
+    const rapsodoContext = useRapsodo() || {};
+    const rapPitching = Array.isArray(rapsodoContext.pitchingData) ? rapsodoContext.pitchingData : [];
+    const rapBatting = Array.isArray(rapsodoContext.battingData) ? rapsodoContext.battingData : [];
+
+    const blastContext = useBlast() || {};
+    const blastData = Array.isArray(blastContext.blastData) ? blastContext.blastData : [];
+
+    const settingsContext = useSettings() || {};
+    const language = settingsContext.language || 'ja';
+    const units = settingsContext.units || 'metric';
 
     // Active DataSource Tab: 'savant' | 'rapsodo' | 'blast'
     const [sourceTab, setSourceTab] = useState('savant');
@@ -80,6 +88,7 @@ const Dashboard = () => {
     const availableTeams = useMemo(() => {
         const teams = new Set();
         savantData.forEach(d => {
+            if (!d) return;
             if (d.home_team) teams.add(String(d.home_team));
             if (d.away_team) teams.add(String(d.away_team));
         });
@@ -89,7 +98,7 @@ const Dashboard = () => {
     // 2. Filter Savant Data by Team
     const filteredSavantData = useMemo(() => {
         if (selectedTeam === 'ALL') return savantData;
-        return savantData.filter(d => d.home_team === selectedTeam || d.away_team === selectedTeam);
+        return savantData.filter(d => d && (d.home_team === selectedTeam || d.away_team === selectedTeam));
     }, [savantData, selectedTeam]);
 
     // 3. Aggregate Savant Metrics
@@ -115,6 +124,7 @@ const Dashboard = () => {
         const isStrike = (desc) => ['called_strike', 'swinging_strike', 'swinging_strike_blocked', 'foul', 'foul_tip', 'hit_into_play'].includes(desc);
 
         filteredSavantData.forEach(d => {
+            if (!d) return;
             if (d.player_name) {
                 pitchers.add(d.player_name);
                 if (!pitcherMap[d.player_name]) {
@@ -212,6 +222,7 @@ const Dashboard = () => {
             let velSum = 0, velCount = 0, maxVel = 0, spinSum = 0, spinCount = 0, effSum = 0, effCount = 0;
 
             rapPitching.forEach(d => {
+                if (!d) return;
                 if (d.player_name) players.add(d.player_name);
                 const v = Number(d.velocity);
                 if (!isNaN(v) && v > 0) {
@@ -239,6 +250,7 @@ const Dashboard = () => {
             let evSum = 0, evCount = 0, maxEv = 0, distSum = 0, distCount = 0, maxDist = 0;
 
             rapBatting.forEach(d => {
+                if (!d) return;
                 if (d.player_name) players.add(d.player_name);
                 const ev = Number(d.exit_velocity);
                 if (!isNaN(ev) && ev > 0) {
@@ -275,6 +287,7 @@ const Dashboard = () => {
         let opeSum = 0, opeCount = 0;
 
         blastData.forEach(d => {
+            if (!d) return;
             if (d.player_name) players.add(d.player_name);
             const bs = Number(d.bat_speed);
             if (!isNaN(bs) && bs > 0) {
@@ -386,7 +399,7 @@ const Dashboard = () => {
                             </span>
                         </div>
 
-                        {/* Team Buttons (Horizontal scroll) */}
+                        {/* Team Buttons */}
                         <div className="flex flex-wrap gap-1.5 max-h-[100px] overflow-y-auto">
                             {availableTeams.map(team => (
                                 <button
@@ -506,7 +519,7 @@ const Dashboard = () => {
                                                 </Pie>
                                                 <Tooltip
                                                     content={({ active, payload }) => {
-                                                        if (active && payload && payload.length) {
+                                                        if (active && payload && payload.length && savantOverview.totalPitches > 0) {
                                                             const d = payload[0];
                                                             const percent = ((d.value / savantOverview.totalPitches) * 100).toFixed(1);
                                                             return (
@@ -523,7 +536,9 @@ const Dashboard = () => {
                                     </div>
                                     <div className="space-y-1.5 text-xs">
                                         {savantOverview.pitchUsageData.map((item) => {
-                                            const percent = ((item.value / savantOverview.totalPitches) * 100).toFixed(1);
+                                            const percent = savantOverview.totalPitches > 0 
+                                                ? ((item.value / savantOverview.totalPitches) * 100).toFixed(1) 
+                                                : '0.0';
                                             return (
                                                 <div key={item.name} className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">

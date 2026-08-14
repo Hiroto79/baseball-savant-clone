@@ -4,13 +4,14 @@ import Plot from 'react-plotly.js';
 const StrikeZoneHeatmap = ({ data, language = 'ja' }) => {
     // Process Data for Heatmap
     const { x, z, text } = useMemo(() => {
-        if (!data || data.length === 0) return { x: [], z: [], text: [] };
+        if (!data || !Array.isArray(data) || data.length === 0) return { x: [], z: [], text: [] };
 
         const xCoords = [];
         const zCoords = [];
         const tooltips = [];
 
         data.forEach(p => {
+            if (!p) return;
             const px = parseFloat(p.plate_x);
             const pz = parseFloat(p.plate_z);
 
@@ -26,25 +27,25 @@ const StrikeZoneHeatmap = ({ data, language = 'ja' }) => {
 
     const layout = {
         autosize: true,
-        margin: { l: 35, r: 15, b: 30, t: 10 },
+        margin: { l: 30, r: 15, b: 25, t: 10 },
         paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: '#0b1329',
-        font: { color: '#94a3b8', size: 10 },
+        plot_bgcolor: '#080d1e',
+        font: { color: '#94a3b8', size: 9 },
         xaxis: {
-            title: { text: language === 'ja' ? '横位置 (ft)' : 'Plate X (ft)', font: { size: 10, color: '#94a3b8' } },
+            title: { text: language === 'ja' ? '横位置 (ft)' : 'Plate X (ft)', font: { size: 9, color: '#94a3b8' } },
             range: [-2.2, 2.2],
             zeroline: false,
             showgrid: true,
             gridcolor: '#1e293b',
-            tickfont: { size: 9, color: '#94a3b8' }
+            tickfont: { size: 8, color: '#94a3b8' }
         },
         yaxis: {
-            title: { text: language === 'ja' ? '高さ (ft)' : 'Plate Z (ft)', font: { size: 10, color: '#94a3b8' } },
+            title: { text: language === 'ja' ? '高さ (ft)' : 'Plate Z (ft)', font: { size: 9, color: '#94a3b8' } },
             range: [0.5, 4.5],
             zeroline: false,
             showgrid: true,
             gridcolor: '#1e293b',
-            tickfont: { size: 9, color: '#94a3b8' }
+            tickfont: { size: 8, color: '#94a3b8' }
         },
         shapes: [
             // Strike Zone Box (White bold dashed)
@@ -73,7 +74,7 @@ const StrikeZoneHeatmap = ({ data, language = 'ja' }) => {
     }
 
     return (
-        <div className="w-full h-full min-h-[300px] relative overflow-hidden rounded-lg">
+        <div className="w-full max-w-[340px] aspect-square relative overflow-hidden rounded-xl mx-auto">
             <Plot
                 data={[
                     {
@@ -82,7 +83,7 @@ const StrikeZoneHeatmap = ({ data, language = 'ja' }) => {
                         text: text,
                         type: 'histogram2dcontour',
                         colorscale: [
-                            [0, 'rgba(11,19,41,0)'],
+                            [0, 'rgba(8,13,30,0)'],
                             [0.2, '#1e3a8a'],
                             [0.4, '#0284c7'],
                             [0.6, '#eab308'],
