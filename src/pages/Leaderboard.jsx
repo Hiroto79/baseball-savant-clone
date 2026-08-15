@@ -594,7 +594,7 @@ const Leaderboard = () => {
                             </div>
                             <div className="text-[11px] text-muted-foreground flex items-center justify-between border-t border-border pt-2.5">
                                 <span>{top3[1].sampleLabel}</span>
-                                <Link to="/analysis" className="text-blue-400 hover:underline flex items-center gap-1 font-semibold">
+                                <Link to={`/analysis?tab=${activeTab}&player=${encodeURIComponent(top3[1].name)}&mode=${category}`} className="text-blue-400 hover:underline flex items-center gap-1 font-semibold">
                                     <span>分析</span>
                                     <ArrowRight size={11} />
                                 </Link>
@@ -632,7 +632,7 @@ const Leaderboard = () => {
                             </div>
                             <div className="text-[11px] text-muted-foreground flex items-center justify-between border-t border-amber-500/20 pt-3 z-10">
                                 <span>{top3[0].sampleLabel}</span>
-                                <Link to="/analysis" className="text-amber-400 hover:underline flex items-center gap-1 font-bold">
+                                <Link to={`/analysis?tab=${activeTab}&player=${encodeURIComponent(top3[0].name)}&mode=${category}`} className="text-amber-400 hover:underline flex items-center gap-1 font-bold">
                                     <span>詳細分析へ</span>
                                     <ArrowRight size={12} />
                                 </Link>
@@ -662,7 +662,7 @@ const Leaderboard = () => {
                             </div>
                             <div className="text-[11px] text-muted-foreground flex items-center justify-between border-t border-border pt-2.5">
                                 <span>{top3[2].sampleLabel}</span>
-                                <Link to="/analysis" className="text-blue-400 hover:underline flex items-center gap-1 font-semibold">
+                                <Link to={`/analysis?tab=${activeTab}&player=${encodeURIComponent(top3[2].name)}&mode=${category}`} className="text-blue-400 hover:underline flex items-center gap-1 font-semibold">
                                     <span>分析</span>
                                     <ArrowRight size={11} />
                                 </Link>
@@ -728,14 +728,17 @@ const Leaderboard = () => {
 
                                             {/* Player Name */}
                                             <td className="px-5 py-3 font-sans font-bold text-foreground text-sm">
-                                                <div className="flex items-center gap-2">
+                                                <Link 
+                                                    to={`/analysis?tab=${activeTab}&player=${encodeURIComponent(row.name)}&mode=${category}`}
+                                                    className="flex items-center gap-2 hover:text-blue-400 hover:underline transition-colors"
+                                                >
                                                     <span>{row.name}</span>
                                                     {row.badge && (
                                                         <span className="text-[10px] font-mono bg-muted text-muted-foreground px-1.5 py-0.2 rounded">
                                                             {row.badge}
                                                         </span>
                                                     )}
-                                                </div>
+                                                </Link>
                                             </td>
 
                                             {/* Team */}
@@ -774,9 +777,9 @@ const Leaderboard = () => {
                                             {/* Quick Link */}
                                             <td className="px-5 py-3 text-center">
                                                 <Link
-                                                    to="/analysis"
+                                                    to={`/analysis?tab=${activeTab}&player=${encodeURIComponent(row.name)}&mode=${category}`}
                                                     className="inline-flex p-1.5 text-muted-foreground hover:text-blue-400 hover:bg-muted rounded-lg transition-colors"
-                                                    title="詳細分析へ"
+                                                    title={`${row.name} の詳細分析へ`}
                                                 >
                                                     <ArrowRight size={14} />
                                                 </Link>

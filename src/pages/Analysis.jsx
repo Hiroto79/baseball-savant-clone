@@ -1,23 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import { useRapsodo } from '../context/RapsodoContext';
 import { useData } from '../context/DataContext';
 import { useBlast } from '../context/BlastContext';
 import { BarChart3, Activity, Database } from 'lucide-react';
 
-// Sub-components (will be implemented next)
+// Sub-components
 import RapsodoAnalysis from '../components/Analysis/RapsodoAnalysis';
 import SavantAnalysis from '../components/Analysis/SavantAnalysis';
 import BlastAnalysis from '../components/Analysis/BlastAnalysis';
 
 const Analysis = () => {
     const { language } = useSettings();
-    const [activeTab, setActiveTab] = useState('rapsodo');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [activeTab, setActiveTab] = useState('savant');
 
     // Contexts
     const { pitchingData: rapPitching, battingData: rapBatting } = useRapsodo();
     const { data: savantData } = useData();
     const { blastData } = useBlast();
+
+    // Sync tab from URL query params (e.g. ?tab=savant or ?player=xxx)
+    useEffect(() => {
+        const tabParam = searchParams.get('tab');
+        if (tabParam && ['savant', 'rapsodo', 'blast'].includes(tabParam)) {
+            setActiveTab(tabParam);
+        } else if (searchParams.get('player') && !tabParam) {
+            // Default to savant when player is present without tab
+            setActiveTab('savant');
+        }
+    }, [searchParams]);
 
     // Get unique players from all sources for a unified selector if needed, 
     // but usually it's better to filter players per source as IDs might not match across systems.

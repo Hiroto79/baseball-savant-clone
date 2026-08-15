@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ChevronsUpDown } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 import ComparisonChart from './ComparisonChart';
@@ -23,6 +24,8 @@ import HittingPowerMatrix from './HittingPowerMatrix';
 
 const SavantAnalysis = ({ data }) => {
     const { language, units } = useSettings();
+    const [searchParams, setSearchParams] = useSearchParams();
+
     const [mode, setMode] = useState('pitching'); // 'pitching' | 'batting'
     const [selectedPlayers, setSelectedPlayers] = useState([]);
     const [selectedPitchTypes, setSelectedPitchTypes] = useState([]);
@@ -30,6 +33,20 @@ const SavantAnalysis = ({ data }) => {
     const [dateRange, setDateRange] = useState('all'); // 'all' | 'custom'
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+
+    // Sync from URL search params (e.g. /analysis?player=Ohtani%2C%20Shohei&mode=pitching)
+    useEffect(() => {
+        const playerParam = searchParams.get('player');
+        const modeParam = searchParams.get('mode');
+
+        if (modeParam && (modeParam === 'pitching' || modeParam === 'batting')) {
+            setMode(modeParam);
+        }
+
+        if (playerParam) {
+            setSelectedPlayers([playerParam]);
+        }
+    }, [searchParams]);
 
     // Conversion constants
     const MPH_TO_KMH = 1.60934;

@@ -626,8 +626,16 @@ const Dashboard = () => {
                                     </thead>
                                     <tbody className="divide-y divide-border font-mono">
                                         {savantOverview.topPitchers.map(p => (
-                                            <tr key={p.name} className="hover:bg-muted/30 transition-colors">
-                                                <td className="px-4 py-2.5 font-sans font-semibold text-foreground">{p.name}</td>
+                                            <tr key={p.name} className="hover:bg-muted/30 transition-colors group">
+                                                <td className="px-4 py-2.5 font-sans font-semibold text-foreground">
+                                                    <Link 
+                                                        to={`/analysis?player=${encodeURIComponent(p.name)}&mode=pitching`}
+                                                        className="hover:text-blue-400 hover:underline flex items-center gap-1.5"
+                                                    >
+                                                        <span>{p.name}</span>
+                                                        <ArrowRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400" />
+                                                    </Link>
+                                                </td>
                                                 <td className="px-4 py-2.5 text-right text-muted-foreground">{p.count}</td>
                                                 <td className="px-4 py-2.5 text-right text-foreground font-medium">{p.avgVelo}</td>
                                                 <td className="px-4 py-2.5 text-right text-red-400 font-bold">{p.maxVelo}</td>
