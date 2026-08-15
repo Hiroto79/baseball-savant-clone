@@ -17,12 +17,20 @@ const HittingPowerMatrix = ({ data, selectedPlayers }) => {
     const { language, units } = useSettings();
     const MPH_TO_KMH = 1.60934;
 
+    const FT_TO_M = 0.3048;
+
     const convertVel = (val) => {
         if (val === null || val === undefined || isNaN(val)) return 0;
         return units === 'metric' ? Number(val) * MPH_TO_KMH : Number(val);
     };
 
+    const convertDist = (val) => {
+        if (val === null || val === undefined || isNaN(val)) return 0;
+        return units === 'metric' ? Number(val) * FT_TO_M : Number(val);
+    };
+
     const velUnit = units === 'metric' ? 'km/h' : 'mph';
+    const distUnit = units === 'metric' ? 'm' : 'ft';
 
     const { chartData, metrics } = useMemo(() => {
         if (!data || !Array.isArray(data) || data.length === 0 || !selectedPlayers || selectedPlayers.length === 0) {
@@ -68,11 +76,13 @@ const HittingPowerMatrix = ({ data, selectedPlayers }) => {
                 else if (event.includes('triple')) color = HITTING_COLORS['Triple'];
                 else if (event.includes('home_run')) color = HITTING_COLORS['Home Run'];
 
+                const distVal = d.hit_distance_sc ? `${convertDist(d.hit_distance_sc).toFixed(0)} ${distUnit}` : '-';
+
                 pts.push({
                     x: Number(xVal.toFixed(1)),
                     y: Number(yVal.toFixed(1)),
                     la: la != null ? `${Number(la).toFixed(0)}°` : '-',
-                    dist: d.hit_distance_sc ? `${Number(d.hit_distance_sc).toFixed(0)} ft` : '-',
+                    dist: distVal,
                     event: d.events || 'In Play',
                     color,
                     isRealBs: !!bs

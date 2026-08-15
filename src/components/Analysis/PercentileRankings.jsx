@@ -2,7 +2,14 @@ import React, { useMemo } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 
 const PercentileRankings = ({ data, allData, selectedPlayers, mode = 'pitching' }) => {
-    const { language } = useSettings();
+    const { language, units } = useSettings();
+
+    const MPH_TO_KMH = 1.60934;
+    const convertVel = (val) => {
+        if (val === null || val === undefined || isNaN(val)) return null;
+        return units === 'metric' ? Number(val) * MPH_TO_KMH : Number(val);
+    };
+    const velUnit = units === 'metric' ? 'km/h' : 'mph';
 
     // Calculate Percentiles relative to all players in dataset
     const rankings = useMemo(() => {
@@ -67,9 +74,8 @@ const PercentileRankings = ({ data, allData, selectedPlayers, mode = 'pitching' 
                 if (d.bb_type === 'ground_ball') st.groundBalls++;
             });
 
-            // Filter out pitchers with too few pitches
             const validPitchers = Object.entries(pitcherStats)
-                .filter(([_, st]) => st.count >= 5)
+                .filter(([_, st]) => st.count >= 1)
                 .map(([name, st]) => ({
                     name,
                     fbVelo: st.fbVeloCount > 0 ? st.fbVeloSum / st.fbVeloCount : null,
@@ -77,29 +83,29 @@ const PercentileRankings = ({ data, allData, selectedPlayers, mode = 'pitching' 
                     whiffRate: st.swings > 0 ? (st.whiffs / st.swings) * 100 : null,
                     chaseRate: st.chaseOpps > 0 ? (st.chaseSwings / st.chaseOpps) * 100 : null,
                     zoneRate: st.count > 0 ? (st.inZone / st.count) * 100 : null,
-                    hardHitAvoid: st.battedBalls > 0 ? 100 - ((st.hardHits / st.battedBalls) * 100) : null, // Higher is better
+                    hardHitAvoid: st.battedBalls > 0 ? 100 - ((st.hardHits / st.battedBalls) * 100) : null,
                     gbRate: st.count > 0 ? (st.groundBalls / st.count) * 100 : null
                 }));
 
-            // Get selected pitcher stats
             const targetPitcher = validPitchers.find(p => selectedPlayers.includes(p.name));
             if (!targetPitcher) return [];
 
-            // Percentile calculation helper (Higher value is better)
             const calcPercentile = (metricKey, targetVal) => {
                 if (targetVal === null || targetVal === undefined) return 50;
                 const vals = validPitchers.map(p => p[metricKey]).filter(v => v !== null).sort((a, b) => a - b);
-                if (vals.length === 0) return 50;
+                if (vals.length <= 1) return 50;
                 const idx = vals.findIndex(v => v >= targetVal);
                 const rank = idx === -1 ? vals.length : idx;
-                return Math.min(99, Math.max(1, Math.round((rank / vals.length) * 100)));
+                return Math.min(99, Math.max(1, Math.round((rank / (vals.length - 1 || 1)) * 100)));
             };
+
+            const fbVeloDisplay = targetPitcher.fbVelo ? `${convertVel(targetPitcher.fbVelo).toFixed(1)} ${velUnit}` : '-';
 
             return [
                 {
                     key: 'fbVelo',
                     label: language === 'ja' ? 'ストレート球速' : 'Fastball Velo',
-                    valText: targetPitcher.fbVelo ? `${targetPitcher.fbVelo.toFixed(1)} mph` : '-',
+                    valText: fbVeloDisplay,
                     percentile: calcPercentile('fbVelo', targetPitcher.fbVelo)
                 },
                 {
@@ -183,7 +189,7 @@ const PercentileRankings = ({ data, allData, selectedPlayers, mode = 'pitching' 
             });
 
             const validBatters = Object.entries(batterStats)
-                .filter(([_, st]) => st.count >= 5)
+                .filter(([_, st]) => st.count >= 1)
                 .map(([name, st]) => ({
                     name,
                     batSpeed: st.batSpeedCount > 0 ? st.batSpeedSum / st.batSpeedCount : null,
@@ -200,29 +206,33 @@ const PercentileRankings = ({ data, allData, selectedPlayers, mode = 'pitching' 
             const calcPercentile = (metricKey, targetVal) => {
                 if (targetVal === null || targetVal === undefined) return 50;
                 const vals = validBatters.map(p => p[metricKey]).filter(v => v !== null).sort((a, b) => a - b);
-                if (vals.length === 0) return 50;
+                if (vals.length <= 1) return 50;
                 const idx = vals.findIndex(v => v >= targetVal);
                 const rank = idx === -1 ? vals.length : idx;
-                return Math.min(99, Math.max(1, Math.round((rank / vals.length) * 100)));
+                return Math.min(99, Math.max(1, Math.round((rank / (vals.length - 1 || 1)) * 100)));
             };
+
+            const batSpeedDisplay = targetBatter.batSpeed ? `${convertVel(targetBatter.batSpeed).toFixed(1)} ${velUnit}` : '-';
+            const avgEvDisplay = targetBatter.avgEv ? `${convertVel(targetBatter.avgEv).toFixed(1)} ${velUnit}` : '-';
+            const maxEvDisplay = targetBatter.maxEv ? `${convertVel(targetBatter.maxEv).toFixed(1)} ${velUnit}` : '-';
 
             return [
                 {
                     key: 'batSpeed',
                     label: language === 'ja' ? 'バットスピード' : 'Bat Speed',
-                    valText: targetBatter.batSpeed ? `${targetBatter.batSpeed.toFixed(1)} mph` : '-',
+                    valText: batSpeedDisplay,
                     percentile: calcPercentile('batSpeed', targetBatter.batSpeed)
                 },
                 {
                     key: 'avgEv',
                     label: language === 'ja' ? '平均打球初速 (Avg EV)' : 'Avg Exit Velo',
-                    valText: targetBatter.avgEv ? `${targetBatter.avgEv.toFixed(1)} mph` : '-',
+                    valText: avgEvDisplay,
                     percentile: calcPercentile('avgEv', targetBatter.avgEv)
                 },
                 {
                     key: 'maxEv',
                     label: language === 'ja' ? '最高打球初速 (Max EV)' : 'Max Exit Velo',
-                    valText: targetBatter.maxEv ? `${targetBatter.maxEv.toFixed(1)} mph` : '-',
+                    valText: maxEvDisplay,
                     percentile: calcPercentile('maxEv', targetBatter.maxEv)
                 },
                 {
@@ -245,7 +255,7 @@ const PercentileRankings = ({ data, allData, selectedPlayers, mode = 'pitching' 
                 }
             ];
         }
-    }, [allData, selectedPlayers, mode, language]);
+    }, [allData, selectedPlayers, mode, language, units]);
 
     if (rankings.length === 0) return null;
 
