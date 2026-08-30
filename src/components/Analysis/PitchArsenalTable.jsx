@@ -209,39 +209,43 @@ const PitchArsenalTable = ({ data, selectedPlayers, standFilter = 'all' }) => {
                 <table className="w-full text-xs text-left">
                     <thead className="bg-muted/60 text-muted-foreground border-b border-border text-[11px] uppercase tracking-wider font-semibold">
                         <tr>
-                            <th className="px-4 py-3">{language === 'ja' ? '球種' : 'Pitch'}</th>
-                            <th className="px-3 py-3 text-right">{language === 'ja' ? '投球数' : 'Pitches'}</th>
-                            <th className="px-3 py-3 text-right">{language === 'ja' ? '割合' : 'Usage'}</th>
-                            <th className="px-3 py-3 text-right">{language === 'ja' ? `平均 (${velUnit})` : `Avg (${velUnit})`}</th>
-                            <th className="px-3 py-3 text-right">{language === 'ja' ? `最高 (${velUnit})` : `Max (${velUnit})`}</th>
-                            <th className="px-3 py-3 text-right">{language === 'ja' ? '回転数 (rpm)' : 'Spin (rpm)'}</th>
-                            <th className="px-3 py-3 text-center">{language === 'ja' ? '回転方向 (Tilt)' : 'Spin Direction'}</th>
-                            <th className="px-3 py-3 text-right">{language === 'ja' ? `縦変化 iVB (${movUnit})` : `iVB (${movUnit})`}</th>
-                            <th className="px-3 py-3 text-right">{language === 'ja' ? `横変化 HB (${movUnit})` : `HB (${movUnit})`}</th>
-                            <th className="px-3 py-3 text-right">{language === 'ja' ? 'Whiff%' : 'Whiff%'}</th>
-                            <th className="px-3 py-3 text-right">{language === 'ja' ? 'CSW%' : 'CSW%'}</th>
-                            <th className="px-3 py-3 text-right">{language === 'ja' ? 'Zone%' : 'Zone%'}</th>
-                            <th className="px-4 py-3 text-right">{language === 'ja' ? `被平均打速 (${velUnit})` : `Exit Velo`}</th>
+                            <th className="px-3.5 py-3 whitespace-nowrap min-w-[130px]">{language === 'ja' ? '球種' : 'Pitch'}</th>
+                            <th className="px-2.5 py-3 text-right whitespace-nowrap">{language === 'ja' ? '投球数' : 'Pitches'}</th>
+                            <th className="px-2.5 py-3 text-right whitespace-nowrap">{language === 'ja' ? '割合' : 'Usage'}</th>
+                            <th className="px-2.5 py-3 text-right whitespace-nowrap">{language === 'ja' ? `平均 (${velUnit})` : `Avg (${velUnit})`}</th>
+                            <th className="px-2.5 py-3 text-right whitespace-nowrap">{language === 'ja' ? `最高 (${velUnit})` : `Max (${velUnit})`}</th>
+                            <th className="px-2.5 py-3 text-right whitespace-nowrap">{language === 'ja' ? '回転数 (rpm)' : 'Spin (rpm)'}</th>
+                            <th className="px-2.5 py-3 text-center whitespace-nowrap">{language === 'ja' ? '回転方向 (Tilt)' : 'Spin Direction'}</th>
+                            <th className="px-2.5 py-3 text-right whitespace-nowrap">{language === 'ja' ? `縦変化 iVB (${movUnit})` : `iVB (${movUnit})`}</th>
+                            <th className="px-2.5 py-3 text-right whitespace-nowrap">{language === 'ja' ? `横変化 HB (${movUnit})` : `HB (${movUnit})`}</th>
+                            <th className="px-2.5 py-3 text-right whitespace-nowrap">{language === 'ja' ? 'Whiff%' : 'Whiff%'}</th>
+                            <th className="px-2.5 py-3 text-right whitespace-nowrap">{language === 'ja' ? 'CSW%' : 'CSW%'}</th>
+                            <th className="px-2.5 py-3 text-right whitespace-nowrap">{language === 'ja' ? 'Zone%' : 'Zone%'}</th>
+                            <th className="px-3.5 py-3 text-right whitespace-nowrap">{language === 'ja' ? `被平均打速 (${velUnit})` : `Exit Velo`}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                         {stats.map((row) => (
                             <tr key={row.name} className="hover:bg-muted/40 transition-colors">
-                                <td className="px-4 py-3 font-medium flex items-center gap-2">
-                                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: row.color }}></span>
-                                    <span className="text-foreground font-semibold">{row.name}</span>
+                                <td className="px-3.5 py-2.5 font-medium whitespace-nowrap min-w-[130px]">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: row.color }}></span>
+                                        <span className="text-foreground font-semibold whitespace-nowrap">{row.name}</span>
+                                    </div>
                                 </td>
-                                <td className="px-3 py-3 text-right text-muted-foreground font-mono">{row.count}</td>
-                                <td className="px-3 py-3 text-right font-bold text-foreground font-mono">{row.usage}%</td>
-                                <td className="px-3 py-3 text-right font-semibold text-foreground font-mono">{row.avgVelo}</td>
-                                <td className="px-3 py-3 text-right text-muted-foreground font-mono">{row.maxVelo}</td>
-                                <td className="px-3 py-3 text-right text-muted-foreground font-mono">{row.avgSpin}</td>
-                                <td className="px-3 py-3 text-center font-mono font-bold text-amber-400 bg-amber-500/5 rounded">
-                                    {row.spinDirMode}
+                                <td className="px-2.5 py-2.5 text-right text-muted-foreground font-mono whitespace-nowrap">{row.count}</td>
+                                <td className="px-2.5 py-2.5 text-right font-bold text-foreground font-mono whitespace-nowrap">{row.usage}%</td>
+                                <td className="px-2.5 py-2.5 text-right font-semibold text-foreground font-mono whitespace-nowrap">{row.avgVelo}</td>
+                                <td className="px-2.5 py-2.5 text-right text-muted-foreground font-mono whitespace-nowrap">{row.maxVelo}</td>
+                                <td className="px-2.5 py-2.5 text-right text-muted-foreground font-mono whitespace-nowrap">{row.avgSpin}</td>
+                                <td className="px-2.5 py-2.5 text-center font-mono font-bold text-amber-400 whitespace-nowrap">
+                                    <span className="bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                                        {row.spinDirMode}
+                                    </span>
                                 </td>
-                                <td className="px-3 py-3 text-right font-mono font-medium text-cyan-400">{row.avgIvb}</td>
-                                <td className="px-3 py-3 text-right font-mono font-medium text-amber-400">{row.avgHb}</td>
-                                <td className="px-3 py-3 text-right font-mono font-semibold">
+                                <td className="px-2.5 py-2.5 text-right font-mono font-medium text-cyan-400 whitespace-nowrap">{row.avgIvb}</td>
+                                <td className="px-2.5 py-2.5 text-right font-mono font-medium text-amber-400 whitespace-nowrap">{row.avgHb}</td>
+                                <td className="px-2.5 py-2.5 text-right font-mono font-semibold whitespace-nowrap">
                                     <span className={Number(row.whiffRate) >= 25 ? 'text-emerald-400 font-bold' : 'text-foreground'}>
                                         {row.whiffRate}%
                                     </span>

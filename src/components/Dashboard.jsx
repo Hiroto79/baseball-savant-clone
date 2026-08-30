@@ -128,16 +128,38 @@ const Dashboard = () => {
             if (d.player_name) {
                 pitchers.add(d.player_name);
                 if (!pitcherMap[d.player_name]) {
-                    pitcherMap[d.player_name] = { count: 0, veloSum: 0, veloCount: 0, maxVelo: 0 };
+                    pitcherMap[d.player_name] = { 
+                        count: 0, 
+                        veloSum: 0, veloCount: 0, maxVelo: 0,
+                        spinSum: 0, spinCount: 0,
+                        swings: 0, whiffs: 0,
+                        inZone: 0,
+                        pitchTypes: {}
+                    };
                 }
                 const p = pitcherMap[d.player_name];
                 p.count++;
+
                 if (d.release_speed != null && !isNaN(d.release_speed)) {
                     const v = Number(d.release_speed);
                     p.veloSum += v;
                     p.veloCount++;
                     if (v > p.maxVelo) p.maxVelo = v;
                 }
+
+                if (d.release_spin_rate != null && !isNaN(d.release_spin_rate)) {
+                    p.spinSum += Number(d.release_spin_rate);
+                    p.spinCount++;
+                }
+
+                const desc = d.description || '';
+                if (isSwing(desc)) p.swings++;
+                if (isWhiff(desc)) p.whiffs++;
+                if (d.zone && Number(d.zone) >= 1 && Number(d.zone) <= 9) p.inZone++;
+
+                const rawType = d.pitch_type || d.pitch_name || d.type || 'その他';
+                const pName = PITCH_MAP[rawType] || rawType;
+                p.pitchTypes[pName] = (p.pitchTypes[pName] || 0) + 1;
             }
             if (d.batter_name) batters.add(d.batter_name);
 
@@ -188,16 +210,34 @@ const Dashboard = () => {
             { name: language === 'ja' ? 'ポップ (PU)' : 'Popup', value: bbCounts.total > 0 ? Math.round((bbCounts.popup / bbCounts.total) * 100) : 0, color: '#8b5cf6' }
         ];
 
-        // Top Pitchers list
+        // Top Pitchers list with rich metrics
         const topPitchers = Object.entries(pitcherMap)
-            .map(([name, stats]) => ({
-                name,
-                count: stats.count,
-                avgVelo: stats.veloCount > 0 ? convertVel(stats.veloSum / stats.veloCount).toFixed(1) : '-',
-                maxVelo: stats.maxVelo > 0 ? convertVel(stats.maxVelo).toFixed(1) : '-'
-            }))
+            .map(([name, stats]) => {
+                let mainPitch = '-';
+                let maxPtCount = 0;
+                Object.entries(stats.pitchTypes).forEach(([pt, cnt]) => {
+                    if (cnt > maxPtCount) {
+                        maxPtCount = cnt;
+                        mainPitch = pt;
+                    }
+                });
+
+                const whiffRate = stats.swings > 0 ? ((stats.whiffs / stats.swings) * 100).toFixed(1) : '0.0';
+                const zoneRate = stats.count > 0 ? ((stats.inZone / stats.count) * 100).toFixed(1) : '0.0';
+
+                return {
+                    name,
+                    count: stats.count,
+                    mainPitch,
+                    avgVelo: stats.veloCount > 0 ? convertVel(stats.veloSum / stats.veloCount).toFixed(1) : '-',
+                    maxVelo: stats.maxVelo > 0 ? convertVel(stats.maxVelo).toFixed(1) : '-',
+                    avgSpin: stats.spinCount > 0 ? Math.round(stats.spinSum / stats.spinCount) : '-',
+                    whiffRate,
+                    zoneRate
+                };
+            })
             .sort((a, b) => b.count - a.count)
-            .slice(0, 8);
+            .slice(0, 10);
 
         return {
             totalPitches,
@@ -606,11 +646,16 @@ const Dashboard = () => {
                     {savantOverview.topPitchers.length > 0 && (
                         <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
                             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                                <h3 className="font-bold text-sm text-foreground">
-                                    {selectedTeam === 'ALL' ? (language === 'ja' ? '主要投手一覧' : 'Key Pitchers') : `${selectedTeam} 所属投手`}
-                                </h3>
-                                <Link to="/analysis" className="text-xs text-blue-400 hover:underline flex items-center gap-1">
-                                    <span>詳細分析へ</span>
+                                <div>
+                                    <h3 className="font-bold text-sm text-foreground">
+                                        {selectedTeam === 'ALL' ? (language === 'ja' ? '主要投手一覧' : 'Key Pitchers') : `${selectedTeam} 所属投手`}
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        {language === 'ja' ? '所属投手の球速・回転数・Whiff%一覧（クリックで詳細分析へ）' : 'Velocity, spin rate, whiff% summary per pitcher'}
+                                    </p>
+                                </div>
+                                <Link to="/analysis" className="text-xs text-blue-400 hover:underline flex items-center gap-1 font-semibold">
+                                    <span>全分析を見る</span>
                                     <ArrowRight size={12} />
                                 </Link>
                             </div>
@@ -618,27 +663,52 @@ const Dashboard = () => {
                                 <table className="w-full text-xs text-left">
                                     <thead className="bg-muted/50 text-muted-foreground border-b border-border text-[11px] uppercase font-semibold">
                                         <tr>
-                                            <th className="px-4 py-2.5">{language === 'ja' ? '投手名' : 'Pitcher'}</th>
-                                            <th className="px-4 py-2.5 text-right">{language === 'ja' ? '投球数' : 'Pitches'}</th>
-                                            <th className="px-4 py-2.5 text-right">{language === 'ja' ? `平均球速 (${velUnit})` : 'Avg Velo'}</th>
-                                            <th className="px-4 py-2.5 text-right">{language === 'ja' ? `最高球速 (${velUnit})` : 'Max Velo'}</th>
+                                            <th className="px-4 py-3">{language === 'ja' ? '投手名' : 'Pitcher'}</th>
+                                            <th className="px-3 py-3 text-center">{language === 'ja' ? '主要球種' : 'Main Pitch'}</th>
+                                            <th className="px-3 py-3 text-right">{language === 'ja' ? '投球数' : 'Pitches'}</th>
+                                            <th className="px-3 py-3 text-right">{language === 'ja' ? `平均球速 (${velUnit})` : 'Avg Velo'}</th>
+                                            <th className="px-3 py-3 text-right">{language === 'ja' ? `最高球速 (${velUnit})` : 'Max Velo'}</th>
+                                            <th className="px-3 py-3 text-right">{language === 'ja' ? '回転数 (rpm)' : 'Spin Rate'}</th>
+                                            <th className="px-3 py-3 text-right">{language === 'ja' ? 'Whiff%' : 'Whiff%'}</th>
+                                            <th className="px-3 py-3 text-right">{language === 'ja' ? 'Zone%' : 'Zone%'}</th>
+                                            <th className="px-4 py-3 text-center">{language === 'ja' ? '詳細' : 'Action'}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border font-mono">
                                         {savantOverview.topPitchers.map(p => (
                                             <tr key={p.name} className="hover:bg-muted/30 transition-colors group">
-                                                <td className="px-4 py-2.5 font-sans font-semibold text-foreground">
+                                                <td className="px-4 py-3 font-sans font-bold text-foreground">
                                                     <Link 
                                                         to={`/analysis?player=${encodeURIComponent(p.name)}&mode=pitching`}
                                                         className="hover:text-blue-400 hover:underline flex items-center gap-1.5"
                                                     >
                                                         <span>{p.name}</span>
-                                                        <ArrowRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400" />
                                                     </Link>
                                                 </td>
-                                                <td className="px-4 py-2.5 text-right text-muted-foreground">{p.count}</td>
-                                                <td className="px-4 py-2.5 text-right text-foreground font-medium">{p.avgVelo}</td>
-                                                <td className="px-4 py-2.5 text-right text-red-400 font-bold">{p.maxVelo}</td>
+                                                <td className="px-3 py-3 text-center font-sans">
+                                                    <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded text-[11px] font-medium border border-border">
+                                                        {p.mainPitch}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-3 text-right text-muted-foreground">{p.count}</td>
+                                                <td className="px-3 py-3 text-right text-foreground font-semibold">{p.avgVelo}</td>
+                                                <td className="px-3 py-3 text-right text-red-400 font-bold">{p.maxVelo}</td>
+                                                <td className="px-3 py-3 text-right text-muted-foreground">{p.avgSpin}</td>
+                                                <td className="px-3 py-3 text-right">
+                                                    <span className={Number(p.whiffRate) >= 25 ? 'text-emerald-400 font-bold' : 'text-foreground'}>
+                                                        {p.whiffRate}%
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-3 text-right text-muted-foreground">{p.zoneRate}%</td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <Link
+                                                        to={`/analysis?player=${encodeURIComponent(p.name)}&mode=pitching`}
+                                                        className="inline-flex p-1.5 text-muted-foreground hover:text-blue-400 hover:bg-muted rounded-lg transition-colors"
+                                                        title="詳細分析へ"
+                                                    >
+                                                        <ArrowRight size={14} />
+                                                    </Link>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
