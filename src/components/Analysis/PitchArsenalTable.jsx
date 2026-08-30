@@ -239,9 +239,7 @@ const PitchArsenalTable = ({ data, selectedPlayers, standFilter = 'all' }) => {
                                 <td className="px-2.5 py-2.5 text-right text-muted-foreground font-mono whitespace-nowrap">{row.maxVelo}</td>
                                 <td className="px-2.5 py-2.5 text-right text-muted-foreground font-mono whitespace-nowrap">{row.avgSpin}</td>
                                 <td className="px-2.5 py-2.5 text-center font-mono font-bold text-amber-400 whitespace-nowrap">
-                                    <span className="bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                                        {row.spinDirMode}
-                                    </span>
+                                    {row.spinDirMode}
                                 </td>
                                 <td className="px-2.5 py-2.5 text-right font-mono font-medium text-cyan-400 whitespace-nowrap">{row.avgIvb}</td>
                                 <td className="px-2.5 py-2.5 text-right font-mono font-medium text-amber-400 whitespace-nowrap">{row.avgHb}</td>
