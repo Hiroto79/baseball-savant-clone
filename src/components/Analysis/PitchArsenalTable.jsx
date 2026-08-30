@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useSettings } from '../../context/SettingsContext';
+import { getSpinDirection, getModeSpinDirection } from '../../utils/spinDirection';
 
 const COLOR_MAP = {
     "4-Seam Fastball": "#ef4444",
@@ -81,6 +82,7 @@ const PitchArsenalTable = ({ data, selectedPlayers, standFilter = 'all' }) => {
                     maxVelo: 0,
                     spinSum: 0,
                     spinCount: 0,
+                    spinDirs: [],
                     ivbSum: 0,
                     hbSum: 0,
                     movCount: 0,
@@ -104,10 +106,15 @@ const PitchArsenalTable = ({ data, selectedPlayers, standFilter = 'all' }) => {
                 if (v > g.maxVelo) g.maxVelo = v;
             }
 
-            // Spin Rate
+            // Spin Rate & Spin Direction (spin_axis)
             if (d.release_spin_rate != null && !isNaN(d.release_spin_rate)) {
                 g.spinSum += Number(d.release_spin_rate);
                 g.spinCount++;
+            }
+
+            if (d.spin_axis != null && !isNaN(d.spin_axis)) {
+                const dir = getSpinDirection(d.spin_axis);
+                if (dir) g.spinDirs.push(dir);
             }
 
             // Movement (pfx_x, pfx_z)
@@ -148,6 +155,7 @@ const PitchArsenalTable = ({ data, selectedPlayers, standFilter = 'all' }) => {
                 const usage = (g.count / totalPitches) * 100;
                 const avgVelo = g.count > 0 ? g.veloSum / g.count : null;
                 const avgSpin = g.spinCount > 0 ? g.spinSum / g.spinCount : null;
+                const spinDirMode = getModeSpinDirection(g.spinDirs);
                 const avgIvb = g.movCount > 0 ? g.ivbSum / g.movCount : null;
                 const avgHb = g.movCount > 0 ? g.hbSum / g.movCount : null;
                 const whiffRate = g.swings > 0 ? (g.whiffs / g.swings) * 100 : 0;
@@ -163,6 +171,7 @@ const PitchArsenalTable = ({ data, selectedPlayers, standFilter = 'all' }) => {
                     avgVelo: avgVelo ? convertVel(avgVelo).toFixed(1) : '-',
                     maxVelo: g.maxVelo > 0 ? convertVel(g.maxVelo).toFixed(1) : '-',
                     avgSpin: avgSpin ? Math.round(avgSpin) : '-',
+                    spinDirMode,
                     avgIvb: avgIvb != null ? (avgIvb > 0 ? `+${avgIvb.toFixed(1)}` : avgIvb.toFixed(1)) : '-',
                     avgHb: avgHb != null ? (avgHb > 0 ? `+${avgHb.toFixed(1)}` : avgHb.toFixed(1)) : '-',
                     whiffRate: whiffRate.toFixed(1),
@@ -190,8 +199,8 @@ const PitchArsenalTable = ({ data, selectedPlayers, standFilter = 'all' }) => {
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
                         {language === 'ja' 
-                            ? `投球割合・球速・回転数・変化量・空振り率(Whiff%)・CSW%の一覧`
-                            : 'Pitch usage, velocity, spin, movement, whiff% and CSW% breakdown'}
+                            ? `投球割合・球速・回転数・回転方向(Tilt)・変化量・Whiff%・CSW%の一覧`
+                            : 'Pitch usage, velocity, spin rate, spin direction, movement, whiff% and CSW%'}
                     </p>
                 </div>
             </div>
@@ -206,6 +215,7 @@ const PitchArsenalTable = ({ data, selectedPlayers, standFilter = 'all' }) => {
                             <th className="px-3 py-3 text-right">{language === 'ja' ? `平均 (${velUnit})` : `Avg (${velUnit})`}</th>
                             <th className="px-3 py-3 text-right">{language === 'ja' ? `最高 (${velUnit})` : `Max (${velUnit})`}</th>
                             <th className="px-3 py-3 text-right">{language === 'ja' ? '回転数 (rpm)' : 'Spin (rpm)'}</th>
+                            <th className="px-3 py-3 text-center">{language === 'ja' ? '回転方向 (Tilt)' : 'Spin Direction'}</th>
                             <th className="px-3 py-3 text-right">{language === 'ja' ? `縦変化 iVB (${movUnit})` : `iVB (${movUnit})`}</th>
                             <th className="px-3 py-3 text-right">{language === 'ja' ? `横変化 HB (${movUnit})` : `HB (${movUnit})`}</th>
                             <th className="px-3 py-3 text-right">{language === 'ja' ? 'Whiff%' : 'Whiff%'}</th>
@@ -226,6 +236,9 @@ const PitchArsenalTable = ({ data, selectedPlayers, standFilter = 'all' }) => {
                                 <td className="px-3 py-3 text-right font-semibold text-foreground font-mono">{row.avgVelo}</td>
                                 <td className="px-3 py-3 text-right text-muted-foreground font-mono">{row.maxVelo}</td>
                                 <td className="px-3 py-3 text-right text-muted-foreground font-mono">{row.avgSpin}</td>
+                                <td className="px-3 py-3 text-center font-mono font-bold text-amber-400 bg-amber-500/5 rounded">
+                                    {row.spinDirMode}
+                                </td>
                                 <td className="px-3 py-3 text-right font-mono font-medium text-cyan-400">{row.avgIvb}</td>
                                 <td className="px-3 py-3 text-right font-mono font-medium text-amber-400">{row.avgHb}</td>
                                 <td className="px-3 py-3 text-right font-mono font-semibold">
