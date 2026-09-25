@@ -96,6 +96,7 @@ const Feedback = () => {
         const t = type.toLowerCase();
 
         if (t.includes('quick') && (t.includes('fastball') || t.includes('straight'))) return 'ストレート(クイック)';
+        if (t.includes('one') || t.includes('1')) return 'ワンシーム';
         if (t.includes('two') || t.includes('2')) return 'ツーシーム';
         if (t.includes('cut')) return 'カットボール';
         if (t.includes('split') || t.includes('fork')) return 'スプリット';
@@ -104,6 +105,8 @@ const Feedback = () => {
         if (t.includes('fastball') || t.includes('straight')) return 'ストレート';
         if (t.includes('slider')) return 'スライダー';
         if (t.includes('curve')) return 'カーブ';
+        if (t.includes('knuckle')) return 'ナックル';
+        if (t.includes('palm')) return 'パーム';
         return type;
     };
 
@@ -112,6 +115,7 @@ const Feedback = () => {
         if (!type) return '#6b7280';
         const t = type.toLowerCase();
         if (t.includes('ストレート') || t.includes('straight') || t.includes('fastball') || t.includes('4シーム') || t.includes('4-seam')) return '#ef4444'; // Red for Straight
+        if (t.includes('ワンシーム') || t.includes('1シーム') || t.includes('1-seam')) return '#38bdf8';
         if (t.includes('ツーシーム') || t.includes('2シーム') || t.includes('2-seam')) return '#00BFFF';
         if (t.includes('シュート') || t.includes('sinker') || t.includes('シンカー')) return '#A6A6A6';
         if (t.includes('カット') || t.includes('cutter')) return '#0070C0';
@@ -120,6 +124,8 @@ const Feedback = () => {
         if (t.includes('スライダー') || t.includes('スラ') || t.includes('slider') || t.includes('sweeper')) return '#7030A0';
         if (t.includes('チェンジアップ') || t.includes('change')) return '#FFE599';
         if (t.includes('カーブ') || t.includes('curve')) return '#00B050';
+        if (t.includes('ナックル') || t.includes('knuckle')) return '#8b5cf6';
+        if (t.includes('パーム') || t.includes('palm')) return '#f43f5e';
         return '#6b7280';
     };
 
