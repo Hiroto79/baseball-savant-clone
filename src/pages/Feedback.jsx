@@ -708,7 +708,8 @@ const Feedback = () => {
                 };
             });
 
-            // 球種の表示順序判定: 1. ストレート -> 2. クイック -> 3. カーブ -> 4. スライダー -> 5. チェンジアップ -> その他 (投球数降順)
+            // 球種の表示順序判定:
+            // 1. ストレート -> 2. クイック -> 3. ツーシーム -> 4. シュート/シンカー -> 5. カットボール -> 6. スプリット -> 7. フォーク -> 8. スライダー -> 9. チェンジアップ -> 10. カーブ -> その他 (投球数降順)
             const getPitchTypeSortPriority = (typeName) => {
                 const t = (typeName || '').toLowerCase();
                 if ((t.includes('ストレート') || t.includes('straight') || t.includes('fastball') || t.includes('4シーム') || t.includes('4-seam')) && !t.includes('クイック') && !t.includes('quick')) {
@@ -717,14 +718,29 @@ const Feedback = () => {
                 if (t.includes('クイック') || t.includes('quick')) {
                     return 2;
                 }
-                if (t.includes('カーブ') || t.includes('curve')) {
+                if (t.includes('ツーシーム') || t.includes('2シーム') || t.includes('2-seam')) {
                     return 3;
                 }
-                if (t.includes('スライダー') || t.includes('slider') || t.includes('sweeper') || t.includes('スラ')) {
+                if (t.includes('シュート') || t.includes('sinker') || t.includes('シンカー')) {
                     return 4;
                 }
-                if (t.includes('チェンジアップ') || t.includes('チェンジ') || t.includes('change')) {
+                if (t.includes('カット') || t.includes('cutter')) {
                     return 5;
+                }
+                if (t.includes('スプリット') || t.includes('split')) {
+                    return 6;
+                }
+                if (t.includes('フォーク') || t.includes('fork')) {
+                    return 7;
+                }
+                if (t.includes('スライダー') || t.includes('slider') || t.includes('sweeper') || t.includes('スイーパー') || t.includes('スラ')) {
+                    return 8;
+                }
+                if (t.includes('チェンジアップ') || t.includes('チェンジ') || t.includes('change')) {
+                    return 9;
+                }
+                if (t.includes('カーブ') || t.includes('curve')) {
+                    return 10;
                 }
                 return 999;
             };
