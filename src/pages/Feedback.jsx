@@ -1067,9 +1067,9 @@ const Feedback = () => {
             `}</style>
             {/* Debug Info Overlay Removed */}
 
-            <div className="print:hidden mb-8 space-y-6 bg-white p-6 rounded-xl border border-gray-200 shadow-sm max-w-5xl mx-auto">
-                <div className="flex justify-between items-start">
-                    <div className="flex gap-4 items-center flex-grow">
+            <div className="print:hidden mb-8 space-y-6 bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm max-w-5xl mx-auto">
+                <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+                    <div className="flex flex-col sm:flex-row gap-4 items-start flex-grow">
                         <div className="flex bg-white rounded-lg border p-1 shadow-sm">
                             <button
                                 onClick={() => setViewMode('individual')}
@@ -1090,7 +1090,7 @@ const Feedback = () => {
                                 全員分一括印刷
                             </button>
                         </div>
-                        <div className="h-10 w-px bg-gray-300 mx-2"></div>
+                        <div className="h-10 w-px bg-gray-300 mx-2 hidden sm:block"></div>
                         <div className="grid grid-cols-2 gap-2 lg:gap-4 flex-grow">
                             <div className="space-y-1">
                                 <label className="block text-[10px] uppercase tracking-wider font-bold text-gray-500">{language === 'ja' ? 'データアップロード' : 'Upload CSV'}</label>
@@ -1113,7 +1113,7 @@ const Feedback = () => {
                     </div>
                     <button
                         onClick={handlePrint}
-                        className="ml-6 p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-lg flex items-center gap-2"
+                        className="mt-2 lg:mt-0 ml-0 lg:ml-6 p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-lg flex items-center gap-2 self-start"
                         title={language === 'ja' ? '印刷・PDF保存' : 'Print / Save as PDF'}
                     >
                         <Printer size={24} />
@@ -1216,7 +1216,7 @@ const Feedback = () => {
 
                             {/* 1. Main Stats Table */}
                             <div className="mb-2 print:mb-0 overflow-x-auto print:overflow-visible">
-                                <table className="main-stats-table w-full border-collapse border border-black text-center table-fixed">
+                                <table className="main-stats-table w-full border-collapse border border-black text-center table-fixed min-w-[580px] print:min-w-0">
                                     <thead>
                                         <tr className="bg-gray-100 h-8 text-[10px]">
                                             <th className="border border-black w-20">球種</th>
@@ -1280,7 +1280,7 @@ const Feedback = () => {
 
                             {/* 2. Comparison Table */}
                             <div className="comparison-block mb-2 print:mt-2 overflow-x-auto print:overflow-visible">
-                                <table className="comparison-table w-full border-collapse border border-black text-[10px] text-center table-fixed">
+                                <table className="comparison-table w-full border-collapse border border-black text-[10px] text-center table-fixed min-w-[450px] print:min-w-0">
                                     <thead>
                                         <tr className="bg-red-600 text-white">
                                             <th className="border border-black p-0.5">ストレート</th>
@@ -1532,7 +1532,7 @@ const Feedback = () => {
                                     {/* Velocity Gap Reference Table */}
                                     <div className="mt-auto print:mt-1 overflow-x-auto print:overflow-visible">
                                         <div className="text-right text-[10px] font-bold mb-0.5 pr-1">緩急比基準 (%)</div>
-                                        <div className="gap-reference flex w-full border border-black text-[9px] font-bold text-center">
+                                        <div className="gap-reference flex w-full border border-black text-[9px] font-bold text-center min-w-[420px] print:min-w-0">
                                             <div className="flex-1 flex flex-col border-r border-black">
                                                 <div className="bg-[#00BFFF] text-white py-1 border-b border-black leading-none flex items-center justify-center min-h-[24px] text-[9px] whitespace-nowrap">ツーシーム</div>
                                                 <div className="py-1 flex items-center justify-center min-h-[20px]">99</div>

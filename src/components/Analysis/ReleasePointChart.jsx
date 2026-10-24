@@ -3,7 +3,7 @@ import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid
 import { useSettings } from '../../context/SettingsContext';
 import { PITCH_COLORS } from '../../utils/pitchColors';
 
-const ReleasePointChart = ({ data, selectedPlayers }) => {
+const ReleasePointChart = ({ data, selectedPlayers, standFilter = 'all' }) => {
     const { language, units } = useSettings();
 
     const FT_TO_M = 0.3048;
@@ -13,7 +13,11 @@ const ReleasePointChart = ({ data, selectedPlayers }) => {
             return { chartData: [], metrics: null, legendData: [] };
         }
 
-        const filtered = data.filter(d => d && d.player_name && selectedPlayers.includes(d.player_name));
+        const filtered = data.filter(d => {
+            if (!d || !d.player_name || !selectedPlayers.includes(d.player_name)) return false;
+            if (standFilter !== 'all' && d.stand && d.stand !== standFilter) return false;
+            return true;
+        });
         const pts = [];
 
         let sumHeight = 0, sumSide = 0, sumExt = 0, validCount = 0;
@@ -62,7 +66,7 @@ const ReleasePointChart = ({ data, selectedPlayers }) => {
             metrics: { avgHeight, avgSide, avgExt, total: validCount },
             legendData: legends
         };
-    }, [data, selectedPlayers, units]);
+    }, [data, selectedPlayers, standFilter, units]);
 
     const distUnit = units === 'metric' ? 'm' : 'ft';
     const xDomain = units === 'metric' ? [-1.5, 1.5] : [-4, 4];

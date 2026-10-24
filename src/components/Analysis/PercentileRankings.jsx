@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 
-const PercentileRankings = ({ data, allData, selectedPlayers, mode = 'pitching' }) => {
+const PercentileRankings = ({ data, allData, selectedPlayers, mode = 'pitching', standFilter = 'all' }) => {
     const { language, units } = useSettings();
 
     const MPH_TO_KMH = 1.60934;
@@ -26,6 +26,7 @@ const PercentileRankings = ({ data, allData, selectedPlayers, mode = 'pitching' 
 
             allData.forEach(d => {
                 if (!d || !d.player_name) return;
+                if (standFilter !== 'all' && d.stand && d.stand !== standFilter) return;
                 const name = d.player_name;
                 if (!pitcherStats[name]) {
                     pitcherStats[name] = {
@@ -255,7 +256,7 @@ const PercentileRankings = ({ data, allData, selectedPlayers, mode = 'pitching' 
                 }
             ];
         }
-    }, [allData, selectedPlayers, mode, language, units]);
+    }, [allData, selectedPlayers, mode, standFilter, language, units]);
 
     if (rankings.length === 0) return null;
 

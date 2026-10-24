@@ -602,6 +602,34 @@ const SavantAnalysis = ({ data }) => {
                         </div>
                     )}
                 </div>
+
+                {/* Batter Handedness Filter (Pitching Mode Only) */}
+                {mode === 'pitching' && (
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+                        <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                            {language === 'ja' ? '対打者:' : 'vs Batter:'}
+                        </span>
+                        <div className="flex gap-1.5 flex-wrap">
+                            {[
+                                { id: 'all', label: language === 'ja' ? '全打者' : 'All Batters' },
+                                { id: 'R', label: language === 'ja' ? '対 右打者' : 'vs Right' },
+                                { id: 'L', label: language === 'ja' ? '対 左打者' : 'vs Left' }
+                            ].map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setStandFilter(tab.id)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                        standFilter === tab.id
+                                            ? 'bg-primary text-primary-foreground shadow-sm'
+                                            : 'bg-muted text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Content Dashboard */}
@@ -613,6 +641,7 @@ const SavantAnalysis = ({ data }) => {
                         allData={yearFilteredData}
                         selectedPlayers={selectedPlayers}
                         mode={mode}
+                        standFilter={standFilter}
                     />
 
                     {/* 2. KPI Summary Cards */}
@@ -641,36 +670,11 @@ const SavantAnalysis = ({ data }) => {
                                     <ReleasePointChart
                                         data={filteredData}
                                         selectedPlayers={selectedPlayers}
+                                        standFilter={standFilter}
                                     />
                                 </div>
 
-                                {/* 3. Batter Handedness Split Filter */}
-                                <div className="md:col-span-2 flex items-center justify-between bg-card p-3 rounded-xl border border-border">
-                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                        {language === 'ja' ? '打者左右フィルター (vs RHH / vs LHH)' : 'Batter Handedness Filter'}
-                                    </span>
-                                    <div className="flex gap-1.5">
-                                        {[
-                                            { id: 'all', label: language === 'ja' ? '全打者' : 'All Batters' },
-                                            { id: 'R', label: language === 'ja' ? '対 右打者' : 'vs Right' },
-                                            { id: 'L', label: language === 'ja' ? '対 左打者' : 'vs Left' }
-                                        ].map(tab => (
-                                            <button
-                                                key={tab.id}
-                                                onClick={() => setStandFilter(tab.id)}
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                                    standFilter === tab.id
-                                                        ? 'bg-primary text-primary-foreground shadow-sm'
-                                                        : 'bg-muted text-muted-foreground hover:text-foreground'
-                                                }`}
-                                            >
-                                                {tab.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* 4. Two-Column Visual Split (Movement & Strike Zone) */}
+                                {/* 3. Two-Column Visual Split (Movement & Strike Zone) */}
                                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                                     {/* Left: Pitch Movement */}
                                     <div className="w-full">
