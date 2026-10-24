@@ -102,20 +102,28 @@ const SavantAnalysis = ({ data }) => {
         return data.filter(d => getRowYear(d) === selectedYear);
     }, [data, selectedYear]);
 
-    // Filter data by date range (for batting mode) - MUST be before players
+    // Filter data by date range (for batting mode) and standFilter (for pitching mode)
     const filteredData = useMemo(() => {
-        if (mode !== 'batting' || dateRange === 'all') return yearFilteredData;
-        if (!startDate && !endDate) return yearFilteredData;
+        let result = yearFilteredData;
 
-        return yearFilteredData.filter(d => {
-            const gameDate = d.game_date;
-            if (!gameDate) return false;
+        // Apply date range filter (batting mode only)
+        if (mode === 'batting' && dateRange !== 'all' && (startDate || endDate)) {
+            result = result.filter(d => {
+                const gameDate = d.game_date;
+                if (!gameDate) return false;
+                if (startDate && gameDate < startDate) return false;
+                if (endDate && gameDate > endDate) return false;
+                return true;
+            });
+        }
 
-            if (startDate && gameDate < startDate) return false;
-            if (endDate && gameDate > endDate) return false;
-            return true;
-        });
-    }, [yearFilteredData, mode, dateRange, startDate, endDate]);
+        // Apply batter handedness filter (pitching mode only)
+        if (mode === 'pitching' && standFilter !== 'all') {
+            result = result.filter(d => !d.stand || d.stand === standFilter);
+        }
+
+        return result;
+    }, [yearFilteredData, mode, dateRange, startDate, endDate, standFilter]);
 
     // Extract unique players based on mode
     const players = useMemo(() => {
