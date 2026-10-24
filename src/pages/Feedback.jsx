@@ -143,6 +143,7 @@ const Feedback = () => {
     // Helper to format pitch type name with line break before parenthesis
     const formatPitchTypeName = (type) => {
         if (!type) return '';
+        if (type.includes('クイック') || type.toLowerCase().includes('quick')) return 'クイック';
         const match = type.match(/^([^(]+)\((.+)\)$/);
         if (match) {
             return (
@@ -1203,7 +1204,7 @@ const Feedback = () => {
                     if (!playerStats) return null;
 
                     return (
-                        <div key={mappedPlayer} className={`mt-8 flex flex-col gap-4 ${isPrintAll ? 'print:break-after-page' : ''} max-w-[800px] mx-auto bg-white shadow-2xl p-8 border border-gray-200 pitcher-report-container`} type="A4">
+                        <div key={mappedPlayer} className={`mt-8 flex flex-col gap-4 ${isPrintAll ? 'print:break-after-page' : ''} max-w-[800px] mx-auto bg-white shadow-2xl p-3 sm:p-6 md:p-8 border border-gray-200 pitcher-report-container`} type="A4">
                             <div className="pitcher-report-content print:block print:w-full bg-white text-black font-sans py-2 print:py-0">
                             <div className="report-title-row flex justify-between items-center mb-1 print:mb-0">
                                 <h2 className="text-3xl font-bold border-b-2 border-black pb-1 print:pb-0">{displayPlayerName}</h2>
@@ -1214,7 +1215,7 @@ const Feedback = () => {
                             </div>
 
                             {/* 1. Main Stats Table */}
-                            <div className="mb-2 print:mb-0">
+                            <div className="mb-2 print:mb-0 overflow-x-auto print:overflow-visible">
                                 <table className="main-stats-table w-full border-collapse border border-black text-center table-fixed">
                                     <thead>
                                         <tr className="bg-gray-100 h-8 text-[10px]">
@@ -1226,15 +1227,13 @@ const Feedback = () => {
                                             <th className="border border-black">回転軸<br />(時間)</th>
                                             <th className="border border-black">縦の変化量<br />(cm)</th>
                                             <th className="border border-black">横の変化量<br />(cm)</th>
-                                            <th className="border border-black">リリース<br />角度<br />(横)<br />(°)</th>
-                                            <th className="border border-black">リリース<br />角度<br />(縦)<br />(°)</th>
                                             <th className="border border-black">ジャイロ<br />角度(度)</th>
                                             <th className="border border-black">制球率<br />(%)</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {playerStats.averages.map((stat) => {
-                                            const isStraight = stat.type.includes('ストレート') || stat.type.toLowerCase().includes('straight') || stat.type.toLowerCase().includes('fastball');
+                                            const isStraight = (stat.type.includes('ストレート') || stat.type.toLowerCase().includes('straight') || stat.type.toLowerCase().includes('fastball')) && !stat.type.includes('クイック') && !stat.type.toLowerCase().includes('quick');
 
                                             return (
                                                 <React.Fragment key={stat.type}>
@@ -1247,8 +1246,6 @@ const Feedback = () => {
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgClock}</td>
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgVB}</td>
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgHB}</td>
-                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgRAH}</td>
-                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgRAV}</td>
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgGyro}</td>
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle p-0" rowSpan={isStraight ? 2 : 1}>
                                                             <input
@@ -1271,8 +1268,6 @@ const Feedback = () => {
                                                             <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxClock}</td>
                                                             <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxVB}</td>
                                                             <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxHB}</td>
-                                                            <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxRAH || '-'}</td>
-                                                            <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxRAV || '-'}</td>
                                                             <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxGyro}</td>
                                                         </tr>
                                                     )}
@@ -1284,7 +1279,7 @@ const Feedback = () => {
                             </div>
 
                             {/* 2. Comparison Table */}
-                            <div className="comparison-block mb-2 print:mt-2">
+                            <div className="comparison-block mb-2 print:mt-2 overflow-x-auto print:overflow-visible">
                                 <table className="comparison-table w-full border-collapse border border-black text-[10px] text-center table-fixed">
                                     <thead>
                                         <tr className="bg-red-600 text-white">
@@ -1346,9 +1341,9 @@ const Feedback = () => {
                             </div>
 
                             {/* 3. Quick Motion Times */}
-                            <div className="quick-block mb-2 print:mb-0 flex items-stretch gap-0">
+                            <div className="quick-block mb-2 print:mb-0 flex flex-wrap sm:flex-nowrap items-stretch gap-2 sm:gap-0 overflow-x-auto print:overflow-visible">
                                 <div className="bg-red-600 text-white font-bold w-20 flex items-center justify-center border border-black border-r-0 text-sm">クイック</div>
-                                <table className="border-collapse border border-black text-center flex-grow text-[10px] h-full">
+                                <table className="border-collapse border border-black text-center flex-grow text-[10px] h-full min-w-[280px]">
                                     <thead>
                                         <tr className="bg-[#FFE5D9] h-7">
                                             <th className="border border-black p-0.5">最短タイム (秒)</th>
@@ -1364,17 +1359,17 @@ const Feedback = () => {
                                         </tr>
                                     </tbody>
                                 </table>
-                                <div className="quick-target text-sm font-bold ml-4 flex items-center">目標は1.29秒以内</div>
+                                <div className="quick-target text-sm font-bold ml-4 flex items-center whitespace-nowrap">目標は1.29秒以内</div>
                             </div>
 
                             {/* Equal Height Wrapper - Unified height strategy for consistent print rendering */}
-                            <div className="chart-grid flex flex-row justify-center gap-4 items-stretch print:gap-2 print:min-h-0 print:w-full">
+                            <div className="chart-grid flex flex-col md:flex-row print:flex-row justify-center gap-4 items-stretch print:gap-2 print:min-h-0 print:w-full">
 
 
                                 {/* Left: Change Chart & Table */}
                                 <div className="chart-panel w-full md:w-[50%] border border-green-600 p-2 print:p-0 print:mt-1 flex flex-col relative h-auto md:min-h-[460px] print:h-[300px]">
                                     <h3 className="text-center font-bold text-xl mb-2 print:text-base print:mb-1">変化量チャートと球種別平均値</h3>
-                                    <div className="movement-chart-area relative mx-auto w-[290px] h-[290px] print:mb-0">
+                                    <div className="movement-chart-area relative mx-auto w-[290px] h-[290px] max-w-full print:mb-0">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" />
@@ -1417,28 +1412,32 @@ const Feedback = () => {
                                             </ScatterChart>
                                         </ResponsiveContainer>
                                     </div>
-                                    <table className="movement-summary-table w-full print:w-[95%] print:mx-auto border-collapse border border-black text-[10px] print:text-[8px] text-center table-fixed mt-auto print:mt-2">
-                                        <thead>
-                                            <tr className="bg-gray-100 h-8 print:h-6">
-                                                <th className="border border-black">球種<br />(平均値)</th>
-                                                <th className="border border-black">回転数</th>
-                                                <th className="border border-black bg-gray-300">回転<br />効率</th>
-                                                <th className="border border-black">縦の<br />変化量</th>
-                                                <th className="border border-black bg-gray-300">横の<br />変化量</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {playerStats.averages.map(stat => (
-                                                <tr key={stat.type} className="h-6 print:h-5">
-                                                    <td className="border border-black font-bold print:text-[8px]" style={{ backgroundColor: getTypeColor(stat.type), color: getTypeTextColor(stat.type) }}>{formatPitchTypeName(stat.type)}</td>
-                                                    <td className="border border-black">{stat.avgSpin}</td>
-                                                    <td className="border border-black bg-gray-300">{stat.avgEfficiency}</td>
-                                                    <td className="border border-black">{stat.avgVB}</td>
-                                                    <td className="border border-black bg-gray-300">{stat.avgHB}</td>
+                                    <div className="w-full overflow-x-auto print:overflow-visible mt-auto print:mt-2">
+                                        <table className="movement-summary-table w-full print:w-[95%] print:mx-auto border-collapse border border-black text-[10px] print:text-[8px] text-center table-fixed">
+                                            <thead>
+                                                <tr className="bg-gray-100 h-8 print:h-6">
+                                                    <th className="border border-black">球種<br />(平均値)</th>
+                                                    <th className="border border-black">回転数</th>
+                                                    <th className="border border-black bg-gray-300">回転<br />効率</th>
+                                                    <th className="border border-black">縦の<br />変化量</th>
+                                                    <th className="border border-black bg-gray-300">横の<br />変化量</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody>
+                                                {playerStats.averages.map(stat => (
+                                                    <tr key={stat.type} className="h-6 print:h-5">
+                                                        <td className="border border-black font-bold print:text-[8px]" style={{ backgroundColor: getTypeColor(stat.type), color: getTypeTextColor(stat.type) }}>
+                                                            {stat.type.includes('クイック') || stat.type.toLowerCase().includes('quick') ? 'クイック' : formatPitchTypeName(stat.type)}
+                                                        </td>
+                                                        <td className="border border-black">{stat.avgSpin}</td>
+                                                        <td className="border border-black bg-gray-300">{stat.avgEfficiency}</td>
+                                                        <td className="border border-black">{stat.avgVB}</td>
+                                                        <td className="border border-black bg-gray-300">{stat.avgHB}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
 
                                 {/* Right: Velocity Difference Vertical Chart */}
@@ -1501,8 +1500,8 @@ const Feedback = () => {
                                         </div>
 
                                         {/* Speed Ratio Table */}
-                                        <div className="w-[70%] flex flex-col justify-center">
-                                            <table className="speed-ratio-table border-collapse border border-black text-[8px] text-center table-fixed h-fit w-full">
+                                        <div className="w-[70%] flex flex-col justify-center overflow-x-auto print:overflow-visible">
+                                            <table className="speed-ratio-table border-collapse border border-black text-[8px] text-center table-fixed h-fit w-full min-w-[140px]">
                                                 <thead>
                                                     <tr className="bg-gray-100 h-10">
                                                         <th className="border border-black w-[35%] text-[8px]">球種</th>
@@ -1516,7 +1515,7 @@ const Feedback = () => {
                                                         return playerStats.averages.map(stat => (
                                                             <tr key={stat.type} className="h-8">
                                                                 <td className="border border-black font-bold whitespace-nowrap" style={{ backgroundColor: getTypeColor(stat.type), color: getTypeTextColor(stat.type) }}>
-                                                                    {stat.type.includes('(クイック)') || stat.type === 'ストレートクイック' ? 'クイック' : formatPitchTypeName(stat.type)}
+                                                                    {stat.type.includes('クイック') || stat.type.toLowerCase().includes('quick') ? 'クイック' : formatPitchTypeName(stat.type)}
                                                                 </td>
                                                                 <td className="border border-black font-bold text-[10px]">{stat.avgVelocity}</td>
                                                                 <td className="border border-black bg-gray-300 font-bold text-[10px]">
@@ -1531,7 +1530,7 @@ const Feedback = () => {
                                     </div>
 
                                     {/* Velocity Gap Reference Table */}
-                                    <div className="mt-auto print:mt-1">
+                                    <div className="mt-auto print:mt-1 overflow-x-auto print:overflow-visible">
                                         <div className="text-right text-[10px] font-bold mb-0.5 pr-1">緩急比基準 (%)</div>
                                         <div className="gap-reference flex w-full border border-black text-[9px] font-bold text-center">
                                             <div className="flex-1 flex flex-col border-r border-black">
@@ -1612,79 +1611,75 @@ const Feedback = () => {
 
                                     <div className="text-red-600 font-bold text-2xl mb-4">{selectedThrowHand === 'Right' ? '右投げ' : '左投げ'}</div>
 
-                                    <table className="w-full print:w-[98%] print:mx-auto border-collapse border border-black text-center text-[10px] table-fixed">
-                                        <thead>
-                                            <tr className="bg-gray-100">
-                                                <th className="border border-black p-0.5 w-[10%]">氏名</th>
-                                                <th className="border border-black p-0.5 w-[4%]"></th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">投球速度<br />(km/h)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">回転数<br />(rpm)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">回転効率<br />(%)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">回転方向<br />(時:分)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">縦の<br />変化量<br />(cm)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">横の<br />変化量<br />(cm)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />角度<br />(横)<br />(°)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">リリース<br />角度<br />(縦)<br />(°)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">ジャイロ<br />角度<br />(°)</th>
-                                                <th className="border border-black p-0.5 bg-red-200 leading-none">制球率<br />(%)</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {pagePitchers.map((p, index) => {
-                                                const pStrikeRateRaw = teamManualStrikeRates[p.name] !== undefined ? teamManualStrikeRates[p.name] : p.strikeRate;
-                                                const pStrikeRate = parseFloat(pStrikeRateRaw);
-                                                
-                                                const targetVelocity = teamStats.avgVelocity !== undefined ? teamStats.avgVelocity : (teamStats.avgMaxVelocity !== undefined ? teamStats.avgMaxVelocity : 0);
-                                                const targetSpin = teamStats.avgSpin !== undefined ? teamStats.avgSpin : 0;
-                                                
-                                                const isHighVelocity = Number(p.avgVelocity) >= Number(targetVelocity);
-                                                const isHighSpin = Number(p.avgSpin) >= Number(targetSpin);
-                                                const isHighStrikeRate = !isNaN(pStrikeRate) && pStrikeRate >= 60;
-                                                const isElite = isHighVelocity && isHighSpin && isHighStrikeRate;
-                                                
-                                                const nameBg = isElite ? 'bg-[#ffff00]' : (index % 2 === 1 ? 'bg-gray-200' : 'bg-white');
-                                                const rowPattern = index % 2 === 1 ? 'bg-gray-200' : '';
-                                                
-                                                return (
-                                                    <React.Fragment key={p.name}>
-                                                        <tr className="h-5">
-                                                            <td className={`border border-black font-bold p-0.5 align-middle ${nameBg}`} rowSpan={2}>{p.name}</td>
-                                                            <td className={`border border-black p-0.5 text-[7px] text-gray-500 ${index % 2 === 1 ? 'bg-gray-200' : 'bg-gray-50'}`}>平均値</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern} ${isHighVelocity ? 'bg-[#ffff00]' : ''}`}>{p.avgVelocity}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern} ${isHighSpin ? 'bg-[#ffff00]' : ''}`}>{p.avgSpin}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgEff}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgSpinDir}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgVB}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgHB}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgRah}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgRav}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgGyro}</td>
-                                                            <td className={`border border-black font-bold p-0.5 align-middle ${isHighStrikeRate ? 'bg-[#ffff00]' : (index % 2 === 1 ? 'bg-gray-200' : 'bg-white')}`} rowSpan={2}>
-                                                                <input
-                                                                    type="text"
-                                                                    value={pStrikeRateRaw}
-                                                                    onChange={(e) => handleTeamManualStrikeRateChange(p.name, e.target.value)}
-                                                                    className="w-full h-full text-center bg-transparent border-none outline-none font-bold p-0 m-0"
-                                                                />
-                                                            </td>
-                                                        </tr>
-                                                        <tr className="h-5">
-                                                            <td className={`border border-black p-0.5 text-[7px] text-gray-500 ${index % 2 === 1 ? 'bg-gray-200' : 'bg-gray-50'}`}>最大値</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxStraightVelocity}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxSpin}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxEfficiency}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxSpinDir || '-'}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxVB || '-'}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxHB || '-'}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRAH || '-'}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxRAV || '-'}</td>
-                                                            <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxGyro || '-'}</td>
-                                                        </tr>
-                                                    </React.Fragment>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                    <div className="w-full overflow-x-auto print:overflow-visible">
+                                        <table className="w-full print:w-[98%] print:mx-auto border-collapse border border-black text-center text-[10px] table-fixed min-w-[650px] print:min-w-0">
+                                            <thead>
+                                                <tr className="bg-gray-100">
+                                                    <th className="border border-black p-0.5 w-[12%]">氏名</th>
+                                                    <th className="border border-black p-0.5 w-[5%]"></th>
+                                                    <th className="border border-black p-0.5 bg-red-200 leading-none">投球速度<br />(km/h)</th>
+                                                    <th className="border border-black p-0.5 bg-red-200 leading-none">回転数<br />(rpm)</th>
+                                                    <th className="border border-black p-0.5 bg-red-200 leading-none">回転効率<br />(%)</th>
+                                                    <th className="border border-black p-0.5 bg-red-200 leading-none">回転方向<br />(時:分)</th>
+                                                    <th className="border border-black p-0.5 bg-red-200 leading-none">縦の<br />変化量<br />(cm)</th>
+                                                    <th className="border border-black p-0.5 bg-red-200 leading-none">横の<br />変化量<br />(cm)</th>
+                                                    <th className="border border-black p-0.5 bg-red-200 leading-none">ジャイロ<br />角度<br />(°)</th>
+                                                    <th className="border border-black p-0.5 bg-red-200 leading-none">制球率<br />(%)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {pagePitchers.map((p, index) => {
+                                                    const pStrikeRateRaw = teamManualStrikeRates[p.name] !== undefined ? teamManualStrikeRates[p.name] : p.strikeRate;
+                                                    const pStrikeRate = parseFloat(pStrikeRateRaw);
+                                                    
+                                                    const targetVelocity = teamStats.avgVelocity !== undefined ? teamStats.avgVelocity : (teamStats.avgMaxVelocity !== undefined ? teamStats.avgMaxVelocity : 0);
+                                                    const targetSpin = teamStats.avgSpin !== undefined ? teamStats.avgSpin : 0;
+                                                    
+                                                    const isHighVelocity = Number(p.avgVelocity) >= Number(targetVelocity);
+                                                    const isHighSpin = Number(p.avgSpin) >= Number(targetSpin);
+                                                    const isHighStrikeRate = !isNaN(pStrikeRate) && pStrikeRate >= 60;
+                                                    const isElite = isHighVelocity && isHighSpin && isHighStrikeRate;
+                                                    
+                                                    const nameBg = isElite ? 'bg-[#ffff00]' : (index % 2 === 1 ? 'bg-gray-200' : 'bg-white');
+                                                    const rowPattern = index % 2 === 1 ? 'bg-gray-200' : '';
+                                                    
+                                                    return (
+                                                        <React.Fragment key={p.name}>
+                                                            <tr className="h-5">
+                                                                <td className={`border border-black font-bold p-0.5 align-middle ${nameBg}`} rowSpan={2}>{p.name}</td>
+                                                                <td className={`border border-black p-0.5 text-[7px] text-gray-500 ${index % 2 === 1 ? 'bg-gray-200' : 'bg-gray-50'}`}>平均値</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${rowPattern} ${isHighVelocity ? 'bg-[#ffff00]' : ''}`}>{p.avgVelocity}</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${rowPattern} ${isHighSpin ? 'bg-[#ffff00]' : ''}`}>{p.avgSpin}</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgEff}</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgSpinDir}</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgVB}</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgHB}</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${rowPattern}`}>{p.avgGyro}</td>
+                                                                <td className={`border border-black font-bold p-0.5 align-middle ${isHighStrikeRate ? 'bg-[#ffff00]' : (index % 2 === 1 ? 'bg-gray-200' : 'bg-white')}`} rowSpan={2}>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={pStrikeRateRaw}
+                                                                        onChange={(e) => handleTeamManualStrikeRateChange(p.name, e.target.value)}
+                                                                        className="w-full h-full text-center bg-transparent border-none outline-none font-bold p-0 m-0"
+                                                                    />
+                                                                </td>
+                                                            </tr>
+                                                            <tr className="h-5">
+                                                                <td className={`border border-black p-0.5 text-[7px] text-gray-500 ${index % 2 === 1 ? 'bg-gray-200' : 'bg-gray-50'}`}>最大値</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxStraightVelocity}</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxSpin}</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxEfficiency}</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxSpinDir || '-'}</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxVB || '-'}</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxHB || '-'}</td>
+                                                                <td className={`border border-black font-bold p-0.5 ${index % 2 === 1 ? 'bg-gray-200' : ''}`}>{p.maxGyro || '-'}</td>
+                                                            </tr>
+                                                        </React.Fragment>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
 
                                     {pageIndex === pages.length - 1 && (
                                         <>

@@ -12,7 +12,8 @@ import {
     TrendingUp,
     ArrowRight,
     Users,
-    Filter
+    Filter,
+    Calendar
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useData } from '../context/DataContext';
@@ -62,7 +63,8 @@ const Dashboard = () => {
     // Active DataSource Tab: 'savant' | 'rapsodo' | 'blast'
     const [sourceTab, setSourceTab] = useState('savant');
     
-    // Savant Team Filter: 'ALL' or team code (e.g. 'LAD', 'NYY')
+    // Savant Filters: Year & Team
+    const [selectedYear, setSelectedYear] = useState('ALL');
     const [selectedTeam, setSelectedTeam] = useState('ALL');
 
     // Rapsodo Type Filter: 'pitching' | 'batting'
@@ -84,22 +86,59 @@ const Dashboard = () => {
     const velUnit = units === 'metric' ? 'km/h' : 'mph';
     const distUnit = units === 'metric' ? 'm' : 'ft';
 
-    // 1. Extract Available Teams in Savant Data
+    // Helper: Safely extract Year from Savant row
+    const getRowYear = (row) => {
+        if (!row) return null;
+        if (row.game_year != null && row.game_year !== '') return String(row.game_year);
+        if (row.game_date) {
+            const str = String(row.game_date);
+            const match = str.match(/^(\d{4})/);
+            if (match) return match[1];
+            const d = new Date(str);
+            if (!isNaN(d.getFullYear())) return String(d.getFullYear());
+        }
+        return null;
+    };
+
+    // 1. Extract Available Years in Savant Data
+    const availableYears = useMemo(() => {
+        const years = new Set();
+        savantData.forEach(d => {
+            const y = getRowYear(d);
+            if (y) years.add(y);
+        });
+        return ['ALL', ...Array.from(years).sort((a, b) => b.localeCompare(a))];
+    }, [savantData]);
+
+    // 2. Extract Available Teams in Savant Data (optionally scoped to selected year)
     const availableTeams = useMemo(() => {
         const teams = new Set();
         savantData.forEach(d => {
             if (!d) return;
+            if (selectedYear !== 'ALL') {
+                const y = getRowYear(d);
+                if (y !== selectedYear) return;
+            }
             if (d.home_team) teams.add(String(d.home_team));
             if (d.away_team) teams.add(String(d.away_team));
         });
         return ['ALL', ...Array.from(teams).sort()];
-    }, [savantData]);
+    }, [savantData, selectedYear]);
 
-    // 2. Filter Savant Data by Team
+    // 3. Filter Savant Data by Year and Team
     const filteredSavantData = useMemo(() => {
-        if (selectedTeam === 'ALL') return savantData;
-        return savantData.filter(d => d && (d.home_team === selectedTeam || d.away_team === selectedTeam));
-    }, [savantData, selectedTeam]);
+        return savantData.filter(d => {
+            if (!d) return false;
+            if (selectedYear !== 'ALL') {
+                const y = getRowYear(d);
+                if (y !== selectedYear) return false;
+            }
+            if (selectedTeam !== 'ALL') {
+                if (d.home_team !== selectedTeam && d.away_team !== selectedTeam) return false;
+            }
+            return true;
+        });
+    }, [savantData, selectedYear, selectedTeam]);
 
     // 3. Aggregate Savant Metrics
     const savantOverview = useMemo(() => {
@@ -382,8 +421,8 @@ const Dashboard = () => {
             </div>
 
             {/* DataSource Tabs (Savant / Rapsodo / Blast) */}
-            <div className="flex items-center justify-between bg-card p-2 rounded-2xl border border-border">
-                <div className="flex gap-2">
+            <div className="flex items-center justify-between bg-card p-2 rounded-2xl border border-border overflow-x-auto">
+                <div className="flex gap-2 min-w-max">
                     <button
                         onClick={() => setSourceTab('savant')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all ${
@@ -427,33 +466,65 @@ const Dashboard = () => {
             {/* ========================================================= */}
             {sourceTab === 'savant' && (
                 <div className="space-y-6">
-                    {/* Team Filter Bar */}
-                    <div className="bg-card p-4 rounded-2xl border border-border flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
-                        <div className="flex items-center gap-2">
-                            <Filter size={16} className="text-blue-400" />
-                            <span className="text-xs font-bold text-foreground">
-                                {language === 'ja' ? 'チーム絞り込み' : 'Filter by Team'}:
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                                {selectedTeam === 'ALL' ? (language === 'ja' ? '全チーム一括表示' : 'All Teams') : selectedTeam}
-                            </span>
+                    {/* Savant Filters (Year & Team) */}
+                    <div className="bg-card p-4 rounded-2xl border border-border space-y-3 shadow-sm">
+                        {/* Year Filter */}
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <div className="flex items-center gap-2 min-w-[130px]">
+                                <Calendar size={16} className="text-blue-400" />
+                                <span className="text-xs font-bold text-foreground">
+                                    {language === 'ja' ? '年度絞り込み' : 'Filter by Year'}:
+                                </span>
+                                <span className="text-xs text-muted-foreground font-semibold">
+                                    {selectedYear === 'ALL' ? (language === 'ja' ? '全年度' : 'All') : `${selectedYear}${language === 'ja' ? '年' : ''}`}
+                                </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1.5 py-0.5">
+                                {availableYears.map(year => (
+                                    <button
+                                        key={year}
+                                        onClick={() => setSelectedYear(year)}
+                                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                                            selectedYear === year
+                                                ? 'bg-blue-600 text-white shadow-sm scale-105'
+                                                : 'bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted'
+                                        }`}
+                                    >
+                                        {year === 'ALL' ? (language === 'ja' ? '全年度 (ALL)' : 'ALL') : `${year}${language === 'ja' ? '年' : ''}`}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
-                        {/* Team Buttons */}
-                        <div className="flex flex-wrap gap-1.5 max-h-[100px] overflow-y-auto">
-                            {availableTeams.map(team => (
-                                <button
-                                    key={team}
-                                    onClick={() => setSelectedTeam(team)}
-                                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                                        selectedTeam === team
-                                            ? 'bg-blue-600 text-white shadow-sm scale-105'
-                                            : 'bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted'
-                                    }`}
-                                >
-                                    {team === 'ALL' ? (language === 'ja' ? '全チーム (ALL)' : 'ALL') : team}
-                                </button>
-                            ))}
+                        {/* Team Filter */}
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-2 pt-2 border-t border-border/60">
+                            <div className="flex items-center gap-2 min-w-[130px] pt-1">
+                                <Filter size={16} className="text-blue-400" />
+                                <span className="text-xs font-bold text-foreground">
+                                    {language === 'ja' ? 'チーム絞り込み' : 'Filter by Team'}:
+                                </span>
+                                <span className="text-xs text-muted-foreground font-semibold">
+                                    {selectedTeam === 'ALL' ? (language === 'ja' ? '全チーム' : 'All') : selectedTeam}
+                                </span>
+                            </div>
+
+                            {/* Team Buttons */}
+                            <div className="flex flex-wrap gap-1.5 max-h-[100px] overflow-y-auto py-0.5">
+                                {availableTeams.map(team => (
+                                    <button
+                                        key={team}
+                                        onClick={() => setSelectedTeam(team)}
+                                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                                            selectedTeam === team
+                                                ? 'bg-blue-600 text-white shadow-sm scale-105'
+                                                : 'bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted'
+                                        }`}
+                                    >
+                                        {team === 'ALL' ? (language === 'ja' ? '全チーム (ALL)' : 'ALL') : team}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
 

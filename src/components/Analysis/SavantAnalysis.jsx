@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronsUpDown } from 'lucide-react';
+import { ChevronsUpDown, Calendar } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 import ComparisonChart from './ComparisonChart';
 import ComparisonTable from './ComparisonTable';
@@ -27,6 +27,7 @@ const SavantAnalysis = ({ data }) => {
     const [searchParams, setSearchParams] = useSearchParams();
 
     const [mode, setMode] = useState('pitching'); // 'pitching' | 'batting'
+    const [selectedYear, setSelectedYear] = useState('ALL');
     const [selectedPlayers, setSelectedPlayers] = useState([]);
     const [selectedPitchTypes, setSelectedPitchTypes] = useState([]);
     const [standFilter, setStandFilter] = useState('all'); // 'all' | 'R' | 'L'
@@ -34,10 +35,11 @@ const SavantAnalysis = ({ data }) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
-    // Sync from URL search params (e.g. /analysis?player=Ohtani%2C%20Shohei&mode=pitching)
+    // Sync from URL search params (e.g. /analysis?player=Ohtani%2C%20Shohei&mode=pitching&year=2025)
     useEffect(() => {
         const playerParam = searchParams.get('player');
         const modeParam = searchParams.get('mode');
+        const yearParam = searchParams.get('year');
 
         if (modeParam && (modeParam === 'pitching' || modeParam === 'batting')) {
             setMode(modeParam);
@@ -45,6 +47,10 @@ const SavantAnalysis = ({ data }) => {
 
         if (playerParam) {
             setSelectedPlayers([playerParam]);
+        }
+
+        if (yearParam) {
+            setSelectedYear(yearParam);
         }
     }, [searchParams]);
 
@@ -64,12 +70,44 @@ const SavantAnalysis = ({ data }) => {
         return units === 'metric' ? val * FT_TO_M : val;
     };
 
+    // Helper: Safely extract Year from Savant row
+    const getRowYear = (row) => {
+        if (!row) return null;
+        if (row.game_year != null && row.game_year !== '') return String(row.game_year);
+        if (row.game_date) {
+            const str = String(row.game_date);
+            const match = str.match(/^(\d{4})/);
+            if (match) return match[1];
+            const d = new Date(str);
+            if (!isNaN(d.getFullYear())) return String(d.getFullYear());
+        }
+        return null;
+    };
+
+    // Extract Available Years in Savant Data
+    const availableYears = useMemo(() => {
+        if (!data || !Array.isArray(data)) return ['ALL'];
+        const years = new Set();
+        data.forEach(d => {
+            const y = getRowYear(d);
+            if (y) years.add(y);
+        });
+        return ['ALL', ...Array.from(years).sort((a, b) => b.localeCompare(a))];
+    }, [data]);
+
+    // Filter data by Year first
+    const yearFilteredData = useMemo(() => {
+        if (!data || !Array.isArray(data)) return [];
+        if (selectedYear === 'ALL') return data;
+        return data.filter(d => getRowYear(d) === selectedYear);
+    }, [data, selectedYear]);
+
     // Filter data by date range (for batting mode) - MUST be before players
     const filteredData = useMemo(() => {
-        if (mode !== 'batting' || dateRange === 'all') return data;
-        if (!startDate && !endDate) return data;
+        if (mode !== 'batting' || dateRange === 'all') return yearFilteredData;
+        if (!startDate && !endDate) return yearFilteredData;
 
-        return data.filter(d => {
+        return yearFilteredData.filter(d => {
             const gameDate = d.game_date;
             if (!gameDate) return false;
 
@@ -77,7 +115,7 @@ const SavantAnalysis = ({ data }) => {
             if (endDate && gameDate > endDate) return false;
             return true;
         });
-    }, [data, mode, dateRange, startDate, endDate]);
+    }, [yearFilteredData, mode, dateRange, startDate, endDate]);
 
     // Extract unique players based on mode
     const players = useMemo(() => {
@@ -323,8 +361,8 @@ const SavantAnalysis = ({ data }) => {
 
     const trajectoryData = useMemo(() => {
         if (selectedPlayers.length === 0) return [];
-        return data.filter(p => selectedPlayers.includes(p.player_name) && (selectedPitchTypes.length === 0 || selectedPitchTypes.includes(p.pitch_type || p.pitch_name)));
-    }, [data, selectedPlayers, selectedPitchTypes]);
+        return yearFilteredData.filter(p => selectedPlayers.includes(p.player_name) && (selectedPitchTypes.length === 0 || selectedPitchTypes.includes(p.pitch_type || p.pitch_name)));
+    }, [yearFilteredData, selectedPlayers, selectedPitchTypes]);
 
     // Prepare scatter plot data for batting mode
     const scatterData = useMemo(() => {
@@ -446,22 +484,50 @@ const SavantAnalysis = ({ data }) => {
 
             {/* Controls */}
             <div className="flex flex-col gap-4 bg-card p-4 rounded-xl border border-border">
-                {/* Mode Toggle */}
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => { setMode('pitching'); setSelectedPlayers([]); setSelectedPitchTypes([]); }}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'pitching' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
-                            }`}
-                    >
-                        {language === 'ja' ? 'ピッチング' : 'Pitching'}
-                    </button>
-                    <button
-                        onClick={() => { setMode('batting'); setSelectedPlayers([]); setSelectedPitchTypes([]); }}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'batting' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
-                            }`}
-                    >
-                        {language === 'ja' ? 'バッティング' : 'Batting'}
-                    </button>
+                {/* Mode Toggle & Year Filter */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    {/* Mode Toggle */}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => { setMode('pitching'); setSelectedPlayers([]); setSelectedPitchTypes([]); }}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'pitching' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            {language === 'ja' ? 'ピッチング' : 'Pitching'}
+                        </button>
+                        <button
+                            onClick={() => { setMode('batting'); setSelectedPlayers([]); setSelectedPitchTypes([]); }}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'batting' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            {language === 'ja' ? 'バッティング' : 'Batting'}
+                        </button>
+                    </div>
+
+                    {/* Year (年度) Filter */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 text-blue-400">
+                            <Calendar size={16} />
+                            <span className="text-xs font-bold text-foreground whitespace-nowrap">
+                                {language === 'ja' ? '年度' : 'Season'}:
+                            </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {availableYears.map(year => (
+                                <button
+                                    key={year}
+                                    onClick={() => setSelectedYear(year)}
+                                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                                        selectedYear === year
+                                            ? 'bg-blue-600 text-white shadow-sm scale-105'
+                                            : 'bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted'
+                                    }`}
+                                >
+                                    {year === 'ALL' ? (language === 'ja' ? '全年度' : 'ALL') : `${year}${language === 'ja' ? '年' : ''}`}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-4 justify-between items-start">
@@ -544,7 +610,7 @@ const SavantAnalysis = ({ data }) => {
                     {/* 1. Statcast Percentile Rankings (MLB Savant Classic) */}
                     <PercentileRankings
                         data={filteredData}
-                        allData={data}
+                        allData={yearFilteredData}
                         selectedPlayers={selectedPlayers}
                         mode={mode}
                     />
