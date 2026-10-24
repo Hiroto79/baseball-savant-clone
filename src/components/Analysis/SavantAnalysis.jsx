@@ -102,7 +102,7 @@ const SavantAnalysis = ({ data }) => {
         return data.filter(d => getRowYear(d) === selectedYear);
     }, [data, selectedYear]);
 
-    // Filter data by date range (for batting mode) and standFilter (for pitching mode)
+    // Filter data by date range / standFilter
     const filteredData = useMemo(() => {
         let result = yearFilteredData;
 
@@ -117,8 +117,10 @@ const SavantAnalysis = ({ data }) => {
             });
         }
 
-        // Apply batter handedness filter (pitching mode only)
-        if (mode === 'pitching' && standFilter !== 'all') {
+        // Apply stand filter for both modes:
+        //   pitching mode: filters by the *batter's* stance (vs RHH / vs LHH)
+        //   batting mode:  filters by the *batter's own* stance (R = 右打者, L = 左打者)
+        if (standFilter !== 'all') {
             result = result.filter(d => !d.stand || d.stand === standFilter);
         }
 
@@ -497,14 +499,14 @@ const SavantAnalysis = ({ data }) => {
                     {/* Mode Toggle */}
                     <div className="flex gap-2">
                         <button
-                            onClick={() => { setMode('pitching'); setSelectedPlayers([]); setSelectedPitchTypes([]); }}
+                            onClick={() => { setMode('pitching'); setSelectedPlayers([]); setSelectedPitchTypes([]); setStandFilter('all'); }}
                             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'pitching' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             {language === 'ja' ? 'ピッチング' : 'Pitching'}
                         </button>
                         <button
-                            onClick={() => { setMode('batting'); setSelectedPlayers([]); setSelectedPitchTypes([]); }}
+                            onClick={() => { setMode('batting'); setSelectedPlayers([]); setSelectedPitchTypes([]); setStandFilter('all'); }}
                             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'batting' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-muted-foreground hover:text-foreground'
                                 }`}
                         >
@@ -611,33 +613,40 @@ const SavantAnalysis = ({ data }) => {
                     )}
                 </div>
 
-                {/* Batter Handedness Filter (Pitching Mode Only) */}
-                {mode === 'pitching' && (
-                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
-                        <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                            {language === 'ja' ? '対打者:' : 'vs Batter:'}
-                        </span>
-                        <div className="flex gap-1.5 flex-wrap">
-                            {[
-                                { id: 'all', label: language === 'ja' ? '全打者' : 'All Batters' },
-                                { id: 'R', label: language === 'ja' ? '対 右打者' : 'vs Right' },
-                                { id: 'L', label: language === 'ja' ? '対 左打者' : 'vs Left' }
-                            ].map(tab => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setStandFilter(tab.id)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                        standFilter === tab.id
-                                            ? 'bg-primary text-primary-foreground shadow-sm'
-                                            : 'bg-muted text-muted-foreground hover:text-foreground'
-                                    }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
+                {/* Stand Filter (both modes) */}
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+                    <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                        {mode === 'pitching'
+                            ? (language === 'ja' ? '対打者:' : 'vs Batter:')
+                            : (language === 'ja' ? '打席:' : 'Batter Hand:')}
+                    </span>
+                    <div className="flex gap-1.5 flex-wrap">
+                        {(mode === 'pitching'
+                            ? [
+                                { id: 'all', label: language === 'ja' ? '全打者' : 'All' },
+                                { id: 'R', label: language === 'ja' ? '対 右打者' : 'vs RHH' },
+                                { id: 'L', label: language === 'ja' ? '対 左打者' : 'vs LHH' }
+                              ]
+                            : [
+                                { id: 'all', label: language === 'ja' ? '全打者' : 'All' },
+                                { id: 'R', label: language === 'ja' ? '右打者' : 'Right' },
+                                { id: 'L', label: language === 'ja' ? '左打者' : 'Left' }
+                              ]
+                        ).map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setStandFilter(tab.id)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                    standFilter === tab.id
+                                        ? 'bg-primary text-primary-foreground shadow-sm'
+                                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
                     </div>
-                )}
+                </div>
             </div>
 
             {/* Content Dashboard */}
