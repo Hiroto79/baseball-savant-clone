@@ -529,61 +529,62 @@ const Feedback = () => {
                 const stats = byType[type];
                 stats.count++;
 
-                const vel = Number(d.Velocity || d.Speed || d['Speed'] || d['投球速度(km/h)'] || d['投球速度']);
+                const vel = Number(d.Velocity || d.Speed || d['Speed'] || d['投球速度(km/h)'] || d['投球速度'] || d['球速']);
                 if (!isNaN(vel)) {
                     stats.velocitySum += vel;
                     stats.velocityCount++;
                     if (vel > stats.maxVelocity) stats.maxVelocity = vel;
                 }
-                const spin = Number(d['Total Spin'] || d.TotalSpin || d['Spin'] || d['総回転数(rpm)'] || d['総回転数']);
+                const spin = Number(d['Total Spin'] || d.TotalSpin || d['Spin'] || d['総回転数(rpm)'] || d['総回転数'] || d['総回転量(rpm)'] || d['総回転量'] || d['回転数'] || d['回転量']);
                 if (!isNaN(spin)) {
                     stats.spinSum += spin;
                     stats.spinCount++;
                     if (spin > stats.maxSpin) stats.maxSpin = spin;
                 }
                 const effKey = Object.keys(d).find(k => k.toLowerCase().includes('efficienc') || k.includes('回転効率'));
-                const eff = Number(d['Spin Efficiency'] || d.SpinEfficiency || d['Spin Efficiency (release)'] || (effKey ? d[effKey] : NaN));
+                const rawEff = d['Spin Efficiency'] || d.SpinEfficiency || d['Spin Efficiency (release)'] || (effKey ? d[effKey] : NaN);
+                const eff = rawEff !== undefined && rawEff !== null && rawEff !== '' ? parseFloat(String(rawEff).replace('%', '')) : NaN;
                 if (!isNaN(eff)) {
                     stats.efficiencySum += eff;
                     stats.efficiencyCount++;
                 }
-                const vb = Number(d['VB (spin)'] || d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)']);
+                const vb = Number(d['VB (spin)'] || d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)'] || d['縦の変化量(cm)'] || d['縦の変化量'] || d['縦変化量']);
                 if (!isNaN(vb)) {
                     stats.vbSum += vb;
                     stats.vbCount++;
                     if (vb > stats.maxVB) stats.maxVB = vb;
                 }
-                const hb = Number(d['Horizontal Break'] || d.HorizontalBreak || d['HB (trajectory)']);
+                const hb = Number(d['Horizontal Break'] || d.HorizontalBreak || d['HB (trajectory)'] || d['HB (spin)'] || d['横の変化量(cm)'] || d['横の変化量'] || d['横変化量']);
                 if (!isNaN(hb)) {
                     stats.hbSum += hb;
                     stats.hbCount++;
                     if (hb > stats.maxHB) stats.maxHB = hb;
                 }
-                const raH = Number(d['Horizontal Angle'] || d.HorizontalAngle);
+                const raH = Number(d['Horizontal Angle'] || d.HorizontalAngle || d['Horizontal Release Angle'] || d['リリース角度(横)(°)'] || d['リリース角度(横)'] || d['リリース角度（横）'] || d['リリース角度（横）(°)'] || d['リリース角度横']);
                 if (!isNaN(raH)) {
                     stats.releaseAngleSumH += raH;
                     stats.releaseAngleCountH++;
                     if (raH > stats.maxRAH) stats.maxRAH = raH;
                 }
-                const raV = Number(d['Release Angle'] || d.ReleaseAngle);
+                const raV = Number(d['Release Angle'] || d.ReleaseAngle || d['Vertical Release Angle'] || d['リリース角度(縦)(°)'] || d['リリース角度(縦)'] || d['リリース角度（縦）'] || d['リリース角度（縦）(°)'] || d['リリース角度縦']);
                 if (!isNaN(raV)) {
                     stats.releaseAngleSumV += raV;
                     stats.releaseAngleCountV++;
                     if (raV > stats.maxRAV) stats.maxRAV = raV;
                 }
-                const rh = Number(d['Release Height'] || d.ReleaseHeight);
+                const rh = Number(d['Release Height'] || d.ReleaseHeight || d['リリース高さ(m)'] || d['リリース高さ']);
                 if (!isNaN(rh)) {
                     stats.releaseHeightSum += rh;
                     stats.releaseHeightCount++;
                     if (rh > stats.maxRH) stats.maxRH = rh;
                 }
-                const rs = Number(d['Release Side'] || d.ReleaseSide);
+                const rs = Number(d['Release Side'] || d.ReleaseSide || d['リリース横(m)'] || d['リリース横']);
                 if (!isNaN(rs)) {
                     stats.releaseSideSum += rs;
                     stats.releaseSideCount++;
                     if (rs > stats.maxRS) stats.maxRS = rs;
                 }
-                const reKey = Object.keys(d).find(k => k.toLowerCase().includes('extension'));
+                const reKey = Object.keys(d).find(k => k.toLowerCase().includes('extension') || k.includes('エクステンション'));
                 const re = Number(d['Release Extension'] || d.ReleaseExtension || d.Extension || d['Extension'] || (reKey ? d[reKey] : NaN));
                 if (!isNaN(re)) {
                     stats.releaseExtensionSum += re;
@@ -593,7 +594,7 @@ const Feedback = () => {
 
                 // FIX: Check Raw Value for Gyro before Number() to avoid converting empty string to 0 and filtering it or not.
                 // We want to count 0 if it is explicitly 0, but ignore if empty.
-                const gyroRaw = d['Gyro Degree'] || d.GyroDegree || d['Gyro'] || d['Gyro Angle'] || d['Spin Axis (Gyro)'] || d['Gyro Degree (deg)'];
+                const gyroRaw = d['Gyro Degree'] || d.GyroDegree || d['Gyro'] || d['Gyro Angle'] || d['Spin Axis (Gyro)'] || d['Gyro Degree (deg)'] || d['ジャイロ角度(°)'] || d['ジャイロ角度'] || d['ジャイロ角度(度)'];
                 if (gyroRaw !== undefined && gyroRaw !== null && gyroRaw !== '') {
                     const gyro = Number(gyroRaw);
                     if (!isNaN(gyro) && gyro !== 0) { // Should we ignore 0? User says "Ignore - and 0".
@@ -604,7 +605,7 @@ const Feedback = () => {
                     }
                 }
 
-                const sd = d['Spin Direction'] || d.SpinDirection || d['Spin Axis (Clock)'] || d['Spin Axis'] || d.SpinAxis;
+                const sd = d['Spin Direction'] || d.SpinDirection || d['Spin Axis (Clock)'] || d['Spin Axis'] || d.SpinAxis || d['回転方向'] || d['回転方向(時:分)'] || d['回転軸'] || d['回転軸(時間)'] || d['回転軸(時:分)'];
                 if (sd) {
                     stats.spinDirections.push(sd);
                     const dist = getMinutesFrom12(sd);
@@ -655,17 +656,14 @@ const Feedback = () => {
                     return Number(val).toFixed(fixed);
                 };
 
-                // Find Fastest Pitch for "Max" values in Individual Report
+                // Find Fastest Pitch for "Max" values in Individual Report (その球種の球速が最大値の時の数値)
                 let fastest = null;
                 let maxV = -Infinity;
                 const typePitches = data.filter(d => getJapanesePitchType(d['Pitch Type'] || d.PitchType) === type);
 
                 typePitches.forEach(d => {
-                    const v = Number(d.Velocity || d.Speed || d['Speed'] || d['投球速度(km/h)'] || d['投球速度']);
-                    const spin = Number(d['Total Spin'] || d.TotalSpin || d['Spin'] || d['総回転数(rpm)'] || d['総回転数']);
-                    const vb = Number(d['VB (spin)'] || d['Vertical Break'] || d.VerticalBreak || d['VB (trajectory)']);
-                    // Exclude pitches with purely missing tracking data
-                    if (!isNaN(v) && v > maxV && (!isNaN(spin) || !isNaN(vb))) {
+                    const v = Number(d.Velocity || d.Speed || d['Speed'] || d['投球速度(km/h)'] || d['投球速度'] || d['球速']);
+                    if (!isNaN(v) && v > maxV) {
                         maxV = v;
                         fastest = d;
                     }
@@ -678,21 +676,26 @@ const Feedback = () => {
                     if (!fastest) return '-';
                     if (key === 'Efficiency') {
                         const k = Object.keys(fastest).find(k => k.toLowerCase().includes('efficienc') || k.includes('回転効率'));
-                        return fastest['Spin Efficiency'] || fastest.SpinEfficiency || fastest['Spin Efficiency (release)'] || (k ? fastest[k] : NaN);
+                        const val = fastest['Spin Efficiency'] || fastest.SpinEfficiency || fastest['Spin Efficiency (release)'] || (k ? fastest[k] : NaN);
+                        if (val !== undefined && val !== null && val !== '') {
+                            const num = parseFloat(String(val).replace('%', ''));
+                            if (!isNaN(num)) return num;
+                        }
+                        return NaN;
                     }
-                    if (key === 'Vertical Break') return fastest['VB (spin)'] || fastest['Vertical Break'] || fastest.VerticalBreak || fastest['VB (trajectory)'];
-                    if (key === 'Horizontal Break') return fastest['Horizontal Break'] || fastest.HorizontalBreak || fastest['HB (trajectory)'];
-                    if (key === 'Horizontal Angle') return fastest['Horizontal Angle'] || fastest.HorizontalAngle;
-                    if (key === 'Release Angle') return fastest['Release Angle'] || fastest.ReleaseAngle;
-                    if (key === 'Release Height') return fastest['Release Height'] || fastest.ReleaseHeight;
-                    if (key === 'Release Side') return fastest['Release Side'] || fastest.ReleaseSide;
+                    if (key === 'Vertical Break') return fastest['VB (spin)'] || fastest['Vertical Break'] || fastest.VerticalBreak || fastest['VB (trajectory)'] || fastest['縦の変化量(cm)'] || fastest['縦の変化量'] || fastest['縦変化量'];
+                    if (key === 'Horizontal Break') return fastest['Horizontal Break'] || fastest.HorizontalBreak || fastest['HB (trajectory)'] || fastest['HB (spin)'] || fastest['横の変化量(cm)'] || fastest['横の変化量'] || fastest['横変化量'];
+                    if (key === 'Horizontal Angle') return fastest['Horizontal Angle'] || fastest.HorizontalAngle || fastest['Horizontal Release Angle'] || fastest['リリース角度(横)(°)'] || fastest['リリース角度(横)'] || fastest['リリース角度（横）'] || fastest['リリース角度（横）(°)'] || fastest['リリース角度横'];
+                    if (key === 'Release Angle') return fastest['Release Angle'] || fastest.ReleaseAngle || fastest['Vertical Release Angle'] || fastest['リリース角度(縦)(°)'] || fastest['リリース角度(縦)'] || fastest['リリース角度（縦）'] || fastest['リリース角度（縦）(°)'] || fastest['リリース角度縦'];
+                    if (key === 'Release Height') return fastest['Release Height'] || fastest.ReleaseHeight || fastest['リリース高さ(m)'] || fastest['リリース高さ'];
+                    if (key === 'Release Side') return fastest['Release Side'] || fastest.ReleaseSide || fastest['リリース横(m)'] || fastest['リリース横'];
                     if (key === 'Release Extension') {
-                        const k = Object.keys(fastest).find(k => k.toLowerCase().includes('extension'));
-                        return fastest['Release Extension'] || fastest.ReleaseExtension || fastest.Extension || fastest['Extension'] || (k ? fastest[k] : NaN);
+                        const k = Object.keys(fastest).find(k => k.toLowerCase().includes('extension') || k.includes('エクステンション'));
+                        return fastest['Release Extension'] || fastest.ReleaseExtension || fastest.Extension || (k ? fastest[k] : NaN);
                     }
-                    if (key === 'Gyro') return fastest['Gyro Degree'] || fastest.GyroDegree || fastest['Gyro'] || fastest['Gyro Angle'] || fastest['Spin Axis (Gyro)'] || fastest['Gyro Degree (deg)'];
-                    if (key === 'Spin Direction') return fastest['Spin Direction'] || fastest.SpinDirection || fastest['Spin Axis (Clock)'] || fastest['Spin Axis'] || fastest.SpinAxis;
-                    if (key === 'Spin') return fastest['Total Spin'] || fastest.TotalSpin || fastest['Spin'] || fastest['総回転数(rpm)'] || fastest['総回転数'];
+                    if (key === 'Gyro') return fastest['Gyro Degree'] || fastest.GyroDegree || fastest['Gyro'] || fastest['Gyro Angle'] || fastest['Spin Axis (Gyro)'] || fastest['Gyro Degree (deg)'] || fastest['ジャイロ角度(°)'] || fastest['ジャイロ角度'] || fastest['ジャイロ角度(度)'];
+                    if (key === 'Spin Direction') return fastest['Spin Direction'] || fastest.SpinDirection || fastest['Spin Axis (Clock)'] || fastest['Spin Axis'] || fastest.SpinAxis || fastest['回転方向'] || fastest['回転方向(時:分)'] || fastest['回転軸'] || fastest['回転軸(時間)'] || fastest['回転軸(時:分)'];
+                    if (key === 'Spin') return fastest['Total Spin'] || fastest.TotalSpin || fastest['Spin'] || fastest['総回転数(rpm)'] || fastest['総回転数'] || fastest['総回転量(rpm)'] || fastest['総回転量'] || fastest['回転数'] || fastest['回転量'];
 
                     return fastest[key];
                 };
