@@ -114,7 +114,7 @@ const Feedback = () => {
     const getTypeColor = (type) => {
         if (!type) return '#6b7280';
         const t = type.toLowerCase();
-        if (t.includes('ストレート') || t.includes('straight') || t.includes('fastball') || t.includes('4シーム') || t.includes('4-seam')) return '#ef4444'; // Red for Straight
+        if (t.includes('ストレート') || t.includes('straight') || t.includes('fastball') || t.includes('4シーム') || t.includes('4-seam') || t.includes('クイック') || t.includes('quick')) return '#ef4444'; // Red for Straight & Quick
         if (t.includes('ワンシーム') || t.includes('1シーム') || t.includes('1-seam')) return '#38bdf8';
         if (t.includes('ツーシーム') || t.includes('2シーム') || t.includes('2-seam')) return '#00BFFF';
         if (t.includes('シュート') || t.includes('sinker') || t.includes('シンカー')) return '#A6A6A6';
@@ -140,10 +140,23 @@ const Feedback = () => {
         return '#ffffff';
     };
 
-    // Helper to format pitch type name with line break before parenthesis
-    const formatPitchTypeName = (type) => {
+    // Helper to format pitch type name
+    // isMainTable: true -> 上の表(メインスタッツ表)では「ストレートクイック」と表記
+    // isMainTable: false -> それ以外の表では「クイック」と表記
+    const formatPitchTypeName = (type, isMainTable = false) => {
         if (!type) return '';
-        if (type.includes('クイック') || type.toLowerCase().includes('quick')) return 'クイック';
+        if (type.includes('クイック') || type.toLowerCase().includes('quick')) {
+            if (isMainTable) {
+                return (
+                    <>
+                        ストレート
+                        <br />
+                        クイック
+                    </>
+                );
+            }
+            return 'クイック';
+        }
         const match = type.match(/^([^(]+)\((.+)\)$/);
         if (match) {
             return (
@@ -807,13 +820,16 @@ const Feedback = () => {
             return isFinite(num) ? num : null;
         };
 
-        const straight = currentStats.averages.find(s => s.type === 'ストレート');
-        const quick = currentStats.averages.find(s => s.type === 'ストレート(クイック)');
+        const isQuickPitch = (type) => type && (type.includes('クイック') || type.toLowerCase().includes('quick'));
+        const isStraightPitch = (type) => type && (type.includes('ストレート') || type.toLowerCase().includes('straight') || type.toLowerCase().includes('fastball')) && !isQuickPitch(type);
+
+        const straight = currentStats.averages.find(s => isStraightPitch(s.type));
+        const quick = currentStats.averages.find(s => isQuickPitch(s.type));
 
         // Base data without straight types
         // Filter out any entries with invalid HB/VB to prevent chart errors
         let data = currentStats.averages
-            .filter(s => s.type !== 'ストレート' && s.type !== 'ストレート(クイック)')
+            .filter(s => !isStraightPitch(s.type) && !isQuickPitch(s.type))
             .map(s => ({
                 ...s,
                 avgVB: parseVal(s.avgVB),
@@ -1233,12 +1249,14 @@ const Feedback = () => {
                                     </thead>
                                     <tbody>
                                         {playerStats.averages.map((stat) => {
-                                            const isStraight = (stat.type.includes('ストレート') || stat.type.toLowerCase().includes('straight') || stat.type.toLowerCase().includes('fastball')) && !stat.type.includes('クイック') && !stat.type.toLowerCase().includes('quick');
+                                            const isStraight = stat.type.includes('ストレート') || stat.type.toLowerCase().includes('straight') || stat.type.toLowerCase().includes('fastball');
+                                            const isQuick = stat.type.includes('クイック') || stat.type.toLowerCase().includes('quick');
+                                            const hasMaxRow = isStraight || isQuick;
 
                                             return (
                                                 <React.Fragment key={stat.type}>
                                                     <tr className="h-7 print:h-[22px]">
-                                                        <td className="border border-black font-bold text-xs print:text-[10px] align-middle print:leading-tight" style={{ backgroundColor: getTypeColor(stat.type), color: getTypeTextColor(stat.type) }} rowSpan={isStraight ? 2 : 1}>{formatPitchTypeName(stat.type)}</td>
+                                                        <td className="border border-black font-bold text-xs print:text-[10px] align-middle print:leading-tight" style={{ backgroundColor: getTypeColor(stat.type), color: getTypeTextColor(stat.type) }} rowSpan={hasMaxRow ? 2 : 1}>{formatPitchTypeName(stat.type, true)}</td>
                                                         <td className="border border-black bg-gray-50 text-[9px] align-middle">平均値</td>
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgVelocity}</td>
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgSpin}</td>
@@ -1247,7 +1265,7 @@ const Feedback = () => {
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgVB}</td>
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgHB}</td>
                                                         <td className="border border-black font-bold text-sm print:text-xs align-middle">{stat.avgGyro}</td>
-                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle p-0" rowSpan={isStraight ? 2 : 1}>
+                                                        <td className="border border-black font-bold text-sm print:text-xs align-middle p-0" rowSpan={hasMaxRow ? 2 : 1}>
                                                             <input
                                                                 type="text"
                                                                 className="w-full h-full bg-transparent border-none outline-none text-center font-bold"
@@ -1259,7 +1277,7 @@ const Feedback = () => {
                                                             />
                                                         </td>
                                                     </tr>
-                                                    {isStraight && (
+                                                    {hasMaxRow && (
                                                         <tr className="h-7 print:h-[22px]">
                                                             <td className="border border-black bg-gray-50 text-[9px] align-middle">最大値</td>
                                                             <td className="border border-black font-bold text-sm print:text-xs align-middle bg-gray-300">{stat.maxVelocity}</td>
@@ -1296,7 +1314,7 @@ const Feedback = () => {
                                         <tr className="h-6">
                                             <td className="border border-black font-bold bg-gray-50">今回</td>
                                             {(() => {
-                                                const fb = playerStats.averages.find(s => s.type.includes('ストレート')) || {};
+                                                const fb = playerStats.averages.find(s => (s.type.includes('ストレート') || s.type === 'Fastball' || s.type === 'Straight') && !s.type.includes('クイック') && !s.type.toLowerCase().includes('quick')) || playerStats.averages.find(s => s.type.includes('ストレート')) || {};
 
                                                 return (
                                                     <>

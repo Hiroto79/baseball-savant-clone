@@ -152,6 +152,7 @@ const PercentileRankings = ({ data, allData, selectedPlayers, mode = 'pitching',
 
             allData.forEach(d => {
                 if (!d || !d.batter_name) return;
+                if (standFilter !== 'all' && d.p_throws && d.p_throws !== standFilter) return;
                 const name = d.batter_name;
                 if (!batterStats[name]) {
                     batterStats[name] = {

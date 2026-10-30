@@ -117,11 +117,15 @@ const SavantAnalysis = ({ data }) => {
             });
         }
 
-        // Apply stand filter for both modes:
-        //   pitching mode: filters by the *batter's* stance (vs RHH / vs LHH)
-        //   batting mode:  filters by the *batter's own* stance (R = 右打者, L = 左打者)
+        // Apply stand filter:
+        //   pitching mode: d.stand = batter's stance (vs RHH / vs LHH)
+        //   batting mode:  d.p_throws = pitcher's throwing hand (vs RHP / vs LHP)
         if (standFilter !== 'all') {
-            result = result.filter(d => !d.stand || d.stand === standFilter);
+            if (mode === 'pitching') {
+                result = result.filter(d => !d.stand || d.stand === standFilter);
+            } else {
+                result = result.filter(d => !d.p_throws || d.p_throws === standFilter);
+            }
         }
 
         return result;
@@ -613,12 +617,12 @@ const SavantAnalysis = ({ data }) => {
                     )}
                 </div>
 
-                {/* Stand Filter (both modes) */}
+                {/* Stand / Throws Filter (both modes) */}
                 <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
                     <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
                         {mode === 'pitching'
                             ? (language === 'ja' ? '対打者:' : 'vs Batter:')
-                            : (language === 'ja' ? '打席:' : 'Batter Hand:')}
+                            : (language === 'ja' ? '対投手:' : 'vs Pitcher:')}
                     </span>
                     <div className="flex gap-1.5 flex-wrap">
                         {(mode === 'pitching'
@@ -628,9 +632,9 @@ const SavantAnalysis = ({ data }) => {
                                 { id: 'L', label: language === 'ja' ? '対 左打者' : 'vs LHH' }
                               ]
                             : [
-                                { id: 'all', label: language === 'ja' ? '全打者' : 'All' },
-                                { id: 'R', label: language === 'ja' ? '右打者' : 'Right' },
-                                { id: 'L', label: language === 'ja' ? '左打者' : 'Left' }
+                                { id: 'all', label: language === 'ja' ? '全投手' : 'All' },
+                                { id: 'R', label: language === 'ja' ? '対 右投手' : 'vs RHP' },
+                                { id: 'L', label: language === 'ja' ? '対 左投手' : 'vs LHP' }
                               ]
                         ).map(tab => (
                             <button
